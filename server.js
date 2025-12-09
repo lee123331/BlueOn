@@ -3,7 +3,6 @@ import crypto from "crypto";  // ← crypto는 이 한 줄만 존재해야 함
 import express from "express";
 import mysql from "mysql2/promise";
 import cors from "cors";
-import dotenv from "dotenv";
 import bcrypt from "bcrypt";
 import session from "express-session";
 import MySQLStoreImport from "express-mysql-session";
@@ -13,7 +12,6 @@ import fs from "fs";
 import http from "http";
 import { Server as SocketIOServer } from "socket.io";
 
-dotenv.config();
 
 console.log("API KEY:", process.env.COOLSMS_API_KEY);
 console.log("API SECRET:", process.env.COOLSMS_API_SECRET);
