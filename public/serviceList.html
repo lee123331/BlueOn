@@ -1,0 +1,45 @@
+async function loadRecommendedServices() {
+  const res = await fetch("http://localhost:3000/expert/my-services", {
+    credentials: "include",
+  });
+
+  const data = await res.json();
+  if (!data.success || data.services.length === 0) {
+    document.getElementById("serviceList").innerHTML =
+      "<p>등록된 서비스가 없습니다.</p>";
+    return;
+  }
+
+  renderServiceCards(data.services);
+}
+
+function renderServiceCards(services) {
+  const container = document.getElementById("serviceList");
+  container.innerHTML = "";
+
+  services.forEach(svc => {
+    const mainImage = JSON.parse(svc.main_images)?.[0] || "/default_service.jpg";
+
+    const div = document.createElement("div");
+    div.className = "service-card";
+
+    div.onclick = () => {
+      window.location.href = `service-detail.html?id=${svc.id}`;
+    };
+
+    div.innerHTML = `
+      <div class="service-thumb">
+        <img src="${mainImage}" alt="main image"/>
+      </div>
+
+      <div class="service-info">
+        <div class="service-title">${svc.title}</div>
+        <div class="service-price">${Number(svc.price_basic).toLocaleString()}원</div>
+      </div>
+    `;
+
+    container.appendChild(div);
+  });
+}
+
+loadRecommendedServices();

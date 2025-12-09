@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>BlueOn | 자동화 시스템 구축</title>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;800&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --primary:#0056ff;
+      --primary-light:#eaf1ff;
+      --bg:#f9fafb;
+      --white:#ffffff;
+      --line:#e5e7eb;
+      --text-dark:#111827;
+      --text-gray:#6b7280;
+      --badge:#eef2ff;
+    }
+    *{margin:0;padding:0;box-sizing:border-box;}
+    body{
+      font-family:"Noto Sans KR",sans-serif;
+      background:var(--bg);
+      color:var(--text-dark);
+    }
+
+    /* HEADER */
+    header{
+      width:100%;
+      background:var(--white);
+      border-bottom:1px solid var(--line);
+      padding:18px 40px;
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+    }
+    header .logo{
+      font-size:22px;
+      font-weight:800;
+      color:var(--primary);
+      cursor:pointer;
+    }
+    header .step-label{
+      font-size:13px;
+      color:var(--text-gray);
+    }
+
+    /* WRAPPER */
+    .wrapper{
+      max-width:960px;
+      margin:32px auto 60px;
+      padding:0 20px;
+    }
+
+    /* HERO */
+    .hero-card{
+      background:var(--white);
+      border-radius:20px;
+      padding:30px 30px 26px;
+      box-shadow:0 4px 16px rgba(0,0,0,0.05);
+      border:1px solid #e5e7eb;
+    }
+    .hero-tag{
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      font-size:12px;
+      padding:5px 10px;
+      border-radius:999px;
+      background:var(--primary-light);
+      color:#1d4ed8;
+      font-weight:600;
+      margin-bottom:12px;
+    }
+    .hero-title{
+      font-size:24px;
+      font-weight:800;
+      margin-bottom:8px;
+    }
+    .hero-sub{
+      font-size:14px;
+      color:var(--text-gray);
+      line-height:1.6;
+      margin-bottom:14px;
+    }
+
+    /* Mini roadmap */
+    .mini-roadmap{
+      display:flex;
+      align-items:center;
+      gap:8px;
+      font-size:12px;
+      margin-top:8px;
+      color:var(--text-gray);
+    }
+    .mini-dot{
+      width:10px;
+      height:10px;
+      border-radius:50%;
+      background:#d1d5db;
+    }
+    .mini-dot.active{
+      background:var(--primary);
+    }
+    .mini-label.active{
+      color:var(--primary);
+      font-weight:700;
+    }
+
+    /* SECTION TITLE */
+    .section-title{
+      margin:32px auto 8px;
+      font-size:18px;
+      font-weight:800;
+    }
+    .section-sub{
+      font-size:13px;
+      color:var(--text-gray);
+      margin-bottom:16px;
+    }
+
+    /* CHANNEL GRID */
+    .channel-grid{
+      display:grid;
+      grid-template-columns:repeat(auto-fit,minmax(260px,1fr));
+      gap:18px;
+      margin-bottom:28px;
+    }
+    .channel-card{
+      background:var(--white);
+      border-radius:16px;
+      padding:18px 18px 16px;
+      border:1px solid #e5e7eb;
+      box-shadow:0 3px 10px rgba(0,0,0,0.03);
+    }
+    .channel-head{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      margin-bottom:8px;
+    }
+    .channel-title{
+      font-size:15px;
+      font-weight:700;
+    }
+    .channel-tag{
+      padding:3px 8px;
+      border-radius:999px;
+      background:var(--badge);
+      font-size:11px;
+      color:#4338ca;
+      font-weight:600;
+    }
+    .channel-desc{
+      font-size:13px;
+      color:var(--text-gray);
+      line-height:1.6;
+      margin-bottom:10px;
+    }
+    .channel-list{
+      list-style:none;
+      padding-left:0;
+      margin:0;
+      font-size:12px;
+      color:var(--text-gray);
+    }
+    .channel-list li{
+      margin-bottom:4px;
+    }
+
+    /* PRIORITY & CHECKLIST */
+    .priority-wrap{
+      display:grid;
+      grid-template-columns:2fr 1.4fr;
+      gap:18px;
+      margin-top:10px;
+    }
+    @media(max-width:820px){
+      .priority-wrap{grid-template-columns:1fr;}
+    }
+    .card{
+      background:var(--white);
+      border-radius:16px;
+      padding:18px 18px 16px;
+      border:1px solid #e5e7eb;
+      box-shadow:0 3px 10px rgba(0,0,0,0.03);
+    }
+    .card-title{
+      font-size:15px;
+      font-weight:700;
+      margin-bottom:6px;
+    }
+    .card-sub{
+      font-size:12px;
+      color:var(--text-gray);
+      margin-bottom:10px;
+    }
+
+    .pill-row{
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+      margin-top:4px;
+    }
+    .pill{
+      padding:6px 10px;
+      border-radius:999px;
+      font-size:12px;
+      border:1px solid #e5e7eb;
+      cursor:pointer;
+      background:#f9fafb;
+    }
+    .pill.active{
+      border-color:var(--primary);
+      background:var(--primary-light);
+      color:#1d4ed8;
+      font-weight:600;
+    }
+
+    .checklist{
+      list-style:none;
+      padding-left:0;
+      font-size:12px;
+      color:var(--text-gray);
+    }
+    .checklist li{
+      display:flex;
+      align-items:flex-start;
+      gap:6px;
+      margin-bottom:6px;
+    }
+    .check-dot{
+      margin-top:4px;
+      width:6px;
+      height:6px;
+      border-radius:999px;
+      background:#d1d5db;
+    }
+    .check-dot.active{
+      background:var(--primary);
+    }
+
+    /* CTA */
+    .cta-wrap{
+      margin-top:30px;
+      display:flex;
+      justify-content:space-between;
+      gap:10px;
+      flex-wrap:wrap;
+    }
+    .cta-left{
+      font-size:13px;
+      color:var(--text-gray);
+    }
+    .cta-btn-primary,
+    .cta-btn-sub{
+      border:none;
+      padding:11px 18px;
+      border-radius:10px;
+      font-size:13px;
+      font-weight:700;
+      cursor:pointer;
+      white-space:nowrap;
+    }
+    .cta-btn-primary{
+      background:var(--primary);
+      color:#fff;
+    }
+    .cta-btn-primary:hover{
+      background:#003fcc;
+    }
+    .cta-btn-sub{
+      background:#e5e7eb;
+      color:#111827;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo" onclick="location.href='index.html'">BlueOn</div>
+  <div class="step-label">브랜드 확장 단계 · ⚙ 자동화 시스템 구축</div>
+</header>
+
+<div class="wrapper">
+
+  <!-- HERO -->
+  <section class="hero-card">
+    <div class="hero-tag">
+      ⚙ <span>자동화 시스템 구축</span>
+    </div>
+    <h1 class="hero-title">반복되는 업무를 자동화해
+브랜드 운영 효율을 극대화하는 단계입니다.</h1>
+    <p class="hero-sub">
+      고객 관리부터 내부 운영까지 효율적으로 만들고
+지속 가능한 성장을 위한 자동화 기반을 구축합니다.<br>
+      
+    </p>
+
+    <div class="mini-roadmap">
+      <div class="mini-dot"></div><span>설계</span>
+      <span>—</span>
+      <div class="mini-dot"></div><span>확산</span>
+      <span>—</span>
+      <div class="mini-dot active"></div><span class="mini-label active">확장</span>
+    </div>
+  </section>
+
+  <!-- SECTION: 시스템 유형 -->
+<h2 class="section-title">자동화 시스템 유형 정리</h2>
+<p class="section-sub">브랜드 운영에서 반복되는 업무를 줄이고, 효율을 높일 수 있는 자동화 범주를 먼저 이해해봅니다.</p>
+
+<div class="channel-grid">
+
+  <!-- CRM 자동화 -->
+  <div class="channel-card">
+    <div class="channel-head">
+      <div class="channel-title">📇 CRM 고객관리 자동화</div>
+      <span class="channel-tag">고객 유지·재구매</span>
+    </div>
+    <p class="channel-desc">
+      고객 연락처·구매패턴·문의내역을 기반으로 한 자동화된 고객 관리 시스템입니다.
+    </p>
+    <ul class="channel-list">
+      <li>• 고객 태그/세그먼트 자동 분류</li>
+      <li>• 재구매 알림 및 장바구니 리마인드</li>
+      <li>• 자동 발송 메시지·이메일</li>
+    </ul>
+  </div>
+
+  <!-- 마케팅·광고 자동화 -->
+  <div class="channel-card">
+    <div class="channel-head">
+      <div class="channel-title">📢 마케팅·광고 자동화</div>
+      <span class="channel-tag">지속 운영</span>
+    </div>
+    <p class="channel-desc">
+      매일 반복되는 마케팅 액션을 자동화해 광고 운영 효율을 높입니다.
+    </p>
+    <ul class="channel-list">
+      <li>• SNS·이메일 자동 발송</li>
+      <li>• 광고 예산·성과 자동 분석</li>
+      <li>• 자동 리포트 생성</li>
+    </ul>
+  </div>
+
+  <!-- 업무 프로세스 자동화 -->
+  <div class="channel-card">
+    <div class="channel-head">
+      <div class="channel-title">⚙️ 내부 업무 프로세스 자동화</div>
+      <span class="channel-tag">운영 효율</span>
+    </div>
+    <p class="channel-desc">
+      사람이 직접 반복하던 작업을 자동으로 처리해 실수와 시간 낭비를 줄입니다.
+    </p>
+    <ul class="channel-list">
+      <li>• 주문/재고 자동 관리</li>
+      <li>• 메시지/문의 응답 템플릿 자동화</li>
+      <li>• 매출·정산·리포트 자동 정리</li>
+    </ul>
+  </div>
+
+  <!-- 고객 응대 & 챗봇 자동화 -->
+  <div class="channel-card">
+    <div class="channel-head">
+      <div class="channel-title">💬 고객 응대 자동화</div>
+      <span class="channel-tag">챗봇·즉시 응답</span>
+    </div>
+    <p class="channel-desc">
+      고객 문의 응답 시간을 최소화하고, 운영자가 없어도 기본 응대를 유지할 수 있는 자동화입니다.
+    </p>
+    <ul class="channel-list">
+      <li>• 챗봇 기본 문의 자동 응답</li>
+      <li>• FAQ 자동 분류 및 답변 제공</li>
+      <li>• 문의 티켓 자동 생성·배정</li>
+    </ul>
+  </div>
+
+</div>
+
+<!-- SECTION: 우선순위 선택 -->
+<h2 class="section-title">우리 브랜드에 필요한 자동화 선택</h2>
+<p class="section-sub">모든 자동화를 한 번에 도입하기보다는, 현재 운영 상황에 가장 필요한 분야부터 선택하세요.</p>
+
+<div class="priority-wrap">
+
+  <!-- 좌측: 자동화 우선순위 선택 -->
+  <div class="card">
+    <div class="card-title">먼저 구축할 자동화</div>
+    <p class="card-sub">아래 항목 중 지금 당장 필요하다고 느끼는 자동화 분야를 골라보세요. (복수 선택 가능)</p>
+    <div class="pill-row" id="channelPills">
+      <button class="pill" data-key="crm">📇 고객관리</button>
+      <button class="pill" data-key="marketing">📢 마케팅 자동화</button>
+      <button class="pill" data-key="workflow">⚙️ 업무 프로세스</button>
+      <button class="pill" data-key="chatbot">💬 고객 응대 자동화</button>
+    </div>
+  </div>
+
+  <!-- 우측: 체크리스트 -->
+  <div class="card">
+    <div class="card-title">자동화 구축 체크리스트</div>
+    <p class="card-sub">아래 항목 중 어느 정도 준비되었는지 점검해보세요.</p>
+    <ul class="checklist" id="checklist">
+      <li>
+        <span class="check-dot"></span>
+        <span>필요한 자동화 1~2개를 우선적으로 선정했다.</span>
+      </li>
+      <li>
+        <span class="check-dot"></span>
+        <span>자동화를 통해 해결하고 싶은 문제(시간 절약·매출 증가 등)가 명확하다.</span>
+      </li>
+      <li>
+        <span class="check-dot"></span>
+        <span>데이터(고객정보·매출·조회수 등) 수집 기반이 갖춰져 있다.</span>
+      </li>
+      <li>
+        <span class="check-dot"></span>
+        <span>초기 자동화 설정 후 유지·검수를 위한 운영 플랜이 있다.</span>
+      </li>
+    </ul>
+  </div>
+
+</div>
+
+<!-- CTA -->
+<div class="cta-wrap">
+  <div class="cta-left">
+    자동화가 필요한 분야가 정리되었다면,<br />
+    실제 자동화 구축을 도와줄 전문가들을 확인해보세요.
+  </div>
+  <div style="display:flex;gap:8px;align-items:center;">
+    <button class="cta-btn-sub" onclick="history.back()">← 이전 단계로 돌아가기</button>
+    <button class="cta-btn-primary" onclick="location.href='expand-system-experts.html'">
+      자동화 구축 전문가 보기 →
+    </button>
+  </div>
+</div>
+
+
+<script>
+  // 간단한 UI 인터랙션(선택 토글 + 체크리스트 시각 효과)
+  document.addEventListener("DOMContentLoaded", () => {
+    const pills = document.querySelectorAll("#channelPills .pill");
+    const dots = document.querySelectorAll("#checklist .check-dot");
+
+    pills.forEach(pill => {
+      pill.addEventListener("click", () => {
+        pill.classList.toggle("active");
+        updateChecklistDots();
+      });
+    });
+
+    function updateChecklistDots() {
+      const activeCount = document.querySelectorAll("#channelPills .pill.active").length;
+      dots.forEach((dot, idx) => {
+        if (idx < activeCount) {
+          dot.classList.add("active");
+        } else {
+          dot.classList.remove("active");
+        }
+      });
+    }
+  });
+</script>
+
+</body>
+</html>

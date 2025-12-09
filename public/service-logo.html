@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>로고 디자인 전문가 추천 | BlueOn</title>
+
+<style>
+body {
+  font-family: "Noto Sans KR", sans-serif;
+  background: #f9fafb;
+  margin: 0;
+}
+
+/* HEADER */
+header {
+  padding: 20px 60px;
+  background: #fff;
+  border-bottom: 1px solid #e5e7eb;
+  font-size: 22px;
+  font-weight: 800;
+  color: #0056ff;
+  cursor: pointer;
+}
+
+/* ─────────────────────────────── */
+/* SERVICE CARD */
+/* ─────────────────────────────── */
+.service-card {
+  width: 100%;
+  background: white;
+  border-radius: 14px;
+  border: 1px solid #e5e7eb;
+  padding: 20px;
+  margin: 20px auto;
+  max-width: 1200px;
+  cursor: pointer;
+  transition: 0.2s;
+}
+.service-card:hover {
+  border-color: #b0c8ff;
+}
+
+.service-top {
+  display: flex;
+  gap: 20px;
+}
+
+.service-thumb {
+  width: 180px;
+  height: 140px;
+  border-radius: 12px;
+  object-fit: cover;
+  background: #eee;
+}
+
+.service-title {
+  font-size: 20px;
+  font-weight: 800;
+  margin-bottom: 6px;
+}
+
+.service-price {
+  font-size: 16px;
+  color: #0056ff;
+  font-weight: 700;
+  margin-top: 4px;
+}
+</style>
+</head>
+
+<body>
+
+<header onclick="location.href='index.html'">BlueOn</header>
+
+<h2 style="max-width:1200px;margin:30px auto 10px;font-size:22px;font-weight:800; padding-left:60px;">
+  로고 디자인 전문가 추천
+</h2>
+
+<div id="serviceList"></div>
+
+<script>
+const API = "http://localhost:3000";
+
+/* 이미지 안전 파싱 */
+function parseImages(raw) {
+  if (!raw) return [];
+  if (Array.isArray(raw)) return raw;
+
+  try {
+    const arr = JSON.parse(raw);
+    return Array.isArray(arr) ? arr : [];
+  } catch {}
+
+  if (typeof raw === "string" && raw.startsWith("/uploads/")) {
+    return [raw];
+  }
+  return [];
+}
+
+/* 🔵 로고 디자인 서비스 불러오기 */
+async function loadServices() {
+  try {
+    const res = await fetch(`${API}/services/list?sub=${encodeURIComponent("로고 디자인")}`);
+    const data = await res.json();
+
+    if (!data.success || !data.services.length) {
+      document.getElementById("serviceList").innerHTML = `
+        <p style="text-align:center;color:#777;margin-top:40px;">
+          등록된 로고 디자인 서비스가 없습니다.
+        </p>`;
+      return;
+    }
+
+    renderServices(data.services);
+
+  } catch (err) {
+    console.error("서비스 로딩 오류:", err);
+  }
+}
+
+/* 🔵 서비스 카드 렌더링 */
+function renderServices(list) {
+  const box = document.getElementById("serviceList");
+  box.innerHTML = "";
+
+  list.forEach((svc) => {
+    let thumb = "/assets/default_service.png";
+    const imgs = parseImages(svc.main_images);
+    if (imgs.length) thumb = imgs[0];
+
+    const priceBasic = svc.price_basic
+      ? Number(svc.price_basic).toLocaleString() + "원"
+      : "가격 협의";
+
+    const card = document.createElement("div");
+    card.className = "service-card";
+
+    card.innerHTML = `
+      <div class="service-top">
+        <img src="${thumb}" class="service-thumb" alt="대표 이미지" />
+        <div class="service-info">
+          <div class="service-title">${svc.title}</div>
+          <div class="service-price">${priceBasic}</div>
+        </div>
+      </div>
+    `;
+
+    /* 🔥 클릭 → 상세 페이지 이동 */
+    card.addEventListener("click", () => {
+      location.href = `service-detail.html?id=${svc.id}`;
+    });
+
+    box.appendChild(card);
+  });
+}
+
+/* 시작 */
+document.addEventListener("DOMContentLoaded", loadServices);
+</script>
+
+</body>
+</html>

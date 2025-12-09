@@ -1,0 +1,160 @@
+<!-- detail-template.html -->
+<div class="detail-root">
+
+  <div class="wrapper">
+
+    <!-- LEFT -->
+    <div class="left-box">
+
+      <!-- HERO -->
+      <div class="hero-top">
+        <div id="heroTitle" class="hero-title"></div>
+        <div class="hero-meta">
+          <span id="heroMainCat"></span>
+          <span>·</span>
+          <span id="heroSubCat"></span>
+        </div>
+        <div id="keywordWrap" class="keyword-wrap"></div>
+      </div>
+
+      <!-- MAIN IMAGE -->
+      <div class="main-image-wrapper">
+        <img id="mainSlideImg" alt="서비스 메인 이미지" />
+      </div>
+
+      <!-- THUMBNAILS -->
+      <div id="thumbRow" class="thumbnail-row"></div>
+
+      <!-- 가격 박스 -->
+      <div class="price-section">
+        <div class="price-section-title">가격 정보</div>
+        <div id="priceDetailArea"></div>
+        <div id="pkgTabs" class="pkg-tab-row" style="display:none;"></div>
+        <div id="priceCard" class="price-card"></div>
+      </div>
+
+      <!-- NAV TABS -->
+      <div class="tabs-nav-wrap">
+        <div class="tab-nav active" data-target="sec-desc">서비스 설명</div>
+        <div class="tab-nav" data-target="sec-price">가격 정보</div>
+        <div class="tab-nav" data-target="sec-expert">전문가 정보</div>
+        <div class="tab-nav" data-target="sec-project">프로젝트 경험</div>
+        <div class="tab-nav" data-target="sec-review">리뷰</div>
+      </div>
+
+      <!-- 서비스 설명 -->
+      <section id="sec-desc" class="section-block">
+        <div class="section-title">서비스 설명</div>
+
+        <div class="sub-title">서비스 소개</div>
+        <div id="descText" class="text-box"></div>
+
+        <div class="sub-title">브랜드 방향 / 컨셉</div>
+        <div id="brandText" class="text-box"></div>
+
+        <div class="sub-title">작업 프로세스</div>
+        <div id="processText" class="text-box"></div>
+
+        <div class="sub-title">상세 이미지</div>
+        <div id="detailImagesBox"></div>
+      </section>
+
+      <!-- 가격 정보 -->
+      <section id="sec-price" class="section-block">
+        <div class="section-title">가격 정보</div>
+
+        <div id="priceBottomTabs" class="pkg-tab-row"></div>
+
+        <div id="bottomPriceBox" class="price-box"
+             style="padding:20px; border:1px solid #e5e7eb; border-radius:12px; background:white;">
+
+          <div class="price-row" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+            <div id="bottomPriceAmount" style="font-size:22px; font-weight:800;"></div>
+            <button class="price-buy-btn"
+              style="padding:10px 18px; background:#111; color:white; border:none; border-radius:8px; font-weight:700; cursor:pointer;">
+              구매하기
+            </button>
+          </div>
+
+          <div id="bottomPriceDesc" style="font-size:14px; color:#333; margin-bottom:18px;"></div>
+
+          <div class="price-table" style="font-size:14px; line-height:1.7;">
+            <div class="row" style="display:flex; justify-content:space-between;">
+              <span class="cell-name">작업 기간</span>
+              <span id="bottomDuration"></span>
+            </div>
+
+            <div class="row" style="display:flex; justify-content:space-between;">
+              <span class="cell-name">수정 횟수</span>
+              <span id="bottomRevision"></span>
+            </div>
+
+            <div class="row" style="margin-top:12px;">
+              <span class="cell-name">제공 항목</span>
+            </div>
+            <div id="bottomOffer" style="margin-top:4px;"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 전문가 정보 -->
+      <section id="sec-expert" class="section-block">
+        <div class="section-title">전문가 정보</div>
+
+        <div class="expert-box">
+          <div class="expert-top">
+            <img id="expertAvatar" class="expert-avatar" alt="전문가 프로필" />
+            <div class="expert-info">
+              <div id="expertName" class="expert-name"></div>
+              <div class="expert-meta">연락 가능 시간 : 언제나 가능 · 평균 응답 시간 : 1시간 이내</div>
+            </div>
+          </div>
+
+          <div id="expertIntroFull" class="expert-intro-full"></div>
+          <div id="expertToggleBtn" class="expert-toggle-btn">더보기</div>
+        </div>
+      </section>
+
+
+      <!-- 프로젝트 경험 -->
+      <section id="sec-project" class="section-block">
+        <div class="section-title">프로젝트 경험 / 요청사항</div>
+        <div id="qaList" class="qa-list"></div>
+      </section>
+
+      <!-- 리뷰 -->
+      <section id="sec-review" class="section-block">
+        <div class="section-title">리뷰</div>
+        <div class="empty-text">아직 등록된 리뷰가 없습니다.</div>
+      </section>
+
+    </div>
+
+    <!-- RIGHT -->
+    <div class="right-box">
+      <div class="side-card">
+
+        <div id="sideTabs" class="side-tabs"></div>
+
+        <div class="side-price-box">
+          <div id="sideTitle" class="side-title"></div>
+          <div id="sidePrice" class="side-price"></div>
+          <div id="sideDuration" class="side-duration"></div>
+          <div id="sideDesc" class="side-desc"></div>
+          <div id="sideOffer" class="side-offer"></div>
+        </div>
+
+        <button class="btn-contact">문의하기</button>
+        <button class="btn-buy">구매하기</button>
+
+        <div class="notice-box">
+          서비스 제공 완료 후 전문가에게 전달되며 안전하게 거래하세요.<br>
+          결제 시 수수료 4.5%(VAT 포함)가 추가돼요.
+        </div>
+
+      </div>
+    </div>
+
+  </div>
+
+</div>

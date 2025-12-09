@@ -1,0 +1,580 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>BlueOn | 전문가 카테고리</title>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --primary: #0056ff;
+      --primary-light: #eaf1ff;
+      --bg: #f9fafb;
+      --white: #ffffff;
+      --text-dark: #111827;
+      --text-gray: #6b7280;
+      --line: #e5e7eb;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: "Noto Sans KR", sans-serif;
+      background: var(--bg);
+      color: var(--text-dark);
+      overflow-y: scroll;
+      transition: background 0.3s, color 0.3s;
+    }
+
+    /* HEADER */
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 18px 70px;
+      background: var(--white);
+      border-bottom: 1px solid var(--line);
+      box-shadow: 0 4px 20px rgba(0,0,0,0.05);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .logo {
+      font-size: 22px;
+      font-weight: 800;
+      color: var(--primary);
+      cursor: pointer;
+      transition: 0.3s;
+    }
+
+    .logo:hover {
+      opacity: 0.8;
+    }
+
+    /* MAIN LAYOUT */
+    .category-layout {
+      display: flex;
+      max-width: 1400px;
+      margin: 60px auto;
+      gap: 40px;
+      padding: 0 40px;
+    }
+
+    /* SIDEBAR */
+    .sidebar {
+      flex: 0 0 250px;
+      background: var(--white);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 24px 20px;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.06);
+      height: max-content;
+      position: relative;
+      transition: all 0.3s ease;
+    }
+
+    .sidebar h3 {
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--primary);
+      margin-bottom: 12px;
+      margin-top: 8px;
+    }
+
+    .sidebar ul {
+      list-style: none;
+      margin-bottom: 20px;
+    }
+
+    .sidebar li {
+      padding: 8px 6px;
+      color: var(--text-gray);
+      font-size: 14px;
+      cursor: pointer;
+      border-radius: 8px;
+      transition: all 0.25s ease;
+    }
+
+    .sidebar li:hover, .sidebar li.active {
+      background: var(--primary-light);
+      color: var(--primary);
+      transform: translateX(5px);
+      font-weight: 600;
+    }
+
+    /* SERVICE GRID */
+    .service-area {
+      flex: 1;
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 30px;
+    }
+
+    .service-card {
+      background: var(--white);
+      border-radius: 16px;
+      box-shadow: 0 6px 18px rgba(0,0,0,0.08);
+      overflow: hidden;
+      border: 1px solid #eef1f5;
+      transition: all 0.3s ease;
+      height: 300px;
+      display: flex;
+      flex-direction: column;
+      cursor: pointer;
+    }
+
+    .service-card:hover {
+      transform: translateY(-6px);
+      box-shadow: 0 10px 30px rgba(0,86,255,0.2);
+    }
+
+    .thumbnail {
+      width: 100%;
+      height: 160px;
+      object-fit: cover;
+      border-bottom: 1px solid #f1f1f1;
+      background: #f5f7fa;
+      transition: transform 0.3s ease;
+    }
+
+    .service-card:hover .thumbnail {
+      transform: scale(1.05);
+    }
+
+    .info {
+      padding: 14px 16px;
+      display: flex;
+      flex-direction: column;
+      flex: 1;
+    }
+
+    .title {
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--text-dark);
+      margin-bottom: 6px;
+      line-height: 1.4;
+      height: 40px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .author {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 13px;
+      color: var(--text-gray);
+      margin-bottom: 6px;
+    }
+
+    .author img {
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      object-fit: cover;
+      border: 1px solid #e5e7eb;
+    }
+
+    .price {
+      font-weight: 700;
+      color: var(--primary);
+      font-size: 14px;
+    }
+
+    /* PROFILE & DROPDOWN */
+    .profile-container {
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-left: 16px;
+    }
+
+    .profile-container img {
+      width: 42px;
+      height: 42px;
+      border-radius: 50%;
+      object-fit: cover;
+      cursor: pointer;
+      border: 2px solid #e5e7eb;
+      transition: all 0.25s ease;
+      background-color: #fff;
+    }
+
+    .profile-container img:hover {
+      border-color: var(--primary);
+      transform: scale(1.05);
+    }
+
+    .dropdown {
+      display: none;
+      position: absolute;
+      right: 0;
+      top: 54px;
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 6px 24px rgba(0, 0, 0, 0.15);
+      overflow: hidden;
+      z-index: 100;
+      min-width: 160px;
+    }
+
+    .dropdown a {
+      display: block;
+      padding: 12px 18px;
+      text-decoration: none;
+      color: #111;
+      font-size: 14px;
+      font-weight: 500;
+      white-space: nowrap;
+      transition: background 0.2s ease;
+    }
+
+    .dropdown a:hover {
+      background: #f3f6ff;
+      color: var(--primary);
+    }
+
+    .logout-btn {
+      border: 1px solid var(--line);
+      background: #fff;
+      color: #111;
+      padding: 8px 14px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 600;
+      transition: all 0.2s ease;
+    }
+
+    .logout-btn:hover {
+      background: var(--primary);
+      color: #fff;
+      border-color: var(--primary);
+    }
+
+    /* DARK MODE */
+    .dark-mode {
+      background: #111827;
+      color: #f9fafb;
+    }
+
+    .dark-mode header {
+      background: #1f2937;
+      border-color: #374151;
+      box-shadow: none;
+    }
+
+    .dark-mode .sidebar,
+    .dark-mode .service-card {
+      background: #1f2937;
+      color: #f9fafb;
+      border-color: #374151;
+      box-shadow: 0 6px 18px rgba(0, 0, 0, 0.3);
+    }
+
+    .dark-mode .dropdown {
+      background: #1f2937;
+    }
+
+    .dark-mode .dropdown a {
+      color: #f9fafb;
+    }
+
+    .dark-mode .dropdown a:hover {
+      background: #374151;
+      color: #60a5fa;
+    }
+
+    /* ✅ 로그인 / 회원가입 버튼 스타일 (index.html과 동일) */
+.auth-buttons {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.auth-buttons button {
+  background: var(--primary);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 8px 18px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.25s ease;
+}
+
+.auth-buttons button:hover {
+  background: #0044cc;
+  transform: translateY(-2px);
+}
+
+/* ✅ 헤더의 nav-right 정렬 유지 */
+.nav-right {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+/* ✅ 로그인/회원가입 버튼 (index.html과 동일 스타일) */
+.auth-buttons {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* ✅ 로그인 / 회원가입 버튼 스타일 (index.html 동일) */
+.auth-buttons button {
+  margin-left: 10px;
+  padding: 8px 16px;
+  border-radius: 8px;
+  border: 1px solid var(--primary);
+  background: var(--white);
+  color: #0056ff;
+  cursor: pointer;
+  font-weight: 500;
+  transition: 0.25s;
+}
+
+.auth-buttons button:hover {
+  background: var(--primary);
+  color: var(--white);
+}
+
+  </style>
+</head>
+<body>
+  <header id="header">
+  <div class="logo" onclick="location.href='index.html'">BlueOn</div>
+  <nav class="nav-right">
+    <!-- 로그인 전 -->
+    <div id="auth-buttons" class="auth-buttons">
+      <button id="login-btn">로그인</button>
+      <button id="signup-btn">회원가입</button>
+    </div>
+
+    <!-- 로그인 후 -->
+    <div id="user-menu" style="display: none; align-items: center; gap: 16px;">
+      <button id="logout-btn" class="logout-btn">로그아웃</button>
+      <div class="profile-container">
+        <img id="profile-icon" src="assets/default_profile.png" alt="프로필" />
+        <div class="dropdown">
+          <a href="profile.html">프로필 관리</a>
+          <a href="service-register.html">전문가 등록</a>
+         
+          <a href="#" id="logout-link">로그아웃</a>
+        </div>
+      </div>
+    </div>
+  </nav>
+</header>
+
+
+  <main class="category-layout">
+    <aside class="sidebar">
+      <h3>디자인</h3>
+      <ul>
+        <li>로고 디자인</li>
+        <li>상세페이지 제작</li>
+        <li>패키지 라벨 디자인</li>
+        <li>배너 / 썸네일</li>
+        <li>브랜드 아이덴티티</li>
+      </ul>
+
+      <h3>IT·프로그래밍</h3>
+      <ul>
+        <li>쇼핑몰 구축</li>
+        <li>워드프레스 / 웹사이트</li>
+        <li>유지보수 / 수정</li>
+        <li>자동화 프로그램</li>
+        <li>결제 / 회원 시스템</li>
+      </ul>
+
+      <h3>사진·영상</h3>
+      <ul>
+        <li>제품 촬영</li>
+        <li>쇼핑몰 룩북</li>
+        <li>홍보영상 제작</li>
+        <li>숏폼 / SNS 영상</li>
+      </ul>
+
+      <h3>마케팅</h3>
+      <ul>
+        <li>인스타그램 광고</li>
+        <li>네이버 키워드</li>
+        <li>브랜드 컨설팅</li>
+        <li>체험단 / 리뷰</li>
+        <li>카카오 채널 홍보</li>
+      </ul>
+
+      <h3>글쓰기</h3>
+      <ul>
+        <li>상세페이지 카피</li>
+        <li>제품 리뷰 대행</li>
+        <li>홍보문 작성</li>
+        <li>스토리텔링</li>
+      </ul>
+    </aside>
+
+    <section class="service-area" id="serviceArea"></section>
+  </main>
+
+  <footer style="text-align:center;padding:40px 0;font-size:14px;color:#6b7280;">
+    © 2025 BlueOn | 전문가 매칭 플랫폼
+  </footer>
+
+  <script>
+  const serviceArea = document.getElementById('serviceArea');
+  let page = 1;
+  let isLoading = false;
+
+  // ✅ 서비스 카드 로드
+  async function loadServices() {
+    if (isLoading) return;
+    isLoading = true;
+    try {
+      const res = await fetch(`http://localhost:3000/api/services?page=${page}`);
+      const data = await res.json();
+      if (!data.services || data.services.length === 0) return;
+
+      data.services.forEach(service => {
+        const card = document.createElement('div');
+        card.className = 'service-card';
+        card.innerHTML = `
+          <img class="thumbnail" src="${service.thumbnail || 'assets/default_thumbnail.jpg'}" alt="">
+          <div class="info">
+            <div class="title">${service.title}</div>
+            <div class="author">
+              <img src="${service.avatar || 'assets/default_profile.png'}" alt="">
+              <span>${service.author}</span>
+            </div>
+            <div class="price">₩${Number(service.price).toLocaleString()}~</div>
+          </div>`;
+        serviceArea.appendChild(card);
+      });
+      page++;
+    } catch (err) {
+      console.error('서비스 로드 오류:', err);
+    } finally {
+      isLoading = false;
+    }
+  }
+
+  // ✅ 페이지 처음 로드 시 서비스 불러오기
+  loadServices();
+
+  // ✅ 무한 스크롤
+  window.addEventListener('scroll', () => {
+    const { scrollTop, scrollHeight, clientHeight } = document.documentElement;
+    if (scrollTop + clientHeight >= scrollHeight - 50) loadServices();
+  });
+
+  // ✅ 로그인 / 프로필 상태 관리
+  document.addEventListener("DOMContentLoaded", async () => {
+    const authButtons = document.getElementById("auth-buttons");
+    const userMenu = document.getElementById("user-menu");
+    const profileIcon = document.getElementById("profile-icon");
+    const dropdown = document.querySelector(".dropdown");
+    const toggleDark = document.getElementById("toggle-dark");
+    const logoutBtn = document.getElementById("logout-btn");
+    const logoutLink = document.getElementById("logout-link");
+
+    try {
+      // ✅ 서버 세션 기반 로그인 상태 확인
+      const res = await fetch("http://localhost:3000/me", {
+        credentials: "include",
+      });
+      const data = await res.json();
+
+      if (data.success && data.user) {
+        // 로그인된 상태
+        authButtons.style.display = "none";
+        userMenu.style.display = "flex";
+        profileIcon.src = data.user.avatar_url || "assets/default_profile.png";
+      } else {
+        // 비로그인 상태
+        authButtons.style.display = "flex";
+        userMenu.style.display = "none";
+      }
+    } catch (err) {
+      console.error("로그인 상태 확인 실패:", err);
+    }
+
+    // ✅ 프로필 드롭다운 토글
+    profileIcon?.addEventListener("click", () => {
+      dropdown.style.display = dropdown.style.display === "block" ? "none" : "block";
+    });
+    document.addEventListener("click", (e) => {
+      if (!e.target.closest(".profile-container")) dropdown.style.display = "none";
+    });
+
+
+    // ✅ 로그아웃 처리
+    async function handleLogout() {
+      try {
+        await fetch("http://localhost:3000/logout", {
+          method: "POST",
+          credentials: "include",
+        });
+        window.location.href = "index.html";
+      } catch (err) {
+        console.error("로그아웃 실패:", err);
+      }
+    }
+
+    logoutBtn?.addEventListener("click", handleLogout);
+    logoutLink?.addEventListener("click", handleLogout);
+  });
+  document.addEventListener("DOMContentLoaded", () => {
+  const loginBtn = document.getElementById("login-btn");
+  const signupBtn = document.getElementById("signup-btn");
+
+  // ✅ 로그인 버튼 클릭 → 로그인 창으로 이동
+  loginBtn?.addEventListener("click", () => {
+    window.location.href = "login.html";
+  });
+
+  // ✅ 회원가입 버튼 클릭 → 회원가입 창으로 이동
+  signupBtn?.addEventListener("click", () => {
+    window.location.href = "signup.html";
+  });
+});
+document.addEventListener("DOMContentLoaded", () => {
+    const params = new URLSearchParams(window.location.search);
+    const type = params.get("type"); // ex) design, it, photo, marketing, writing
+    if (!type) return;
+
+    // 카테고리 제목 매핑
+    const categoryMap = {
+      design: "디자인",
+      it: "IT·프로그래밍",
+      photo: "사진·영상",
+      marketing: "마케팅",
+      writing: "글쓰기"
+    };
+
+    const targetTitle = categoryMap[type];
+    if (!targetTitle) return;
+
+    // 해당 카테고리 <h3> 요소 찾기
+    const allTitles = document.querySelectorAll(".sidebar h3");
+    allTitles.forEach(title => {
+      if (title.textContent.trim() === targetTitle) {
+        title.classList.add("active-title");
+        title.scrollIntoView({ behavior: "smooth", block: "start" });
+      } else {
+        title.classList.remove("active-title");
+      }
+    });
+  });
+</script>
+
+</body>
+</html>

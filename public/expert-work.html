@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>전문가 작업 관리 | BlueOn</title>
+
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;800&display=swap" rel="stylesheet">
+
+<style>
+:root {
+  --primary:#0056ff;
+  --line:#e5e7eb;
+  --bg:#f8faff;
+  --white:#fff;
+  --text-dark:#111827;
+  --gray:#6b7280;
+}
+
+/* 기본 */
+body {
+  margin:0;
+  padding:20px;
+  background:var(--bg);
+  font-family:"Noto Sans KR", sans-serif;
+}
+
+/* ----------------------------------------- */
+/* 상단 상태 카드 */
+/* ----------------------------------------- */
+.status-cards {
+  display:flex;
+  gap:14px;
+  margin-bottom:25px;
+}
+
+.status-card {
+  flex:1;
+  padding:18px;
+  background:white;
+  border-radius:12px;
+  border:1px solid var(--line);
+  text-align:center;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  gap:10px;
+}
+
+.status-card .icon {
+  font-size:30px;
+}
+
+.status-title {
+  font-size:15px;
+  font-weight:700;
+  color:var(--text-dark);
+}
+
+.status-number {
+  font-size:22px;
+  font-weight:800;
+  color:var(--primary);
+}
+
+/* ----------------------------------------- */
+/* 서비스 카드 */
+/* ----------------------------------------- */
+.service-card {
+  background:white;
+  border-radius:14px;
+  border:1px solid var(--line);
+  padding:18px;
+  margin-bottom:16px;
+}
+
+.service-header {
+  display:flex;
+  gap:14px;
+}
+
+.service-header img {
+  width:90px;
+  height:90px;
+  border-radius:10px;
+  object-fit:cover;
+  border:1px solid #ddd;
+}
+
+.service-info {
+  flex:1;
+}
+
+.service-title {
+  font-size:17px;
+  font-weight:700;
+}
+
+.service-price {
+  color:#111;
+  font-weight:600;
+  margin:6px 0;
+}
+
+.service-date {
+  font-size:13px;
+  color:var(--gray);
+  margin-top:6px;
+}
+
+/* ----------------------------------------- */
+/* 요청사항 박스 */
+/* ----------------------------------------- */
+.request-box {
+  margin-top:16px;
+  background:#f1f5ff;
+  padding:12px;
+  border-radius:10px;
+  cursor:pointer;
+  border:1px solid #dbe3ff;
+}
+
+.request-title {
+  font-size:14px;
+  font-weight:700;
+  color:#0056ff;
+}
+
+.request-content {
+  display:none;
+  margin-top:10px;
+  white-space:pre-line;
+  color:#333;
+  line-height:1.6;
+  font-size:14px;
+}
+
+/* ----------------------------------------- */
+/* 작업 시작하기 버튼 (파란색, 오른쪽 하단) */
+/* ----------------------------------------- */
+.action-area {
+  display:flex;
+  justify-content:flex-end;
+}
+
+.start-btn {
+  margin-top:12px;
+  padding:8px 16px;
+  background:var(--primary);
+  border:none;
+  border-radius:8px;
+  font-size:14px;
+  font-weight:700;
+  color:white;
+  cursor:pointer;
+}
+
+</style>
+</head>
+
+<body>
+
+<!-- ----------------------------------------- -->
+<!-- 상단 상태 카드 -->
+<!-- ----------------------------------------- -->
+<div class="status-cards">
+
+  <div class="status-card">
+    <div class="icon">🚀</div>
+    <div class="status-title">작업 시작 가능</div>
+    <div class="status-number" id="status-ready">0</div>
+  </div>
+
+  <div class="status-card">
+    <div class="icon">⚙️</div>
+    <div class="status-title">진행중</div>
+    <div class="status-number" id="status-working">0</div>
+  </div>
+
+  <div class="status-card">
+    <div class="icon">✏️</div>
+    <div class="status-title">수정 요청</div>
+    <div class="status-number" id="status-revise">0</div>
+  </div>
+
+  <div class="status-card">
+    <div class="icon">✔️</div>
+    <div class="status-title">완료된 작업</div>
+    <div class="status-number" id="status-done">0</div>
+  </div>
+
+</div>
+
+
+<!-- ----------------------------------------- -->
+<!-- 서비스 카드 목록 -->
+<!-- ----------------------------------------- -->
+<div id="serviceList"></div>
+
+<script src="/expert-work.js"></script>
+
+</body>
+</html>

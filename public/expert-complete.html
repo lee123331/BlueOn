@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>전문가 등록 완료 | BlueOn</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;800&display=swap" rel="stylesheet">
+
+<style>
+:root {
+  --primary: #0056ff;
+  --bg: #f4f7fb;
+  --white: #ffffff;
+  --text-dark: #111827;
+  --text-gray: #6b7280;
+  --line: #e5e7eb;
+}
+
+* { margin:0; padding:0; box-sizing:border-box; }
+body {
+  font-family: "Noto Sans KR", sans-serif;
+  background: var(--bg);
+  color: var(--text-dark);
+}
+
+/* 상단 헤더 */
+header {
+  background: var(--white);
+  border-bottom:1px solid var(--line);
+  padding:18px 70px;
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+}
+.logo {
+  font-size:22px; font-weight:800; color:var(--primary);
+  cursor:pointer;
+}
+
+/* 완료 화면 컨테이너 */
+.complete-wrap {
+  max-width: 720px;
+  margin: 70px auto;
+  background: var(--white);
+  border-radius: 16px;
+  padding: 50px 60px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.06);
+  text-align: center;
+}
+
+/* 체크 아이콘 */
+.check-circle {
+  width: 100px; height: 100px;
+  border-radius: 50%;
+  border: 6px solid #00c853;
+  margin: 0 auto 28px;
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  font-size:52px;
+  color:#00c853;
+  font-weight: 800;
+}
+
+/* 텍스트 */
+.complete-wrap h2 {
+  font-size: 28px;
+  font-weight: 800;
+  margin-bottom: 14px;
+}
+
+.complete-wrap p {
+  font-size: 16px;
+  color: var(--text-gray);
+  margin-bottom: 32px;
+}
+
+/* 버튼 그룹 */
+.btn-group {
+  display: flex;
+  justify-content: center;
+  gap: 14px;
+  margin-top: 20px;
+}
+
+.btn {
+  padding: 12px 26px;
+  border-radius: 10px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor:pointer;
+  border:none;
+  transition: 0.25s;
+}
+
+.btn-primary {
+  background: var(--primary);
+  color:#fff;
+}
+.btn-primary:hover {
+  background:#0044cc;
+}
+
+.btn-outline {
+  background:#fff;
+  border:1px solid var(--primary);
+  color:var(--primary);
+}
+.btn-outline:hover {
+  background:var(--primary);
+  color:#fff;
+}
+
+.preview-card {
+  background:#f9fbff;
+  border:1px solid #dce7ff;
+  padding:22px;
+  border-radius:14px;
+  margin-top:30px;
+  text-align:left;
+}
+.preview-title {
+  font-size:17px;
+  font-weight:700;
+  margin-bottom:10px;
+}
+.preview-item {
+  margin-bottom:10px;
+  font-size:15px;
+  color:#444;
+}
+</style>
+
+</head>
+
+<body>
+
+<header>
+  <div class="logo" onclick="location.href='index.html'">BlueOn</div>
+</header>
+
+<div class="complete-wrap">
+  <div class="check-circle">✔</div>
+
+  <h2>전문가 등록이 완료되었습니다!</h2>
+  <p>입력해주신 정보를 기반으로 전문가 프로필이 생성되었어요.<br>
+     이제 쇼핑몰 사장님들이 당신을 찾을 수 있게 됩니다.</p>
+
+  <!-- 등록된 정보 미리 보기 -->
+  <div class="preview-card">
+    <div class="preview-title">🎉 당신의 전문가 프로필 요약</div>
+    <div class="preview-item"><strong>브랜드명 :</strong> 저장된 이름 또는 브랜드명</div>
+    <div class="preview-item"><strong>전문 분야 :</strong> UI/UX 디자인, 쇼핑몰 구축 등</div>
+    <div class="preview-item"><strong>주요 경험 :</strong> 프로젝트 경험 내용 일부 미리보기…</div>
+  </div>
+
+  <div class="btn-group">
+    <button class="btn btn-primary" onclick="location.href='expert-profile.html'">내 전문가 프로필 보기</button>
+    <button class="btn btn-outline" onclick="location.href='index.html'">메인으로 이동</button>
+  </div>
+</div>
+
+</body>
+</html>

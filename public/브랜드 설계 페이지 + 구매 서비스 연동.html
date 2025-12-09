@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>브랜드 설계 & 이전 작업 메모 | BlueOn</title>
+
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+
+  <style>
+    :root {
+      --primary: #0056ff;
+      --primary-soft: #e5efff;
+      --bg: #f5f6fa;
+      --white: #ffffff;
+      --line: #e5e7eb;
+      --text-dark: #111827;
+      --text-gray: #6b7280;
+      --file-bg: #f9fafb;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: "Noto Sans KR", sans-serif;
+      background: var(--bg);
+      padding: 40px 16px;
+      color: var(--text-dark);
+    }
+
+    .page-wrap {
+      max-width: 960px;
+      margin: 0 auto;
+    }
+
+    .page-title {
+      font-size: 24px;
+      font-weight: 800;
+      color: var(--primary);
+      margin-bottom: 18px;
+    }
+
+    .page-desc {
+      font-size: 14px;
+      color: var(--text-gray);
+      margin-bottom: 24px;
+    }
+
+    /* 공통 카드 */
+    .card {
+      background: var(--white);
+      border-radius: 16px;
+      border: 1px solid var(--line);
+      padding: 22px 22px 26px;
+      box-shadow: 0 8px 18px rgba(15, 23, 42, 0.04);
+      margin-bottom: 22px;
+    }
+
+    /* 브랜드 설계 카드 */
+    .brand-title {
+      font-size: 18px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .brand-section {
+      margin-top: 16px;
+      padding: 16px;
+      border-radius: 12px;
+      background: #f9fafb;
+      border: 1px solid #e5e7eb;
+    }
+
+    .brand-section-title {
+      font-size: 14px;
+      font-weight: 700;
+      margin-bottom: 6px;
+      color: var(--primary);
+    }
+
+    .brand-item {
+      font-size: 13px;
+      line-height: 1.6;
+      color: #374151;
+      margin-bottom: 4px;
+    }
+
+    /* 전문가 블록 */
+    .expert-block {
+      border-radius: 12px;
+      padding: 18px 16px 16px;
+      background: #f9fafb;
+      border: 1px solid #e5e7eb;
+      margin-bottom: 14px;
+    }
+
+    .expert-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 10px;
+      gap: 6px;
+    }
+
+    .expert-left {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .avatar {
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #2563eb, #60a5fa);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    .expert-meta {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .expert-name {
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    .expert-date {
+      font-size: 12px;
+      color: var(--text-gray);
+    }
+
+    .tag-chip {
+      font-size: 11px;
+      padding: 3px 8px;
+      border-radius: 999px;
+      border: 1px solid #d1d5db;
+      color: #4b5563;
+      background: #ffffffb3;
+    }
+
+    .expert-memo {
+      font-size: 13px;
+      color: #111827;
+      line-height: 1.6;
+      margin-bottom: 12px;
+      padding-left: 4px;
+    }
+
+    .expert-memo ul {
+      list-style: disc;
+      padding-left: 18px;
+      margin-top: 4px;
+    }
+
+    .expert-memo li {
+      margin-bottom: 3px;
+    }
+
+    .attachments-title {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-gray);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 8px;
+    }
+
+    .attachment-list {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+      gap: 8px;
+    }
+
+    .attachment-card {
+      display: flex;
+      gap: 10px;
+      padding: 10px;
+      border-radius: 10px;
+      background: var(--file-bg);
+      border: 1px solid #e5e7eb;
+    }
+
+    .thumb {
+      width: 50px;
+      height: 50px;
+      border-radius: 8px;
+      background: #e5efff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      color: #1d4ed8;
+      font-weight: 600;
+      flex-shrink: 0;
+    }
+
+    .thumb.pdf {
+      background: #fee2e2;
+      color: #b91c1c;
+    }
+
+    .attachment-body {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 4px;
+    }
+
+    .file-name {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-dark);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .file-desc {
+      font-size: 11px;
+      color: var(--text-gray);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .attachment-actions {
+      display: flex;
+      gap: 6px;
+      margin-top: 4px;
+    }
+
+    .btn {
+      border: none;
+      border-radius: 999px;
+      padding: 4px 10px;
+      font-size: 11px;
+      cursor: pointer;
+      font-weight: 500;
+    }
+
+    .btn-preview {
+      background: #e5efff;
+      color: #1d4ed8;
+    }
+
+    .btn-download {
+      background: #111827;
+      color: white;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="page-wrap">
+
+    <!-- 페이지 타이틀 -->
+    <h1 class="page-title">브랜드 설계 & 이전 작업 컨셉</h1>
+    <p class="page-desc">
+      유저가 설정한 브랜드 설계 정보와, 이전 전문가들의 작업 방향/레퍼런스를 한눈에 확인할 수 있는 페이지입니다.
+    </p>
+
+    <!-- 🔵 브랜드 설계 정보 블록 -->
+    <section class="card">
+      <div class="brand-title">📘 브랜드 설계 요약</div>
+
+      <div class="brand-section">
+        <div class="brand-section-title">브랜드 핵심 가치</div>
+        <div class="brand-item">• 전문성 / 신뢰 / 성장 지원</div>
+      </div>
+
+      <div class="brand-section">
+        <div class="brand-section-title">타겟 고객</div>
+        <div class="brand-item">• 1인 셀러, 초보 온라인 창업자</div>
+      </div>
+
+      <div class="brand-section">
+        <div class="brand-section-title">브랜드 키워드</div>
+        <div class="brand-item">#차분함 #전문적 #깔끔 #디지털</div>
+      </div>
+
+      <div class="brand-section">
+        <div class="brand-section-title">톤앤매너</div>
+        <div class="brand-item">• 진정성 있는 어조, 플랫 UI, 과장 금지</div>
+      </div>
+
+      <div class="brand-section">
+        <div class="brand-section-title">지향/금칙 요소</div>
+        <div class="brand-item">• 지향: 푸른 계열, 단색 아이콘, 단정한 UI</div>
+        <div class="brand-item">• 금칙: 원색 노란색, 캐릭터 느낌 UI</div>
+      </div>
+    </section>
+
+    <!-- 🔵 전문가 작업 메모 카드 -->
+    <section class="card">
+      <div class="brand-title">📝 이전 작업 컨셉 요약 메모</div>
+      <p style="font-size:12px;color:var(--text-gray); margin-top:6px;">
+        전문가에게 서비스를 받을 때마다 아래 목록이 자동으로 추가됩니다.
+      </p>
+
+      <div class="divider" style="margin: 16px 0 20px;"></div>
+
+      <!-- 🟦 전문가 A -->
+      <article class="expert-block">
+        <header class="expert-header">
+          <div class="expert-left">
+            <div class="avatar">A</div>
+            <div class="expert-meta">
+              <div class="expert-name">전문가 A</div>
+              <div class="expert-date">2025.11 작업</div>
+            </div>
+          </div>
+          <span class="tag-chip">브랜드 톤·컬러 설정</span>
+        </header>
+
+        <div class="expert-memo">
+          <ul>
+            <li>전체적인 톤은 <b>차분함 + 파스텔 블루</b></li>
+            <li><b>무광·플랫한 UI</b> 유지</li>
+            <li>강조 색상은 <b>#0056FF</b> 한 가지</li>
+          </ul>
+        </div>
+
+        <div class="attachments-title">📎 첨부 자료</div>
+
+        <div class="attachment-list">
+          <div class="attachment-card">
+            <div class="thumb">IMG</div>
+            <div class="attachment-body">
+              <div class="file-name">tone_color_guide.png</div>
+              <div class="file-desc">파스텔 블루 팔레트</div>
+              <div class="attachment-actions">
+                <button class="btn btn-preview">보기</button>
+                <button class="btn btn-download">다운로드</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <!-- 🟦 전문가 B -->
+      <article class="expert-block">
+        <header class="expert-header">
+          <div class="expert-left">
+            <div class="avatar">B</div>
+            <div class="expert-meta">
+              <div class="expert-name">전문가 B</div>
+              <div class="expert-date">2025.12 작업</div>
+            </div>
+          </div>
+          <span class="tag-chip">아이콘·레이아웃</span>
+        </header>
+
+        <div class="expert-memo">
+          <ul>
+            <li>단색 미니멀 아이콘 사용</li>
+            <li>텍스트 60% / 이미지 40%</li>
+            <li>둥근 UI 금지 → 직선형 구성</li>
+          </ul>
+        </div>
+
+        <div class="attachments-title">📎 첨부 자료</div>
+
+        <div class="attachment-list">
+          <div class="attachment-card">
+            <div class="thumb pdf">PDF</div>
+            <div class="attachment-body">
+              <div class="file-name">icon_guide.pdf</div>
+              <div class="file-desc">아이콘 그리드 가이드</div>
+              <div class="attachment-actions">
+                <button class="btn btn-preview">열기</button>
+                <button class="btn btn-download">다운로드</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </article>
+
+    </section>
+  </div>
+</body>
+</html>
+

@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>BlueOn | 프로필 관리</title>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --primary: #0056ff;
+      --primary-light: #eaf1ff;
+      --bg: #f3f6fa;
+      --white: #ffffff;
+      --text-dark: #111827;
+      --text-gray: #6b7280;
+      --line: #e5e7eb;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: "Noto Sans KR", sans-serif;
+      background: var(--bg);
+      color: var(--text-dark);
+      line-height: 1.6;
+    }
+    header {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 18px 70px; background: var(--white); border-bottom: 1px solid var(--line);
+    }
+    .logo {
+      font-size: 22px; font-weight: 800; color: var(--primary); cursor: pointer;
+    }
+    .auth-buttons button {
+      margin-left: 10px; padding: 8px 16px; border-radius: 8px;
+      border: 1px solid var(--primary); background: var(--white);
+      color: var(--primary); cursor: pointer; font-weight: 500; transition: 0.25s;
+    }
+    .auth-buttons button:hover { background: var(--primary); color: var(--white); }
+    .profile-header {
+      max-width: 1200px; margin: 30px auto 40px; background: #fefefe;
+      border-radius: 14px; box-shadow: 0 6px 18px rgba(0, 0, 0, 0.05);
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 30px 50px;
+    }
+    .profile-left { display: flex; align-items: center; gap: 18px; }
+    .profile-left img {
+      width: 90px; height: 90px; border-radius: 50%; object-fit: cover;
+      border: none; box-shadow: none; background-color: transparent;
+    }
+    .nickname { font-size: 20px; font-weight: 700; }
+    .edit-btn {
+      background: var(--primary); color: var(--white);
+      border: none; padding: 12px 28px; border-radius: 10px;
+      font-weight: 600; font-size: 15px; cursor: pointer;
+      transition: background 0.25s, transform 0.15s;
+    }
+    .edit-btn:hover { background: #0044cc; transform: translateY(-2px); }
+    .info-section {
+      max-width: 1200px; margin: 0 auto 60px;
+      background: transparent; padding: 20px 10px;
+    }
+    .info-section h3 {
+      font-size: 18px; font-weight: 700;
+      color: var(--primary); margin-bottom: 20px;
+    }
+    .info-item {
+      margin-bottom: 22px; border-bottom: 1px solid #e5e7eb; padding-bottom: 14px;
+    }
+    .info-item label {
+      font-weight: 600; color: var(--text-gray);
+      margin-bottom: 4px; display: block;
+    }
+    .info-item .value {
+      font-size: 15px; color: var(--text-dark); padding: 8px 0;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      max-width: 800px; display: block;
+    }
+    footer {
+      text-align: center; padding: 40px 0; font-size: 14px;
+      color: #6b7280; border-top: 1px solid var(--line); background: #fff;
+    }
+    .profile-container {
+      position: relative; display: flex; align-items: center;
+      justify-content: center; margin-left: 16px;
+    }
+    .profile-container img {
+      width: 42px; height: 42px; border-radius: 50%;
+      object-fit: cover; border: 2px solid #e5e7eb;
+      background-color: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+      cursor: pointer; transition: all 0.25s ease;
+    }
+    .profile-container img:hover { border-color: var(--primary); transform: scale(1.05); }
+    .dropdown {
+      display: none; position: absolute; right: 0; top: 54px;
+      background: #fff; border-radius: 12px; box-shadow: 0 6px 24px rgba(0,0,0,0.15);
+      overflow: hidden; z-index: 100; min-width: 160px;
+    }
+    .dropdown a {
+      display: block; padding: 12px 18px; text-decoration: none;
+      color: #111; font-size: 14px; font-weight: 500; white-space: nowrap;
+      transition: background 0.2s ease;
+    }
+    .dropdown a:hover { background: #f3f6ff; color: var(--primary); }
+    .logout-btn {
+      border: 1px solid var(--line); background: #fff; color: #111;
+      padding: 8px 14px; border-radius: 8px; cursor: pointer;
+      font-size: 14px; font-weight: 600; transition: all 0.2s ease;
+    }
+    .logout-btn:hover { background: var(--primary); color: #fff; border-color: var(--primary); }
+
+    /* ✅ 로그아웃 알람 토스트 */
+.toast {
+  position: fixed;
+  top: 40px;
+  right: 40px;
+  background: #ffffff;
+  border: 2px solid var(--primary);
+  color: var(--primary);
+  font-weight: 600;
+  font-size: 15px;
+  padding: 16px 26px;
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0, 86, 255, 0.15);
+  opacity: 0;
+  transform: translateY(-15px);
+  transition: all 0.4s ease;
+  z-index: 2000;
+}
+.toast.show {
+  opacity: 1;
+  transform: translateY(0);
+}
+.toast.error {
+  border-color: #ef4444;
+  color: #ef4444;
+  box-shadow: 0 8px 24px rgba(239, 68, 68, 0.15);
+}
+
+  </style>
+</head>
+
+<body>
+  <header id="header">
+    <div class="logo" onclick="location.href='index.html'">BlueOn</div>
+    <nav class="nav-right">
+      <div id="auth-buttons" class="auth-buttons">
+        <button id="login-btn" onclick="openLoginModal()">로그인</button>
+        <button id="signup-btn" onclick="location.href='signup.html'">회원가입</button>
+      </div>
+
+      <div id="user-menu" style="display: none; align-items: center; gap: 16px;">
+        <button id="logout-btn" class="logout-btn">로그아웃</button>
+        <div class="profile-container">
+          <img id="profile-icon" src="assets/default_profile.png" alt="프로필" />
+          <div class="dropdown">
+            <a href="profile.html">프로필 관리</a>
+            <a href="service-register.html">전문가 등록</a>
+            <a href="#" id="logout-link">로그아웃</a>
+          </div>
+        </div>
+      </div>
+    </nav>
+  </header>
+
+  <!-- 상단 프로필 카드 -->
+  <section class="profile-header">
+    <div class="profile-left">
+      <img src="assets/default_profile.png" alt="프로필 이미지">
+      <div class="nickname">사용자</div>
+    </div>
+    <div class="profile-right">
+      <button class="edit-btn" onclick="location.href='profile-edit.html'">프로필 설정</button>
+    </div>
+  </section>
+
+  <!-- 기본 정보 -->
+  <section class="info-section">
+    <h3>기본 정보</h3>
+    <div class="info-item">
+      <label>이메일</label>
+      <div class="value">user@blueon.kr</div>
+    </div>
+    <div class="info-item">
+      <label>닉네임</label>
+      <div class="value">닉네임 사용자</div>
+    </div>
+    <div class="info-item">
+      <label>한 줄 소개</label>
+      <div class="value">쇼핑몰 사장님들을 위한 온라인 솔루션 전문가입니다.</div>
+    </div>
+  </section>
+
+  <!-- 활동 요약 -->
+  <section class="info-section">
+    <h3>활동 요약</h3>
+    <div class="info-item">
+      <label>가입일</label>
+      <div class="value">2025-11-09</div>
+    </div>
+    <div class="info-item">
+      <label>거래 횟수</label>
+      <div class="value">0회</div>
+    </div>
+    <div class="info-item">
+      <label>최근 활동</label>
+      <div class="value">2025-11-09</div>
+    </div>
+  </section>
+
+  <footer>© 2025 BlueOn | 전문가 매칭 플랫폼</footer>
+
+  <script>
+  document.addEventListener("DOMContentLoaded", async () => {
+    const authButtons = document.getElementById("auth-buttons");
+    const userMenu = document.getElementById("user-menu");
+    const profileIcon = document.getElementById("profile-icon");
+    const dropdown = document.querySelector(".dropdown");
+    const toggleDark = document.getElementById("toggle-dark");
+
+    try {
+      const res = await fetch("http://localhost:3000/me", {
+        credentials: "include",
+        cache: "no-store",
+        headers: { "Cache-Control": "no-cache, no-store, must-revalidate" }
+      });
+      const data = await res.json();
+
+      if (data.success && data.user) {
+        authButtons.style.display = "none";
+        userMenu.style.display = "flex";
+
+        // ✅ 프로필 연동 (DOM 선택자 수정)
+        const headerImg = document.querySelector(".profile-left img");
+        const headerNickname = document.querySelector(".nickname");
+        const basicInfo = document.querySelectorAll(".info-section")[0];
+        const emailValue = basicInfo.querySelectorAll(".info-item .value")[0];
+        const nicknameValue = basicInfo.querySelectorAll(".info-item .value")[1];
+        const introValue = basicInfo.querySelectorAll(".info-item .value")[2];
+
+        const user = data.user;
+        const avatar = user.avatar_url || "assets/default_profile.png";
+        headerImg.src = avatar;
+        profileIcon.src = avatar;
+
+        // ✅ DB 데이터 반영
+        emailValue.textContent = user.email || "-";
+        headerNickname.textContent = user.nickname || "이름 없는 사용자";
+        nicknameValue.textContent = user.nickname || "-";
+        introValue.textContent = user.intro && user.intro.trim() !== "" 
+          ? user.intro 
+          : "아직 자기소개가 없습니다.";
+
+        // ✅ 닉네임 임시 생성 (빈 값일 경우)
+        const nicknameEl = document.querySelector(".nickname");
+        let storedNickname = localStorage.getItem("blueonNickname");
+        if (!user.nickname) {
+          if (storedNickname) {
+            nicknameEl.textContent = storedNickname;
+          } else {
+            const adjectives = ["따뜻한","열정적인","창의적인","차분한","용감한","유쾌한","도전적인"];
+            const nouns = ["소나무","바다","하늘","햇살","별빛","단비","바람"];
+            const randomNickname = `${adjectives[Math.floor(Math.random()*adjectives.length)]}${nouns[Math.floor(Math.random()*nouns.length)]}${Math.floor(1000+Math.random()*9000)}`;
+            nicknameEl.textContent = randomNickname;
+            localStorage.setItem("blueonNickname", randomNickname);
+          }
+        }
+      }
+    } catch (err) {
+      console.error("로그인 상태 확인 오류:", err);
+    }
+
+    // 드롭다운
+    profileIcon?.addEventListener("click", () => {
+      dropdown.style.display = dropdown.style.display === "block" ? "none" : "block";
+    });
+    document.addEventListener("click", (e) => {
+      if (!e.target.closest(".profile-container")) dropdown.style.display = "none";
+    });
+
+  
+    });
+
+ // ✅ 로그아웃 처리
+const logoutBtns = [document.getElementById("logout-btn"), document.getElementById("logout-link")];
+
+logoutBtns.forEach(btn => {
+  if (!btn) return;
+  btn.addEventListener("click", async (e) => {
+    e.preventDefault();
+    try {
+      const res = await fetch("http://localhost:3000/logout", {
+        method: "POST",
+        credentials: "include"
+      });
+      if (res.ok) {
+        toast("로그아웃 되었습니다 ✅");
+        setTimeout(() => {
+          window.location.href = "index.html";
+        }, 1500);
+      } else {
+        toast("로그아웃 중 오류가 발생했습니다", true);
+      }
+    } catch (err) {
+      console.error("로그아웃 실패:", err);
+      toast("서버 연결 오류로 로그아웃 실패", true);
+    }
+  });
+});
+
+
+// ✅ toast 알람 함수
+function toast(message, isError = false) {
+  const t = document.getElementById("toast");
+  if (!t) return;
+  t.textContent = message;
+  t.className = `toast ${isError ? "error" : ""} show`;
+  setTimeout(() => {
+    t.classList.remove("show");
+  }, 2500);
+}
+
+  </script>
+  <div id="toast" class="toast"></div>
+
+</body>
+</html>

@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>브랜드 설계 보기 | BlueOn</title>
+
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;800&display=swap" rel="stylesheet">
+
+<style>
+  :root {
+    --primary:#0056ff;
+    --primary-dark:#003acc;
+    --bg:#f4f6fb;
+    --white:#ffffff;
+    --line:#e5e7eb;
+    --text-dark:#111827;
+    --text-gray:#6b7280;
+  }
+
+  body{
+    font-family:"Noto Sans KR",sans-serif;
+    background:var(--bg);
+    color:var(--text-dark);
+    padding:40px 0;
+  }
+
+  /* ==============================
+        MAIN WRAPPER
+   ============================== */
+  .container {
+    max-width: 1120px;
+    margin: 0 auto;
+    background: white;
+    padding: 40px 50px;
+    border-radius: 18px;
+    border:1px solid var(--line);
+    box-shadow: 0 6px 20px rgba(0,0,0,0.05);
+  }
+
+  h1 {
+    font-size: 28px;
+    font-weight: 800;
+    margin-bottom: 24px;
+  }
+
+  /* ==============================
+        SECTION CARD
+   ============================== */
+  .section {
+    margin-top: 36px;
+  }
+
+  .section-card {
+    background: #fff;
+    border:1px solid #e5e7eb;
+    border-radius: 14px;
+    padding: 24px 28px;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.04);
+  }
+
+  .section-title {
+    font-size: 19px;
+    font-weight: 800;
+    margin-bottom: 14px;
+    color: var(--primary);
+  }
+
+  .box {
+    background:#f3f4f6;
+    border-radius:12px;
+    padding:16px 18px;
+    white-space:pre-line;
+    line-height:1.65;
+    font-size: 15px;
+  }
+
+  /* ==============================
+        TAGS
+   ============================== */
+  .tag-list { 
+    display:flex; 
+    flex-wrap:wrap; 
+    gap:10px;
+    margin-top: 4px;
+  }
+
+  .tag {
+    background:#e6efff;
+    padding:6px 14px;
+    border-radius:20px;
+    font-size:14px;
+    color:#0041c2;
+    border:1px solid #c7daff;
+    font-weight:600;
+  }
+
+  /* ==============================
+        HISTORY
+   ============================== */
+  .history-item {
+    background:white;
+    border:1px solid #e5e7eb;
+    border-radius:12px;
+    padding:18px;
+    margin-bottom:14px;
+    cursor:pointer;
+    transition:0.15s;
+  }
+  .history-item:hover {
+    background:#f9fafb;
+  }
+
+  /* ==============================
+        BUTTON
+   ============================== */
+  #backBtn {
+    width:100%;
+    margin-top:40px;
+    background: var(--primary);
+    color:white;
+    padding:16px;
+    border:none;
+    border-radius:12px;
+    font-size:17px;
+    font-weight:700;
+    cursor:pointer;
+  }
+  #backBtn:hover {
+    background: var(--primary-dark);
+  }
+
+  /* ==============================
+        MODAL
+   ============================== */
+  #resultModal {
+    position:fixed;
+    inset:0;
+    display:none;
+    place-items:center;
+    background:rgba(0,0,0,0.55);
+    z-index:9999;
+  }
+  #modalContent {
+    background:white;
+    padding:28px;
+    max-width:720px;
+    width:90%;
+    border-radius:14px;
+    line-height:1.6;
+  }
+  #modalClose {
+    margin-top:14px;
+    padding:14px;
+    width:100%;
+    background:#0056ff;
+    color:white;
+    border:none;
+    cursor:pointer;
+    border-radius:10px;
+    font-size:16px;
+    font-weight:700;
+  }
+</style>
+</head>
+
+<body>
+
+<div class="container">
+  <h1>브랜드 설계 보기</h1>
+
+  <div id="loading">불러오는 중...</div>
+
+  <div id="content" style="display:none;">
+
+    <!-- 핵심 키워드 -->
+    <div class="section section-card">
+      <div class="section-title">핵심 키워드</div>
+      <div id="keywords" class="tag-list"></div>
+    </div>
+
+    <!-- 브랜드 스토리 -->
+    <div class="section section-card">
+      <div class="section-title">브랜드 스토리</div>
+      <div id="story" class="box"></div>
+    </div>
+
+    <!-- 브랜드 컨셉 -->
+    <div class="section section-card">
+      <div class="section-title">브랜드 컨셉</div>
+      <div id="concept" class="box"></div>
+    </div>
+
+    <!-- Tone & Manner -->
+    <div class="section section-card">
+      <div class="section-title">톤 & 매너</div>
+      <div id="toneTags" class="tag-list"></div>
+    </div>
+
+    <!-- 타겟 고객 -->
+    <div class="section section-card">
+      <div class="section-title">타겟 고객</div>
+      <div id="targetCustomer" class="box"></div>
+    </div>
+
+    <!-- 확산 경로 -->
+    <div class="section section-card">
+      <div class="section-title">브랜드 확산 경로</div>
+      <div id="spreadTags" class="tag-list"></div>
+    </div>
+
+    <!-- 확장 전략 -->
+    <div class="section section-card">
+      <div class="section-title">브랜드 확장 전략</div>
+      <div id="expandPlan" class="box"></div>
+    </div>
+
+    <!-- 히스토리 -->
+    <div class="section section-card">
+      <div class="section-title">작업 히스토리</div>
+      <div id="historyList"></div>
+    </div>
+
+    <button id="backBtn">뒤로가기</button>
+  </div>
+</div>
+
+<!-- 모달 -->
+<div id="resultModal">
+  <div id="modalContent"></div>
+  <button id="modalClose">닫기</button>
+</div>
+
+<script src="/brand-plan-view.js"></script>
+</body>
+</html>

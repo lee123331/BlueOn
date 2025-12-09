@@ -1,0 +1,666 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BlueOn | 전문가 등록 – 경력 사항</title>
+
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;800&display=swap" rel="stylesheet">
+
+<style>
+:root {
+  --primary:#0056ff;
+  --bg:#ffffff;
+  --white:#ffffff;
+
+  --input-bg:#f5f5f5;
+  --text-dark:#111827;
+  --text-gray:#6b7280;
+  --line:#e5e7eb;
+}
+
+*{margin:0;padding:0;box-sizing:border-box;}
+
+body{
+  font-family:"Noto Sans KR",sans-serif;
+  background:var(--bg);
+  color:var(--text-dark);
+}
+
+/* 전체 레이아웃 */
+.wrapper{
+  max-width:1400px;
+  margin:0 auto;
+  padding:40px 30px;
+  display:flex;
+  gap:40px;
+}
+
+/* ========== ASIDE ========== */
+aside{
+  width:260px;
+  background:var(--white);
+  border:1px solid var(--line);
+  padding:25px 20px;
+  border-radius:12px;
+  box-shadow:0 5px 18px rgba(0,0,0,0.04);
+}
+
+.aside-title{
+  font-size:18px;
+  font-weight:700;
+  margin-bottom:16px;
+  color:var(--primary);
+}
+
+.menu-item{
+  padding:12px 12px;
+  border-radius:8px;
+  margin-bottom:6px;
+  font-size:15px;
+  cursor:pointer;
+  transition:0.2s;
+  color:#333;
+}
+
+.menu-item:hover{
+  background:#f3f7ff;
+}
+
+.menu-item.active{
+  background:var(--primary);
+  color:#fff;
+  font-weight:600;
+}
+
+/* ========== CONTENT ========== */
+section.content{
+  flex:1;
+  background:var(--white);
+  border:1px solid var(--line);
+  border-radius:12px;
+  padding:40px 50px;
+  box-shadow:0 6px 18px rgba(0,0,0,0.04);
+}
+
+section h2{
+  font-size:24px;
+  font-weight:800;
+  margin-bottom:25px;
+}
+
+/* 공통 폼 스타일 */
+.form-group{
+  margin-bottom:22px;
+}
+.form-group label{
+  font-weight:700;
+  margin-bottom:8px;
+  display:block;
+  font-size:15px;
+}
+.input-box,
+select,
+textarea{
+  width:100%;
+  padding:13px 15px;
+  border-radius:10px;
+  border:1px solid var(--line);
+  background:var(--input-bg);
+  font-size:15px;
+  outline:none;
+  transition:0.15s;
+}
+.input-box::placeholder,
+textarea::placeholder{
+  color:#7a7a7a;
+  font-weight:500;
+}
+.input-box:focus,
+select:focus,
+textarea:focus{
+  border-color:var(--primary);
+  background:#eef2ff;
+}
+textarea{
+  resize:none;
+  min-height:110px;
+}
+
+/* 총 경력 기간 라인 */
+.inline-row{
+  display:flex;
+  align-items:center;
+  gap:18px;
+}
+
+.inline-label{
+  width:110px;
+  font-size:15px;
+  font-weight:700;
+}
+
+.inline-field{
+  flex:1;
+}
+
+/* TIP 박스 */
+.tip-box{
+  background:#f5f7ff;
+  border:1px solid #dbeafe;
+  padding:14px 16px;
+  border-radius:10px;
+  font-size:13px;
+  color:var(--text-gray);
+  margin-top:8px;
+  margin-bottom:22px;
+  line-height:1.6;
+}
+
+/* 구분선 */
+.section-divider{
+  margin:26px 0 20px;
+  border-bottom:1px solid #edf0f5;
+}
+
+/* 세부 경력 입력 영역 */
+.block-title{
+  font-size:17px;
+  font-weight:700;
+  margin-bottom:10px;
+}
+
+.sub-helper{
+  font-size:13px;
+  color:var(--text-gray);
+  margin-bottom:14px;
+}
+
+/* 2열 정렬 */
+.grid-2{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:16px 18px;
+}
+
+/* 근무기간 드롭다운 줄 */
+.period-row{
+  display:flex;
+  align-items:center;
+  gap:10px;
+}
+.period-row select{
+  flex:0 0 140px;
+}
+.period-row span{
+  font-size:14px;
+  color:var(--text-gray);
+}
+
+/* 파일 업로드 */
+.file-input{
+  padding:11px 13px;
+  border-radius:10px;
+  border:1px dashed #cbd5e1;
+  background:#f8fafc;
+  font-size:13px;
+  color:var(--text-gray);
+  cursor:pointer;
+}
+.file-input:hover{
+  border-color:var(--primary);
+}
+#careerProof{
+  display:none;
+}
+.file-name{
+  margin-top:6px;
+  font-size:13px;
+  color:#4b5563;
+  min-height:16px;
+}
+
+/* 경력 추가 버튼 */
+.career-add-btn{
+  margin-top:22px;
+  padding:12px 22px;
+  border-radius:10px;
+  border:none;
+  background:var(--primary);
+  color:#fff;
+  font-size:15px;
+  font-weight:700;
+  cursor:pointer;
+  transition:0.15s;
+}
+.career-add-btn:hover{
+  background:#0044cc;
+}
+
+/* 등록된 경력 리스트 섹션 제목 */
+.list-title{
+  font-size:16px;
+  font-weight:700;
+  margin-top:32px;
+  margin-bottom:12px;
+}
+
+/* 경력 카드 리스트 */
+.career-list{
+  display:flex;
+  flex-direction:column;
+  gap:16px;
+}
+
+/* 경력 카드 (BlueOn 고급 버전) */
+.career-card{
+  position:relative;
+  padding:18px 20px;
+  border-radius:14px;
+  background:#ffffff;
+  border:1px solid #e5e7eb;
+  box-shadow:0 6px 20px rgba(0,0,0,0.05);
+  transition:0.18s;
+}
+.career-card:hover{
+  box-shadow:0 8px 28px rgba(0,0,0,0.07);
+  transform:translateY(-1px);
+}
+.career-header{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  margin-bottom:6px;
+}
+.career-header-left{
+  font-size:14px;
+  font-weight:700;
+  color:#111827;
+}
+.career-header-tag{
+  display:inline-block;
+  padding:4px 10px;
+  border-radius:999px;
+  background:#eef2ff;
+  color:#1d4ed8;
+  font-size:12px;
+  font-weight:600;
+  margin-left:6px;
+}
+.career-delete{
+  border:none;
+  background:transparent;
+  font-size:15px;
+  cursor:pointer;
+  color:#9ca3af;
+  padding:4px;
+}
+.career-delete:hover{
+  color:#ef4444;
+}
+.career-body{
+  font-size:13px;
+  color:#4b5563;
+  line-height:1.6;
+}
+.career-body-row{
+  margin-top:2px;
+}
+.career-body span.label{
+  font-weight:600;
+  color:#374151;
+}
+
+/* 하단 이동 버튼 영역 */
+.bottom-actions{
+  margin-top:30px;
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+}
+.bottom-left{
+  font-size:13px;
+  color:#9ca3af;
+}
+.next-button{
+  padding:12px 26px;
+  background:var(--primary);
+  color:#fff;
+  border:none;
+  border-radius:10px;
+  font-weight:700;
+  font-size:15px;
+  cursor:pointer;
+}
+.next-button:hover{
+  background:#0044cc;
+}
+
+/* 반응형 약간만 */
+@media (max-width:960px){
+  .wrapper{
+    flex-direction:column;
+  }
+  section.content{
+    padding:28px 20px;
+  }
+  .grid-2{
+    grid-template-columns:1fr;
+  }
+}
+</style>
+</head>
+
+<body>
+
+<div class="wrapper">
+
+  <!-- ASIDE -->
+  <aside>
+    <div class="aside-title">전문가 등록</div>
+    <div class="menu-item" onclick="goStep('intro')">전문가 소개</div>
+    <div class="menu-item active" onclick="goStep('career')">경력 사항</div>
+    <div class="menu-item" onclick="goStep('skill')">전문 역량 & 인증</div>
+    <div class="menu-item" onclick="goStep('brand')">브랜드 스토리</div>
+  </aside>
+
+  <!-- CONTENT -->
+  <section class="content">
+    <h2>경력 사항</h2>
+
+    <!-- 총 경력 기간 -->
+    <div class="form-group">
+      <div class="inline-row">
+        <div class="inline-label">총 경력 기간</div>
+        <div class="inline-field">
+          <select id="totalExperience" class="input-box">
+            <option value="">선택해주세요</option>
+            <option value="신입">신입</option>
+            <option value="1년">1년</option>
+            <option value="2년">2년</option>
+            <option value="3년">3년</option>
+            <option value="4년">4년</option>
+            <option value="5년">5년</option>
+            <option value="6년">6년</option>
+            <option value="7년">7년</option>
+            <option value="8년">8년</option>
+            <option value="9년">9년</option>
+            <option value="10년">10년</option>
+            <option value="10년 이상">10년 이상</option>
+          </select>
+          <div class="tip-box">
+            전문 분야와 직접적으로 관련된 실무 경력 기준으로 선택해주세요.  
+            인턴·프리랜서·외주 등도 포함 가능합니다.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section-divider"></div>
+
+    <!-- 세부 경력 입력 -->
+    <div class="block-title">경력 상세 입력</div>
+    <div class="sub-helper">최근 직무부터 순서대로 작성해 주세요. 필요한 만큼 여러 개의 경력을 추가할 수 있습니다.</div>
+
+    <div class="form-group grid-2">
+      <div>
+        <label for="companyName">회사명</label>
+        <input id="companyName" class="input-box" type="text" placeholder="예: 쿠팡(주)">
+      </div>
+      <div>
+        <label for="department">근무 부서</label>
+        <input id="department" class="input-box" type="text" placeholder="예: 플랫폼개발팀">
+      </div>
+      <div>
+        <label for="position">직위 / 직무</label>
+        <input id="position" class="input-box" type="text" placeholder="예: 프론트엔드 개발자">
+      </div>
+      <div>
+        <label for="workType">근무지 / 근무 형태</label>
+        <select id="workType" class="input-box">
+          <option value="">선택해주세요</option>
+          <option value="상주 근무">상주 근무</option>
+          <option value="재택 근무">재택 근무</option>
+          <option value="하이브리드(상주+재택)">하이브리드(상주+재택)</option>
+          <option value="프로젝트 단위">프로젝트 단위</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label>근무 기간</label>
+      <div class="period-row">
+        <select id="years" class="input-box">
+          <option value="">년</option>
+          <option value="0">0년</option>
+          <option value="1">1년</option>
+          <option value="2">2년</option>
+          <option value="3">3년</option>
+          <option value="4">4년</option>
+          <option value="5">5년</option>
+          <option value="6">6년</option>
+          <option value="7">7년</option>
+          <option value="8">8년</option>
+          <option value="9">9년</option>
+          <option value="10">10년 이상</option>
+        </select>
+        <span>+</span>
+        <select id="months" class="input-box">
+          <option value="">개월</option>
+          <option value="0">0개월</option>
+          <option value="1">1개월</option>
+          <option value="2">2개월</option>
+          <option value="3">3개월</option>
+          <option value="4">4개월</option>
+          <option value="5">5개월</option>
+          <option value="6">6개월</option>
+          <option value="7">7개월</option>
+          <option value="8">8개월</option>
+          <option value="9">9개월</option>
+          <option value="10">10개월</option>
+          <option value="11">11개월</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label for="roleDesc">주요 역할 및 성과</label>
+      <textarea id="roleDesc" placeholder="담당하신 역할, 주요 성과, 프로젝트 등을 구체적으로 작성해주세요.&#10;예) 상세페이지 리뉴얼을 통해 전환율 18% 개선, 쇼핑몰 UI 개편 등"></textarea>
+    </div>
+
+    <div class="form-group">
+      <label>증빙 자료 (선택)</label>
+      <div class="file-input" onclick="document.getElementById('careerProof').click()">
+        경력을 증빙할 수 있는 재직증명서, 계약서, 포트폴리오 등을 업로드해주세요. (선택)
+      </div>
+      <input id="careerProof" type="file" accept=".pdf,.jpg,.jpeg,.png,.heic,.webp">
+      <div id="fileName" class="file-name"></div>
+    </div>
+
+    <button type="button" class="career-add-btn" onclick="addCareer()">경력 추가하기</button>
+
+    <!-- 등록된 경력 리스트 -->
+    <div class="list-title">등록된 경력</div>
+    <div id="careerList" class="career-list">
+      <!-- JS로 카드가 추가됨 -->
+    </div>
+
+    <!-- 하단 이동 버튼 -->
+    <div class="bottom-actions">
+      <div class="bottom-left">※ 경력 입력은 언제든지 수정·추가할 수 있습니다.</div>
+      <button type="button" class="next-button" onclick="saveAndNext()">다음 단계로 이동</button>
+    </div>
+
+  </section>
+</div>
+
+<script>
+/* ================================
+   전역 변수
+================================ */
+let careers = [];
+
+/* ================================
+   localStorage → 화면 복원
+================================ */
+function loadStep2() {
+  const saved = localStorage.getItem("expert_step2");
+  if (!saved) return;
+
+  const data = JSON.parse(saved);
+
+  // 총 경력 입력
+  if (data.totalExperience) {
+    document.getElementById("totalExperience").value = data.totalExperience;
+  }
+
+  // 경력 리스트
+  if (Array.isArray(data.careers)) {
+    careers = data.careers;
+    renderCareerCards();
+  }
+}
+
+/* ================================
+   입력 → localStorage 저장
+================================ */
+function saveStep2() {
+  const storeData = {
+    totalExperience: document.getElementById("totalExperience").value,
+    careers: careers
+  };
+  localStorage.setItem("expert_step2", JSON.stringify(storeData));
+}
+
+/* ================================
+   파일 업로드 표시
+================================ */
+const careerProofInput = document.getElementById("careerProof");
+const fileNameEl = document.getElementById("fileName");
+
+careerProofInput.addEventListener("change", () => {
+  const file = careerProofInput.files[0];
+  fileNameEl.textContent = file ? file.name : "";
+});
+
+/* ================================
+   경력 카드 렌더링
+================================ */
+function renderCareerCards() {
+  const listEl = document.getElementById("careerList");
+  listEl.innerHTML = "";
+
+  if (careers.length === 0) {
+    listEl.innerHTML =
+      '<div style="font-size:13px;color:#9ca3af;">아직 등록된 경력이 없습니다. 상단 폼을 통해 경력을 추가해 주세요.</div>';
+    return;
+  }
+
+  careers.forEach((item, index) => {
+    const card = document.createElement("div");
+    card.className = "career-card";
+
+    card.innerHTML = `
+      <div class="career-header">
+        <div class="career-header-left">
+          ${item.position || "직무 미입력"}
+          <span class="career-header-tag">${item.years || 0}년 ${item.months || 0}개월</span>
+        </div>
+        <button type="button" class="career-delete" onclick="deleteCareer(${index})">✕</button>
+      </div>
+      <div class="career-body">
+        <div class="career-body-row"><span class="label">회사명</span> ${item.company}</div>
+        <div class="career-body-row"><span class="label">부서</span> ${item.department}</div>
+        <div class="career-body-row"><span class="label">근무형태</span> ${item.workType}</div>
+        <div class="career-body-row"><span class="label">주요역할</span> ${item.roleDesc}</div>
+        <div class="career-body-row"><span class="label">증빙</span> ${item.hasProof ? "있음" : "없음"}</div>
+      </div>
+    `;
+    listEl.appendChild(card);
+  });
+}
+
+/* ================================
+   경력 추가
+================================ */
+function addCareer() {
+  const company = document.getElementById("companyName").value.trim();
+  const department = document.getElementById("department").value.trim();
+  const position = document.getElementById("position").value.trim();
+  const workType = document.getElementById("workType").value;
+  const years = document.getElementById("years").value;
+  const months = document.getElementById("months").value;
+  const roleDesc = document.getElementById("roleDesc").value.trim();
+  const hasProof = careerProofInput.files.length > 0;
+
+  if (!company || !position) {
+    alert("회사명과 직위/직무는 반드시 입력해 주세요.");
+    return;
+  }
+
+  careers.push({
+    company,
+    department,
+    position,
+    workType,
+    years: years || 0,
+    months: months || 0,
+    roleDesc,
+    hasProof
+  });
+
+  // 입력 초기화
+  document.getElementById("companyName").value = "";
+  document.getElementById("department").value = "";
+  document.getElementById("position").value = "";
+  document.getElementById("workType").value = "";
+  document.getElementById("years").value = "";
+  document.getElementById("months").value = "";
+  document.getElementById("roleDesc").value = "";
+  careerProofInput.value = "";
+  fileNameEl.textContent = "";
+
+  renderCareerCards();
+  saveStep2(); // 변경 즉시 저장
+}
+
+/* ================================
+   경력 삭제
+================================ */
+function deleteCareer(index) {
+  careers.splice(index, 1);
+  renderCareerCards();
+  saveStep2(); // 삭제 즉시 저장
+}
+
+/* ================================
+   저장 후 다음 단계로 이동
+================================ */
+function saveAndNext() {
+  saveStep2();
+  location.href = "expert-register-step3.html";
+}
+
+/* ================================
+   ASIDE 이동
+================================ */
+function goStep(step) {
+  const map = {
+    intro: "expert-register-step1.html",
+    career: "expert-register-step2.html",
+    skill: "expert-register-step3.html",
+    brand: "expert-register-step4.html"
+  };
+  location.href = map[step];
+}
+
+/* ================================
+   초기 로드
+================================ */
+window.addEventListener("DOMContentLoaded", loadStep2);
+
+</script>
+
+
+</body>
+</html>

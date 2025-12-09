@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BlueOn | 브랜드 확장 단계</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;800&display=swap" rel="stylesheet">
+
+<style>
+:root {
+  --primary: #0056ff;
+  --primary-light: #eaf1ff;
+  --bg: #f9fafb;
+  --white: #ffffff;
+  --line: #e5e7eb;
+  --text-dark: #111827;
+  --text-gray: #6b7280;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  font-family: "Noto Sans KR", sans-serif;
+  background: var(--bg);
+  color: var(--text-dark);
+}
+
+/* HEADER */
+header {
+  width: 100%;
+  background: var(--white);
+  border-bottom: 1px solid var(--line);
+  padding: 18px 40px;
+  font-weight: 700;
+  font-size: 22px;
+  cursor: pointer;
+  color: var(--primary);
+}
+
+/* HERO */
+.hero {
+  max-width: 900px;
+  margin: 40px auto 25px auto;
+  background: var(--white);
+  padding: 35px 40px;
+  border-radius: 20px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.05);
+}
+.hero h2 { font-size: 28px; font-weight: 800; margin-bottom: 10px; }
+.hero p { font-size: 16px; color: var(--text-gray); margin-bottom: 18px; }
+
+/* 진행률 바 */
+.progress-wrapper { margin-top: 20px; width: 100%; }
+.progress-label { font-size: 16px; font-weight: 700; margin-bottom: 10px; }
+.progress-bar-bg {
+  width: 100%;
+  height: 10px;
+  background: #e5e7eb;
+  border-radius: 6px;
+}
+.progress-bar-fill {
+  height: 10px;
+  width: 0%;
+  background: #0056ff;
+  border-radius: 6px;
+  transition: width 0.4s;
+}
+
+/* 로드맵 */
+.roadmap {
+  margin-top: 25px;
+  display: flex;
+  gap: 15px;
+  align-items: center;
+  font-size: 15px;
+  font-weight: 600;
+}
+.roadmap .dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--line);
+}
+.roadmap .active { background: var(--primary); }
+
+/* SECTION TITLE */
+.section-title {
+  max-width: 900px;
+  margin: 40px auto 15px auto;
+  font-size: 20px;
+  font-weight: 700;
+}
+
+/* SERVICE CARDS */
+.card-list {
+  max-width: 900px;
+  margin: 0 auto 40px auto;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+.card {
+  background: var(--white);
+  border-radius: 16px;
+  padding: 25px 25px;
+  box-shadow: 0 4px 14px rgba(0,0,0,0.06);
+  cursor: pointer;
+  transition: 0.2s;
+}
+.card-title { font-size: 19px; font-weight: 700; margin-bottom: 6px; }
+.card-desc { color: var(--text-gray); font-size: 15px; }
+.card-arrow { margin-top: 12px; font-size: 15px; color: var(--primary); font-weight: 600; }
+
+/* CTA */
+.cta-wrap {
+  max-width: 900px;
+  margin: 0 auto 60px auto;
+  display: flex;
+  justify-content: space-between;
+}
+.cta-btn {
+  background: var(--primary);
+  padding: 14px 22px;
+  border-radius: 10px;
+  color: white;
+  cursor: pointer;
+  font-weight: 700;
+}
+.cta-btn:hover { background: #003fcc; }
+
+.cta-sub {
+  background: #e5e7eb;
+  color: #111827;
+  padding: 14px 22px;
+  border-radius: 10px;
+  cursor: pointer;
+  font-weight: 700;
+}
+</style>
+</head>
+
+<body>
+
+<header onclick="location.href='index.html'">BlueOn</header>
+
+<!-- HERO -->
+<div class="hero">
+  <h2>브랜드 확장 단계</h2>
+  <p>완성된 브랜드를 기반으로 시장 점유율을 높이는 단계입니다.</p>
+
+  <!-- 진행률 -->
+  <div class="progress-wrapper">
+    <div class="progress-label">현재 단계 진행률:
+      <span id="progressPercent">0%</span>
+    </div>
+    <div class="progress-bar-bg">
+      <div id="progressBar" class="progress-bar-fill"></div>
+    </div>
+  </div>
+
+  <!-- 로드맵 -->
+  <div class="roadmap">
+    <div class="dot"></div>
+    <span>설계</span>
+    —
+    <div class="dot"></div>
+    <span>확산</span>
+    —
+    <div class="dot active"></div>
+    <span>확장</span>
+  </div>
+</div>
+
+<!-- SECTION TITLE -->
+<div class="section-title">브랜드 확장에 필요한 핵심 전략</div>
+
+<!-- SERVICE CARDS -->
+<div class="card-list">
+
+  <div class="card" onclick="location.href='expand-channel.html'">
+    <div class="card-title">📡 국내 채널 확장 전략</div>
+    <div class="card-desc">네이버·카카오·SNS 기반의 국내 확장 전략 설계</div>
+    <div class="card-arrow">관련 서비스 보기 →</div>
+  </div>
+
+  <div class="card" onclick="location.href='expansion-system.html'">
+    <div class="card-title">⚙ 자동화 시스템 구축</div>
+    <div class="card-desc">재고 · 주문 · 고객관리 자동화 및 업무 효율성 강화</div>
+    <div class="card-arrow">관련 서비스 보기 →</div>
+  </div>
+
+  <div class="card" onclick="location.href='expansion-franchise.html'">
+    <div class="card-title">🏢 브랜드 확장 모델 개발</div>
+    <div class="card-desc">가맹 모델 · B2B 협업 · 파트너십 전략 수립</div>
+    <div class="card-arrow">관련 서비스 보기 →</div>
+  </div>
+
+  <div class="card" onclick="location.href='expansion-data.html'">
+    <div class="card-title">📊 데이터 기반 마케팅 · CRM 고도화</div>
+    <div class="card-desc">고객 분석 · 재구매 전략 · 브랜딩 ROI 측정</div>
+    <div class="card-arrow">관련 서비스 보기 →</div>
+  </div>
+
+</div>
+
+<!-- CTA -->
+<div class="cta-wrap">
+  <div class="cta-sub" onclick="location.href='brand-spread.html'">이전 단계(브랜드 확산) ←</div>
+  <div class="cta-btn" onclick="location.href='my-brand.html'">나의 브랜드로 돌아가기</div>
+</div>
+
+<script>
+/* ==========================================================
+   브랜드 확장 단계 진행률 관리 (4단계)
+========================================================== */
+
+// 실제 service-detail.html 에서 저장하는 key들과 동일해야 함
+const EXPAND_KEYS = [
+  "expand_channel",       // 국내 채널 확장
+  "auto_system",          // 자동화 시스템 구축
+  "expand_brand_model",   // 브랜드 확장 모델 개발
+  "data_marketing"        // 데이터 기반 마케팅 · CRM 고도화
+];
+
+/* 상태 읽기 */
+function loadExpandStatus() {
+  return {
+    expand_channel: localStorage.getItem("expand_channel") === "done",
+    auto_system: localStorage.getItem("auto_system") === "done",
+    expand_brand_model: localStorage.getItem("expand_brand_model") === "done",
+    data_marketing: localStorage.getItem("data_marketing") === "done",
+  };
+}
+
+/* 진행률 계산 */
+function computeExpandProgress() {
+  const status = loadExpandStatus();
+  let count = 0;
+  EXPAND_KEYS.forEach(k => {
+    if (status[k]) count++;
+  });
+
+  // 퍼센트 계산
+  return (count / EXPAND_KEYS.length) * 100;
+}
+
+/* UI 반영 */
+function updateExpandProgressUI() {
+  const percent = computeExpandProgress();
+  const bar = document.getElementById("progressBar");
+  const label = document.getElementById("progressPercent");
+
+  if (bar) bar.style.width = percent + "%";
+  if (label) label.textContent = Math.floor(percent) + "%";
+}
+
+/* 최초 실행 */
+updateExpandProgressUI();
+</script>
+
+
+</body>
+</html>

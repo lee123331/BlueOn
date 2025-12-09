@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BlueOn | 결제·환불 안내</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;800&display=swap" rel="stylesheet">
+
+<style>
+  :root {
+    --primary:#0056ff;
+    --danger:#ef4444;
+    --text-dark:#111827;
+    --text-gray:#6b7280;
+    --bg:#f9fafb;
+    --white:#ffffff;
+    --line:#e5e7eb;
+  }
+
+  * { margin:0; padding:0; box-sizing:border-box; }
+
+  body {
+    font-family:"Noto Sans KR",sans-serif;
+    background:var(--bg);
+    color:var(--text-dark);
+  }
+
+  header {
+    width:100%;
+    padding:18px 40px;
+    background:var(--white);
+    border-bottom:1px solid var(--line);
+    font-size:22px;
+    font-weight:800;
+    color:var(--primary);
+    cursor:pointer;
+  }
+
+  .container {
+    max-width:900px;
+    margin:40px auto 60px;
+    background:var(--white);
+    padding:40px;
+    border-radius:18px;
+    box-shadow:0 4px 18px rgba(0,0,0,0.06);
+  }
+
+  h1 {
+    font-size:30px;
+    font-weight:800;
+    margin-bottom:18px;
+  }
+
+  .desc {
+    color:var(--text-gray);
+    font-size:15px;
+    margin-bottom:25px;
+    line-height:1.7;
+  }
+
+  .section-title {
+    font-size:20px;
+    font-weight:800;
+    margin-top:35px;
+    margin-bottom:14px;
+  }
+
+  .policy-box {
+    background:#f3f4f6;
+    padding:20px 25px;
+    border-radius:12px;
+    line-height:1.8;
+    font-size:15.5px;
+    margin-bottom:25px;
+  }
+
+  .line {
+    height:1px;
+    width:100%;
+    background:#e5e7eb;
+    margin:25px 0;
+  }
+
+  .case-box {
+    background:#fff;
+    border-left:4px solid var(--primary);
+    padding:14px 18px;
+    border-radius:12px;
+    margin-bottom:14px;
+    line-height:1.6;
+    font-size:15px;
+    box-shadow:0 2px 6px rgba(0,0,0,0.05);
+  }
+
+  .note {
+    background:#fff7e6;
+    border-left:4px solid #ffa200;
+    padding:14px 18px;
+    border-radius:12px;
+    margin:20px 0;
+    font-size:15px;
+    line-height:1.7;
+  }
+
+  .back-btn {
+    margin-top:35px;
+    background:var(--primary);
+    color:white;
+    padding:14px 20px;
+    border:none;
+    border-radius:10px;
+    font-size:15px;
+    font-weight:700;
+    cursor:pointer;
+    transition:0.25s;
+    width:100%;
+  }
+  .back-btn:hover { background:#003fcc; }
+</style>
+</head>
+
+<body>
+
+<header onclick="location.href='index.html'">BlueOn</header>
+
+<div class="container">
+  <h1>결제 · 환불 처리 안내</h1>
+
+  <p class="desc">
+    BlueOn은 고객과 전문가가 신뢰할 수 있는 거래를 할 수 있도록  
+    <b>에스크로 기반 보호 시스템</b>과 명확한 단계별 환불 기준을 운영합니다.
+  </p>
+
+  <!-- SECTION 1 -->
+  <div class="section-title">1. 결제 방식 및 보호 시스템</div>
+  <div class="policy-box">
+    <p>✔ 모든 결제는 PG사를 통해 안전하게 처리됩니다.</p>
+    <p>✔ 결제 금액은 <b>에스크로 계좌</b>에 보관되며, 고객 승인 시에만 전문가에게 지급됩니다.</p>
+    <p>✔ 작업 완료 전에는 대금이 자동으로 정산되지 않습니다.</p>
+    <p>✔ BlueOn은 중립적인 기준으로 분쟁을 검토하여 최종 판단합니다.</p>
+  </div>
+
+  <!-- SECTION 2 -->
+  <div class="section-title">2. 환불 가능 조건</div>
+  <div class="policy-box">
+    <p><b>📌 작업 시작 전 환불 요청</b><br>
+    → 결제 금액의 <b style="color:var(--primary);">100% 환불</b></p>
+
+    <br>
+
+    <p><b>📌 1차 시안 제출 후 환불 요청</b><br>
+    → 결제 금액의 <b style="color:var(--primary);">50% 환불 가능</b><br>
+      (초안 작업물이 제공된 상태)</p>
+
+    <br>
+
+    <p><b>📌 수정 작업 진행 중 환불 요청</b><br>
+    → <b style="color:var(--danger);">환불 불가</b><br>
+      (고객의 요청에 따라 2차 작업이 진행된 경우)</p>
+
+    <br>
+
+    <p><b>📌 최종본 제공 이후</b><br>
+    → <b style="color:var(--danger);">환불 불가</b></p>
+  </div>
+
+  <!-- SECTION 3 -->
+  <div class="section-title">3. 진행 단계별 상세 환불 기준</div>
+
+  <div class="case-box">
+    <b>A단계 — 작업 시작 전</b><br>
+    ✔ 파일, 시안 등 어떠한 작업물도 전달되지 않은 상태<br>
+    → <b style="color:var(--primary);">100% 환불 가능</b>
+  </div>
+
+  <div class="case-box">
+    <b>B단계 — 1차 시안 제출</b><br>
+    ✔ 로고 초안, 상세페이지 기본 틀 등 기본 산출물이 전달된 단계<br>
+    → <b style="color:var(--primary);">50% 환불 가능</b>
+  </div>
+
+  <div class="case-box">
+    <b>C단계 — 수정 작업 진행 중</b><br>
+    ✔ 고객이 보완 요청을 하여 후속 작업이 진행되는 단계<br>
+    → <b style="color:var(--danger);">환불 불가</b>
+  </div>
+
+  <div class="case-box">
+    <b>D단계 — 최종 작업 직전</b><br>
+    ✔ 전체 작업의 대부분이 완료된 상태<br>
+    → <b style="color:var(--danger);">환불 불가</b>
+  </div>
+
+  <div class="case-box">
+    <b>E단계 — 최종 결과물 제공 완료</b><br>
+    ✔ 고객이 최종 파일을 확인하거나 다운로드한 상태<br>
+    → <b style="color:var(--danger);">환불 불가</b>
+  </div>
+
+  <!-- SECTION 4 -->
+  <div class="section-title">4. 환불이 가능한 구체적 사례</div>
+  <div class="case-box">✔ 작업 시작 전 취소 요청 → 100% 환불</div>
+  <div class="case-box">✔ 1차 시안이 마음에 들지 않아 환불 요청 → 50% 환불</div>
+  <div class="case-box">✔ 전문가가 작업 불가 사유를 밝힌 경우 → 100% 환불</div>
+
+  <div class="line"></div>
+
+  <!-- SECTION 5 -->
+  <div class="section-title">5. 환불이 어려운 사례</div>
+  <div class="case-box">✘ 수정 요청 후 작업이 이미 진행된 경우</div>
+  <div class="case-box">✘ 작업 방식 또는 스타일 차이로 인한 단순 변심</div>
+  <div class="case-box">✘ 최종본 전달 이후 환불 요청</div>
+
+  <div class="note">
+    ⚠ 환불 분쟁이 발생한 경우,<br>
+    BlueOn 운영팀은 작업 기록 · 메시지 내역 · 제출 산출물을 검토하여  
+    <b>중립적이고 공정한 기준</b>으로 최종 환불 여부를 판단합니다.<br><br>
+
+    전문가가 ‘거부하기’를 선택한 경우에도,<br>
+    <b>최종 환불 여부는 BlueOn 운영팀이 결정합니다.</b>
+  </div>
+
+  <button class="back-btn" onclick="history.back()">돌아가기</button>
+</div>
+
+</body>
+</html>

@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BlueOn | 브랜드 확산 단계</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;800&display=swap" rel="stylesheet">
+
+<style>
+:root {
+  --primary:#0056ff;
+  --primary-light:#eaf1ff;
+  --bg:#f9fafb;
+  --white:#ffffff;
+  --line:#e5e7eb;
+  --text-dark:#111827;
+  --text-gray:#6b7280;
+}
+
+* { margin:0; padding:0; box-sizing:border-box; }
+body {
+  font-family:"Noto Sans KR",sans-serif;
+  background:var(--bg);
+  color:var(--text-dark);
+}
+
+/* HEADER */
+header {
+  width:100%;
+  background:var(--white);
+  border-bottom:1px solid var(--line);
+  padding:18px 40px;
+  font-weight:700;
+  font-size:22px;
+  cursor:pointer;
+  color:var(--primary);
+}
+
+/* HERO */
+.hero {
+  max-width:900px;
+  margin:40px auto 25px auto;
+  background:var(--white);
+  padding:35px 40px;
+  border-radius:20px;
+  box-shadow:0 4px 16px rgba(0,0,0,0.05);
+}
+.hero h2 { font-size:28px; font-weight:800; margin-bottom:10px; }
+.hero p { font-size:16px; color:var(--text-gray); margin-bottom:18px; }
+
+/* progress */
+.progress-wrapper { margin-top:20px; width:100%; }
+.progress-label { font-size:16px; font-weight:700; margin-bottom:10px; }
+.progress-bar-bg {
+  width:100%; height:10px; background:#e5e7eb;
+  border-radius:6px;
+}
+.progress-bar-fill {
+  height:10px; width:0%; background:#0056ff;
+  border-radius:6px; transition:width 0.4s;
+}
+
+/* 로드맵 */
+.roadmap {
+  margin-top:25px; display:flex; gap:15px;
+  align-items:center; font-size:15px; font-weight:600;
+}
+.roadmap .dot {
+  width:14px; height:14px; border-radius:50%; background:var(--line);
+}
+.roadmap .active { background:var(--primary); }
+
+/* SECTION TITLE */
+.section-title {
+  max-width:900px; margin:40px auto 15px auto;
+  font-size:20px; font-weight:700;
+}
+
+/* CARDS */
+.card-list {
+  max-width:900px; margin:0 auto 40px auto;
+  display:flex; flex-direction:column; gap:20px;
+}
+.card {
+  background:var(--white);
+  border-radius:16px;
+  padding:25px;
+  box-shadow:0 4px 14px rgba(0,0,0,0.06);
+  cursor:pointer; transition:0.2s;
+}
+.card:hover { transform:translateY(-3px); }
+.card-title { font-size:19px; font-weight:700; margin-bottom:6px; }
+.card-desc { color:var(--text-gray); font-size:15px; }
+.card-arrow {
+  margin-top:12px; font-size:15px;
+  color:var(--primary); font-weight:600;
+}
+
+/* CTA */
+.cta-wrap {
+  max-width:900px; margin:0 auto 60px auto;
+  display:flex; justify-content:space-between;
+}
+.cta-btn {
+  background:var(--primary); padding:14px 22px;
+  border-radius:10px; color:white; cursor:pointer;
+  font-weight:700; transition:0.2s;
+}
+.cta-btn:hover { background:#003fcc; }
+
+.cta-sub {
+  background:#e5e7eb; color:#111827;
+  padding:14px 22px; border-radius:10px;
+  cursor:pointer; font-weight:700;
+}
+
+/* 토스트 */
+#toast {
+  position:fixed; bottom:30px; left:50%;
+  transform:translateX(-50%);
+  background:#111827; color:#fff;
+  padding:12px 22px; border-radius:8px;
+  opacity:0; pointer-events:none;
+  transition:0.3s;
+}
+#toast.show { opacity:1; }
+</style>
+</head>
+
+<body>
+
+<header onclick="location.href='index.html'">BlueOn</header>
+
+<!-- HERO -->
+<div class="hero">
+  <h2>브랜드 확산 단계</h2>
+  <p>브랜드를 다양한 채널로 퍼뜨리고 성장을 가속화하는 단계입니다.</p>
+
+  <div class="progress-wrapper">
+    <div class="progress-label">현재 단계 진행률:
+      <span id="progressPercent">0%</span>
+    </div>
+    <div class="progress-bar-bg">
+      <div id="progressBar" class="progress-bar-fill"></div>
+    </div>
+  </div>
+
+  <!-- 로드맵 -->
+  <div class="roadmap">
+    <div class="dot"></div>
+    <span>설계</span>
+    —
+    <div class="dot active"></div>
+    <span>확산</span>
+    —
+    <div class="dot"></div>
+    <span>확장</span>
+  </div>
+</div>
+
+<!-- SECTION TITLE -->
+<div class="section-title">브랜드 확산에 필요한 작업들</div>
+
+<!-- SERVICE CARDS -->
+<div class="card-list">
+
+  <div class="card" onclick="location.href='service-adcreative.html'">
+    <div class="card-title">🎬바이럴 숏폼 + 제품 촬영 + 브랜드 영상 패키지</div>
+    <div class="card-desc">SNS·쇼핑몰 광고에 최적화된 고전환율 영상·이미지 제작</div>
+    <div class="card-arrow">추천 전문가 보기 →</div>
+  </div>
+
+  <div class="card" onclick="location.href='service-spread-sns-branding.html'">
+    <div class="card-title">📱 SNS 계정 브랜딩 세팅</div>
+    <div class="card-desc">프로필·소개·피드 스타일 통합 구성으로 신뢰도 향상</div>
+    <div class="card-arrow">추천 전문가 보기 →</div>
+  </div>
+
+  <div class="card" onclick="location.href='service-snstemplate.html'">
+    <div class="card-title">🖼 SNS 템플릿 패키지 제작</div>
+    <div class="card-desc">브랜드 색감에 맞춘 카드뉴스·피드 템플릿 패키지 제작</div>
+    <div class="card-arrow">추천 전문가 보기 →</div>
+  </div>
+
+  <div class="card" onclick="location.href='service-ugc.html'">
+    <div class="card-title">🎤SEO 최적화 노출</div>
+    <div class="card-desc">제품 리뷰·사용자 후기 기반의 신뢰도 높은 SNS 콘텐츠</div>
+    <div class="card-arrow">추천 전문가 보기 →</div>
+  </div>
+
+  <div class="card" onclick="location.href='service-youtube.html'">
+    <div class="card-title">▶ 유튜브 채널 아트 & 쇼츠 브랜딩</div>
+    <div class="card-desc">유튜브 브랜딩에 필요한 채널 아트·썸네일·쇼츠 패키지</div>
+    <div class="card-arrow">추천 전문가 보기 →</div>
+  </div>
+
+  <div class="card" onclick="location.href='service-viral.html'">
+    <div class="card-title">🚀 SNS 랜딩 페이지 제작 </div>
+    <div class="card-desc">바이럴 확산에 특화된 SNS 콘텐츠 패키지 구성</div>
+    <div class="card-arrow">추천 전문가 보기 →</div>
+  </div>
+
+</div>
+
+<!-- CTA -->
+<div class="cta-wrap">
+  <div class="cta-btn" onclick="location.href='brand-expand.html'">다음 단계(브랜드 확장) →</div>
+  <div class="cta-sub" onclick="location.href='my-brand.html'">나의 브랜드로 돌아가기</div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+/* ===========================================================
+   브랜드 확산 단계 진행률 저장 (6개)
+   task_spread_1 ~ task_spread_6
+=========================================================== */
+
+const SPREAD_TASKS = [
+  "task_spread_1",
+  "task_spread_2",
+  "task_spread_3",
+  "task_spread_4",
+  "task_spread_5",
+  "task_spread_6"
+];
+
+// 로컬스토리지 상태
+function loadSpreadStatus() {
+  return SPREAD_TASKS.map(key => localStorage.getItem(key) === "done");
+}
+
+// 진행률 계산 (17% 단위, 100%는 마지막에 보정)
+function computeSpreadProgress() {
+  const doneCount = loadSpreadStatus().filter(v => v).length;
+  if (doneCount === 6) return 100;
+  return Math.round(doneCount * 16.6);
+}
+
+// UI 업데이트
+function updateSpreadProgressUI() {
+  const percent = computeSpreadProgress();
+  document.getElementById("progressPercent").textContent = percent + "%";
+  document.getElementById("progressBar").style.width = percent + "%";
+}
+
+// 토스트
+function showToast(msg) {
+  const t = document.getElementById("toast");
+  t.textContent = msg;
+  t.classList.add("show");
+  setTimeout(() => t.classList.remove("show"), 2000);
+}
+
+// 초기 렌더링
+updateSpreadProgressUI();
+</script>
+
+</body>
+</html>

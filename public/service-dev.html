@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>개발 · 커스터마이징 전문가 추천 | BlueOn</title>
+
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <style>
+    body {
+      font-family: "Noto Sans KR", sans-serif;
+      background:#f9fafb;
+      margin:0;
+      color:#111;
+    }
+
+    /* HEADER */
+    header {
+      padding:20px 60px;
+      background:#fff;
+      border-bottom:1px solid #e5e7eb;
+      font-size:22px;
+      font-weight:800;
+      color:#0056ff;
+      cursor:pointer;
+    }
+
+    /* 리스트 */
+    #serviceList {
+      max-width:1200px;
+      margin:30px auto;
+    }
+
+    /* 카드 */
+    .service-card {
+      width:100%;
+      background:white;
+      border-radius:14px;
+      border:1px solid #e5e7eb;
+      padding:20px;
+      margin-bottom:20px;
+      cursor:pointer;
+      transition:0.2s;
+    }
+    .service-card:hover {
+      border-color:#b0c8ff;
+    }
+
+    .service-top {
+      display:flex;
+      gap:20px;
+    }
+
+    .service-thumb {
+      width:180px;
+      height:140px;
+      border-radius:12px;
+      object-fit:cover;
+      background:#eee;
+    }
+
+    .service-title {
+      font-size:20px;
+      font-weight:800;
+      margin-bottom:6px;
+    }
+
+    .service-price {
+      font-size:16px;
+      color:#0056ff;
+      font-weight:700;
+    }
+
+    /* 하위 카테고리 버튼 */
+    .sub-filter-wrap {
+      display:flex;
+      gap:12px;
+      margin:20px auto;
+      max-width:1200px;
+    }
+
+    .sub-btn {
+      padding:10px 18px;
+      background:#f5f7fa;
+      border:1px solid #e5e7eb;
+      border-radius:25px;
+      font-size:14px;
+      cursor:pointer;
+      transition:0.2s;
+    }
+
+    .sub-btn.active {
+      background:#eaf1ff;
+      border-color:#3b82f6;
+      color:#2563eb;
+      font-weight:700;
+    }
+  </style>
+</head>
+
+<body>
+
+<header onclick="location.href='index.html'">BlueOn</header>
+
+<h2 style="max-width:1200px;margin:30px auto 10px;font-size:22px;font-weight:800;">
+  스마트스토어 최적화 + 자사몰 구축 + 랜딩페이지 제작 전문가 추천
+</h2>
+
+<!-- 카테고리 선택 -->
+<div class="sub-filter-wrap">
+  <button class="sub-btn active" data-sub="스마트스토어 커스터마이징">스마트스토어 커스터마이징</button>
+  <button class="sub-btn" data-sub="자사몰 구축">자사몰 구축</button>
+  <button class="sub-btn" data-sub="랜딩페이지 제작">랜딩페이지 제작</button>
+  <button class="sub-btn" data-sub="홈페이지 개발">홈페이지 개발</button>
+</div>
+
+<!-- 서비스 리스트 -->
+<div id="serviceList"></div>
+
+<script>
+const API = "http://localhost:3000";
+
+/* -----------------------------------------------------------------
+   공통 JSON 파서
+----------------------------------------------------------------- */
+function parseImages(raw){
+  if (!raw) return [];
+  if (Array.isArray(raw)) return raw;
+  try { const arr = JSON.parse(raw); return Array.isArray(arr) ? arr : []; }
+  catch { return []; }
+}
+
+/* -----------------------------------------------------------------
+   특정 카테고리 서비스 불러오기
+----------------------------------------------------------------- */
+async function loadServices(sub){
+  try{
+    const res = await fetch(`${API}/services/list?sub=${encodeURIComponent(sub)}`);
+    const data = await res.json();
+
+    if(!data.success || data.services.length === 0){
+      document.getElementById("serviceList").innerHTML = `
+        <p style="text-align:center;color:#777;margin-top:40px;">
+          해당 카테고리의 서비스가 없습니다.
+        </p>`;
+      return;
+    }
+
+    renderServices(data.services);
+
+  } catch(err){
+    console.error(err);
+  }
+}
+
+/* -----------------------------------------------------------------
+   서비스 카드 렌더링
+----------------------------------------------------------------- */
+function renderServices(list){
+  const box = document.getElementById("serviceList");
+  box.innerHTML = "";
+
+  list.forEach(svc => {
+
+    const imgs = parseImages(svc.main_images);
+    const thumb = imgs[0] || "/assets/default_service.png";
+
+    const price = svc.price_basic
+      ? Number(svc.price_basic).toLocaleString() + "원"
+      : "가격 협의";
+
+    const card = document.createElement("div");
+    card.className = "service-card";
+
+    card.innerHTML = `
+      <div class="service-top">
+        <img src="${thumb}" class="service-thumb">
+        <div>
+          <div class="service-title">${svc.title}</div>
+          <div class="service-price">${price}</div>
+        </div>
+      </div>
+    `;
+
+    /* 카드 클릭 → 상세페이지로 이동 */
+    card.addEventListener("click", () => {
+      location.href = `service-detail.html?id=${svc.id}`;
+    });
+
+    box.appendChild(card);
+  });
+}
+
+/* -----------------------------------------------------------------
+   카테고리 버튼 인터랙션
+----------------------------------------------------------------- */
+document.addEventListener("click", (e)=>{
+  if(!e.target.classList.contains("sub-btn")) return;
+
+  document.querySelectorAll(".sub-btn").forEach(btn => btn.classList.remove("active"));
+  e.target.classList.add("active");
+
+  loadServices(e.target.dataset.sub);
+});
+
+/* -----------------------------------------------------------------
+   초기 로딩
+----------------------------------------------------------------- */
+document.addEventListener("DOMContentLoaded", ()=>{
+  loadServices("스마트스토어 커스터마이징");
+});
+</script>
+
+</body>
+</html>

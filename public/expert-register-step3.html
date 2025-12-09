@@ -1,0 +1,788 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>BlueOn | 전문가 등록 – 전문 역량 & 인증</title>
+
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;800&display=swap" rel="stylesheet">
+
+<style>
+:root{
+  --primary:#0056ff;
+  --bg:#ffffff;
+  --white:#ffffff;
+  --gray:#f5f5f5;
+  --line:#e5e7eb;
+  --text-dark:#111827;
+  --text-gray:#6b7280;
+}
+
+/* RESET */
+*{margin:0;padding:0;box-sizing:border-box;}
+body{
+  font-family:"Noto Sans KR",sans-serif;
+  background:var(--bg);
+  color:var(--text-dark);
+}
+
+/* WRAPPER */
+.wrapper{
+  max-width:1400px;
+  margin:0 auto;
+  padding:40px 30px;
+  display:flex;
+  gap:40px;
+}
+
+/* ASIDE */
+aside{
+  width:260px;
+  background:var(--white);
+  border:1px solid var(--line);
+  padding:25px 20px;
+  border-radius:12px;
+  box-shadow:0 5px 18px rgba(0,0,0,0.04);
+}
+.aside-title{
+  font-size:18px;
+  font-weight:700;
+  margin-bottom:20px;
+  color:var(--primary);
+}
+.menu-item{
+  padding:12px 12px;
+  border-radius:8px;
+  margin-bottom:8px;
+  font-size:15px;
+  cursor:pointer;
+  transition:0.2s;
+}
+.menu-item:hover{ background:#eef3ff; }
+.menu-item.active{
+  background:var(--primary);
+  color:#fff;
+  font-weight:600;
+}
+
+/* CONTENT */
+section.content{
+  flex:1;
+  background:var(--white);
+  border:1px solid var(--line);
+  border-radius:12px;
+  padding:40px 50px;
+  box-shadow:0 6px 18px rgba(0,0,0,0.04);
+}
+h2{
+  font-size:24px;
+  font-weight:800;
+  margin-bottom:30px;
+}
+
+.section-title{
+  font-size:18px;
+  font-weight:700;
+  margin:30px 0 12px;
+}
+
+/* ========== 기술 스택 선택 영역 (크몽 스타일) ========== */
+.skill-card{
+  border:1px solid var(--line);
+  border-radius:12px;
+  padding:18px 20px 20px;
+  background:#fafafa;
+}
+
+.skill-header{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  margin-bottom:10px;
+}
+.skill-header-left{
+  display:flex;
+  flex-direction:column;
+  gap:4px;
+}
+.skill-header-title{
+  font-size:16px;
+  font-weight:700;
+}
+.skill-header-desc{
+  font-size:13px;
+  color:var(--text-gray);
+}
+.skill-header-right{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  font-size:13px;
+}
+#skillCount{
+  font-weight:700;
+  color:var(--primary);
+}
+.skill-clear{
+  border:none;
+  background:none;
+  color:var(--primary);
+  font-size:13px;
+  cursor:pointer;
+  padding:0;
+}
+
+/* 검색 */
+.skill-search{
+  margin-top:8px;
+  margin-bottom:10px;
+  display:flex;
+  align-items:center;
+  gap:8px;
+  padding:8px 10px;
+  border-radius:8px;
+  border:1px solid var(--line);
+  background:#ffffff;
+}
+.skill-search-icon{
+  font-size:14px;
+  color:#9ca3af;
+}
+.skill-search input{
+  border:none;
+  outline:none;
+  flex:1;
+  font-size:14px;
+}
+
+/* 본문 2단 레이아웃 */
+.skill-body{
+  display:flex;
+  border-radius:10px;
+  border:1px solid var(--line);
+  overflow:hidden;
+  background:#ffffff;
+  height:260px;
+}
+
+/* 좌측 카테고리 */
+.skill-category-list{
+  width:32%;
+  border-right:1px solid var(--line);
+  background:#f9fafb;
+  overflow-y:auto;
+}
+.skill-category-item{
+  padding:10px 14px;
+  font-size:14px;
+  cursor:pointer;
+  border-bottom:1px solid #f1f1f1;
+}
+.skill-category-item.active{
+  background:#e5edff;
+  color:#1f2937;
+  font-weight:600;
+}
+
+/* 우측 기술 목록 */
+.skill-item-list{
+  flex:1;
+  overflow-y:auto;
+}
+.skill-item{
+  padding:10px 14px;
+  border-bottom:1px solid #f5f5f5;
+  font-size:14px;
+  cursor:pointer;
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+}
+.skill-item.selected{
+  background:#eef3ff;
+  color:#111827;
+  font-weight:600;
+}
+.skill-item span{
+  pointer-events:none;
+}
+.skill-item-check{
+  font-size:12px;
+  color:var(--primary);
+}
+
+/* 선택된 기술 태그 */
+.skill-selected{
+  margin-top:10px;
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+}
+.skill-tag{
+  padding:6px 10px;
+  border-radius:999px;
+  background:#e5edff;
+  font-size:12px;
+  display:flex;
+  align-items:center;
+  gap:6px;
+}
+.skill-tag-remove{
+  cursor:pointer;
+  font-size:11px;
+}
+
+/* ========== 툴 숙련도 ========== */
+.tool-section{
+  margin-top:30px;
+}
+.tool-add-row{
+  display:flex;
+  gap:10px;
+  align-items:center;
+  margin-bottom:12px;
+}
+.tool-add-row input{
+  flex:1;
+  padding:10px 12px;
+  border-radius:8px;
+  border:1px solid var(--line);
+  background:#f5f5f5;
+  font-size:14px;
+}
+.tool-add-row select{
+  width:120px;
+  padding:10px;
+  border-radius:8px;
+  border:1px solid var(--line);
+  background:#f5f5f5;
+  font-size:14px;
+}
+.tool-add-row button{
+  padding:10px 14px;
+  border-radius:8px;
+  border:none;
+  background:var(--primary);
+  color:#fff;
+  font-size:14px;
+  font-weight:600;
+  cursor:pointer;
+}
+.tool-add-row button:hover{
+  background:#0044cc;
+}
+
+/* 툴 리스트 */
+.tool-list{
+  border:1px solid var(--line);
+  border-radius:10px;
+  background:#fafafa;
+}
+.tool-item{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  padding:10px 14px;
+  border-bottom:1px solid #f0f0f0;
+  font-size:14px;
+}
+.tool-item:last-child{
+  border-bottom:none;
+}
+.tool-stars{
+  color:#facc15;
+  margin-right:8px;
+}
+.tool-remove{
+  font-size:12px;
+  color:#ef4444;
+  cursor:pointer;
+}
+
+/* ========== 자격증 / 강점 / 스타일 ========== */
+.form-group{
+  margin-top:16px;
+}
+.form-group label{
+  font-size:14px;
+  font-weight:700;
+  display:block;
+  margin-bottom:6px;
+}
+.form-group input,
+.form-group textarea{
+  width:100%;
+  padding:12px 14px;
+  border-radius:10px;
+  border:1px solid var(--line);
+  background:#f5f5f5;
+  font-size:14px;
+}
+.form-group textarea{
+  resize:vertical;
+  min-height:90px;
+}
+.tag-wrap{
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+  margin-top:8px;
+}
+.small-tag{
+  padding:6px 10px;
+  border-radius:999px;
+  background:#e5edff;
+  font-size:12px;
+}
+.small-tag span{
+  margin-left:4px;
+  cursor:pointer;
+  color:#4b5563;
+}
+
+/* 체크박스 */
+.check-wrap{
+  margin-top:8px;
+  display:flex;
+  flex-direction:column;
+  gap:7px;
+  font-size:14px;
+}
+.check-row{
+  display:flex;
+  align-items:center;
+  gap:8px;
+}
+
+/* NEXT BTN */
+.next-button{
+  margin-top:30px;
+  padding:14px 26px;
+  background:var(--primary);
+  color:#fff;
+  border:none;
+  border-radius:8px;
+  font-size:16px;
+  font-weight:700;
+  cursor:pointer;
+}
+.next-button:hover{ background:#0044cc; }
+
+.cert-add-btn {
+  margin-top: 10px;   /* 🔥 입력란과 버튼 사이 간격 생성 */
+  padding: 8px 14px;
+  background: #f5f7ff;
+  border: 1px solid #d5e0ff;
+  border-radius: 8px;
+  cursor: pointer;    /* 🔥 손바닥 커서 */
+  font-size: 13px;
+  color: #111827;
+  font-weight: 600;
+  transition: 0.15s;
+}
+
+.cert-add-btn:hover {
+  background: #e8efff;
+}
+
+</style>
+</head>
+
+<body>
+
+<div class="wrapper">
+
+  <!-- ASIDE -->
+  <aside>
+    <div class="aside-title">전문가 등록</div>
+    <div class="menu-item" onclick="goStep('intro')">전문가 소개</div>
+    <div class="menu-item" onclick="goStep('career')">경력 사항</div>
+    <div class="menu-item active" onclick="goStep('skill')">전문 역량 & 인증</div>
+    <div class="menu-item" onclick="goStep('brand')">브랜드 스토리</div>
+  </aside>
+
+  <!-- CONTENT -->
+  <section class="content">
+    <h2>전문 역량 & 인증</h2>
+
+    <!-- ========== 기술 스택 선택 ========== -->
+    <div class="skill-card">
+      <div class="skill-header">
+        <div class="skill-header-left">
+          <div class="skill-header-title">보유 기술 스택</div>
+          <div class="skill-header-desc">보유하고 있는 기술을 선택해 주세요. 최대 20개까지 선택 가능합니다.</div>
+        </div>
+        <div class="skill-header-right">
+          <div><span id="skillCount">0</span>/20</div>
+          <button type="button" class="skill-clear" onclick="clearSkills()">전체삭제</button>
+        </div>
+      </div>
+
+      <div class="skill-search">
+        <span class="skill-search-icon">🔍</span>
+        <input id="skillSearch" type="text" placeholder="기술 검색" />
+      </div>
+
+      <div class="skill-body">
+        <div class="skill-category-list" id="skillCategoryList"></div>
+        <div class="skill-item-list" id="skillItemList"></div>
+      </div>
+
+      <div class="skill-selected" id="skillSelected"></div>
+    </div>
+
+    <!-- ========== 툴 숙련도 ========== -->
+    <div class="tool-section">
+      <div class="section-title">툴 숙련도</div>
+
+      <div class="tool-add-row">
+        <input id="toolNameInput" type="text" placeholder="툴 이름 (예: Figma, Photoshop)" />
+        <select id="toolLevelInput">
+          <option value="1">★ 1</option>
+          <option value="2">★★ 2</option>
+          <option value="3" selected>★★★ 3</option>
+          <option value="4">★★★★ 4</option>
+          <option value="5">★★★★★ 5</option>
+        </select>
+        <button type="button" onclick="addTool()">추가</button>
+      </div>
+
+      <div class="tool-list" id="toolList"></div>
+    </div>
+
+    <!-- 자격증 / 인증 -->
+    <div class="section-title">자격증 / 인증</div>
+    <div class="form-group">
+      <label for="certInput">자격증명</label>
+      <input id="certInput" type="text" placeholder="예: 정보처리기능사, GTQ 1급 등" />
+    </div>
+    <button type="button" class="cert-add-btn" onclick="addCertificate()">+ 자격증 추가</button>
+
+    <div class="tag-wrap" id="certList"></div>
+
+    <!-- 핵심 강점 -->
+    <div class="section-title">핵심 강점</div>
+    <div class="form-group">
+      <label for="strengthText">핵심 강점 및 차별점</label>
+      <textarea id="strengthText" placeholder="예: 쇼핑몰 UX 최적화 경험 다수, 데이터 기반 A/B 테스트 진행, 브랜드 톤에 맞춘 디자인 등"></textarea>
+    </div>
+
+    <!-- 작업 스타일 -->
+    <div class="section-title">작업 스타일 (선택)</div>
+    <div class="check-wrap">
+      <label class="check-row">
+        <input type="checkbox" class="style-check" value="빠른 피드백" />
+        빠른 피드백 제공
+      </label>
+      <label class="check-row">
+        <input type="checkbox" class="style-check" value="상세 기획서 제공" />
+        상세 기획서 제공
+      </label>
+      <label class="check-row">
+        <input type="checkbox" class="style-check" value="고객 맞춤형 설계" />
+        고객 맞춤형 설계
+      </label>
+      <label class="check-row">
+        <input type="checkbox" class="style-check" value="지속적인 유지보수" />
+        지속적인 유지보수 / 관리
+      </label>
+    </div>
+
+    <button class="next-button" type="button" onclick="saveStep3(); goNext()">
+  다음 단계로 이동
+</button>
+
+
+  </section>
+</div>
+
+<script>
+/* ==========================================================
+   BlueOn 전문가 등록 – Step3 전문역량 & 인증
+   (기술 스택 선택 · 툴 숙련도 · 자격증 · 강점 · 작업스타일)
+   localStorage 완전 작동 최종본
+========================================================== */
+
+/* --------------------------- 데이터 --------------------------- */
+let selectedSkills = [];
+let selectedCategory = "design";
+let toolSkills = [];
+let certificates = [];
+
+/* --------------------------- 요소들 --------------------------- */
+const skillCategoryList = document.getElementById("skillCategoryList");
+const skillItemList = document.getElementById("skillItemList");
+const skillSelected = document.getElementById("skillSelected");
+const skillSearch = document.getElementById("skillSearch");
+const skillCount = document.getElementById("skillCount");
+
+const toolNameInput = document.getElementById("toolNameInput");
+const toolLevelInput = document.getElementById("toolLevelInput");
+const toolList = document.getElementById("toolList");
+
+const certInput = document.getElementById("certInput");
+const certList = document.getElementById("certList");
+
+const strengthText = document.getElementById("strengthText");
+const styleChecks = document.querySelectorAll(".style-check");
+
+/* ==========================================================
+    기술 카테고리 + 옵션
+========================================================== */
+const skillCategories = [
+  { key:'design', label:'디자인' },
+  { key:'webapp', label:'웹/앱 개발' },
+  { key:'marketing', label:'마케팅' },
+  { key:'shop', label:'쇼핑몰 구축' },
+  { key:'brand', label:'브랜드 기획' },
+  { key:'content', label:'콘텐츠 제작' },
+];
+
+const skillData = {
+  design:[
+    "Figma","Adobe Photoshop","Adobe Illustrator","Adobe XD","Sketch",
+    "UI 디자인","UX 설계","웹 디자인","앱 디자인","BX/BI 디자인",
+    "로고 디자인","배너 디자인","상세페이지 디자인","패키지 디자인",
+    "인포그래픽","프레젠테이션 디자인","그래픽 디자인","타이포그래피"
+  ],
+  webapp:[
+    "HTML","CSS","JavaScript","TypeScript","React","Next.js","Vue.js",
+    "Node.js","Express","PHP","Laravel","Python","Django","Flask",
+    "MySQL","PostgreSQL","MongoDB","REST API","GraphQL","AWS","Firebase"
+  ],
+  marketing:[
+    "퍼포먼스 마케팅","구글 애즈","페이스북/인스타 광고","네이버 광고",
+    "SEO 최적화","콘텐츠 마케팅","브랜드 캠페인 기획","데이터 분석",
+    "GA 분석","CRM 마케팅","이메일 마케팅","랜딩페이지 최적화"
+  ],
+  shop:[
+    "쇼핑몰 기획","카페24 구축","스마트스토어 구축","자사몰 구축",
+    "상품 상세페이지 기획","상품 업로드/카테고리 구성","주문/결제 플로우 설계",
+    "프로모션 페이지 제작","쇼핑몰 운영 컨설팅","리뉴얼 기획"
+  ],
+  brand:[
+    "브랜드 컨셉 기획","브랜드 네이밍","브랜드 스토리텔링",
+    "브랜드 아이덴티티(BI) 설계","브랜드 가이드 제작",
+    "톤앤매너 정의","카피라이팅","슬로건 제작","포지셔닝 전략"
+  ],
+  content:[
+    "블로그 글 작성","랜딩페이지 카피 작성","SNS 콘텐츠 기획",
+    "영상 스크립트 작성","영상 편집","리엘스/쇼츠 편집",
+    "썸네일 디자인","사진 촬영 기획","콘텐츠 캘린더 설계",
+    "뉴스레터 작성"
+  ]
+};
+
+/* ==========================================================
+    저장 / 불러오기
+========================================================== */
+function saveStep3() {
+  const data = {
+    selectedSkills,
+    toolSkills,
+    certificates,
+    strength: strengthText.value,
+    styles: [...styleChecks].filter(c => c.checked).map(c => c.value)
+  };
+  localStorage.setItem("expert_step3", JSON.stringify(data));
+}
+
+function loadStep3() {
+  const saved = localStorage.getItem("expert_step3");
+  if (!saved) return;
+
+  const data = JSON.parse(saved);
+
+  selectedSkills = data.selectedSkills || [];
+  toolSkills = data.toolSkills || [];
+  certificates = data.certificates || [];
+
+  strengthText.value = data.strength || "";
+
+  styleChecks.forEach(chk => {
+    chk.checked = (data.styles || []).includes(chk.value);
+  });
+
+  skillCount.textContent = selectedSkills.length;
+}
+
+/* ==========================================================
+    UI 렌더링
+========================================================== */
+function renderCategoryList() {
+  skillCategoryList.innerHTML = "";
+
+  skillCategories.forEach(cat => {
+    const div = document.createElement("div");
+    div.className = "skill-category-item";
+    if (cat.key === selectedCategory) div.classList.add("active");
+    div.textContent = cat.label;
+    div.onclick = () => {
+      selectedCategory = cat.key;
+      renderCategoryList();
+      renderSkillItems();
+    };
+    skillCategoryList.appendChild(div);
+  });
+}
+
+function renderSkillItems() {
+  skillItemList.innerHTML = "";
+
+  let list = skillData[selectedCategory] || [];
+  const query = skillSearch.value.trim();
+  if (query) list = list.filter(skill => skill.includes(query));
+
+  list.forEach(skill => {
+    const div = document.createElement("div");
+    div.className = "skill-item";
+    if (selectedSkills.includes(skill)) div.classList.add("selected");
+
+    div.innerHTML = `
+      <span>${skill}</span>
+      ${selectedSkills.includes(skill) ? '<span class="skill-item-check">✔</span>' : ''}
+    `;
+
+    div.onclick = () => toggleSkill(skill);
+    skillItemList.appendChild(div);
+  });
+}
+
+function renderSelectedTags() {
+  skillSelected.innerHTML = "";
+  selectedSkills.forEach(skill => {
+    const tag = document.createElement("div");
+    tag.className = "skill-tag";
+    tag.innerHTML = `${skill} <span class="skill-tag-remove" onclick="removeTag('${skill}')">✕</span>`;
+    skillSelected.appendChild(tag);
+  });
+}
+
+function renderTools() {
+  toolList.innerHTML = "";
+  toolSkills.forEach((tool, i) => {
+    const div = document.createElement("div");
+    div.className = "tool-item";
+    div.innerHTML = `
+      <div><span class="tool-stars">${"★".repeat(tool.level)}</span> ${tool.name}</div>
+      <span class="tool-remove" onclick="removeTool(${i})">삭제</span>
+    `;
+    toolList.appendChild(div);
+  });
+}
+
+function renderCertificates() {
+  certList.innerHTML = "";
+  certificates.forEach((c, i) => {
+    const el = document.createElement("div");
+    el.className = "small-tag";
+    el.innerHTML = `${c} <span onclick="removeCertificate(${i})">✕</span>`;
+    certList.appendChild(el);
+  });
+}
+
+/* ==========================================================
+    스킬/툴/자격증 기능
+========================================================== */
+function toggleSkill(skill) {
+  const index = selectedSkills.indexOf(skill);
+
+  if (index === -1) {
+    if (selectedSkills.length >= 20) {
+      showToast("기술은 최대 20개까지 선택할 수 있습니다.");
+      return;
+    }
+    selectedSkills.push(skill);
+  } else {
+    selectedSkills.splice(index, 1);
+  }
+
+  skillCount.textContent = selectedSkills.length;
+  renderSkillItems();
+  renderSelectedTags();
+  saveStep3();
+}
+
+function removeTag(skill) {
+  selectedSkills = selectedSkills.filter(s => s !== skill);
+  skillCount.textContent = selectedSkills.length;
+  renderSkillItems();
+  renderSelectedTags();
+  saveStep3();
+}
+
+function addTool() {
+  const name = toolNameInput.value.trim();
+  if (!name) return;
+
+  toolSkills.push({ name, level: toolLevelInput.value });
+  toolNameInput.value = "";
+  renderTools();
+  saveStep3();
+}
+
+function removeTool(i) {
+  toolSkills.splice(i, 1);
+  renderTools();
+  saveStep3();
+}
+
+function addCertificate() {
+  const name = certInput.value.trim();
+  if (!name) return;
+
+  certificates.push(name);
+  certInput.value = "";
+  renderCertificates();
+  saveStep3();
+}
+
+function removeCertificate(i) {
+  certificates.splice(i, 1);
+  renderCertificates();
+  saveStep3();
+}
+
+/* ==========================================================
+    초기 실행 (🔥 순서 중요)
+========================================================== */
+window.addEventListener("DOMContentLoaded", () => {
+
+  /* 1) 저장된 값 먼저 불러오기 */
+  loadStep3();
+
+  /* 2) UI 렌더링 */
+  renderCategoryList();
+  renderSkillItems();
+  renderSelectedTags();
+  renderTools();
+  renderCertificates();
+});
+
+/* ==========================================================
+    다음 스텝 이동
+========================================================== */
+function goStep(step) {
+  const map = {
+    intro: "expert-register-step1.html",
+    career: "expert-register-step2.html",
+    skill: "expert-register-step3.html",
+    brand: "expert-register-step4.html"
+  };
+  location.href = map[step];
+}
+function goNext() {
+  location.href = "expert-register-step4.html";
+}
+
+/* ==========================================================
+    Toast
+========================================================== */
+function showToast(msg){
+  alert(msg);
+}
+</script>
+
+
+</body>
+</html>

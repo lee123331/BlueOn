@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BlueOn | 브랜드 로드맵</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;800&display=swap" rel="stylesheet">
+
+<style>
+:root {
+  --primary: #0056ff;
+  --primary-light: #eaf1ff;
+  --bg: #f9fafb;
+  --white: #ffffff;
+  --line: #e5e7eb;
+  --text-dark: #111827;
+  --text-gray: #6b7280;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  font-family: "Noto Sans KR", sans-serif;
+  background: var(--bg);
+  color: var(--text-dark);
+}
+
+/* HEADER */
+header {
+  width: 100%;
+  background: var(--white);
+  border-bottom: 1px solid var(--line);
+  padding: 18px 40px;
+  font-weight: 700;
+  font-size: 22px;
+  cursor: pointer;
+  color: var(--primary);
+}
+
+/* HERO */
+.hero {
+  max-width: 900px;
+  margin: 40px auto 25px auto;
+  background: var(--white);
+  padding: 35px 40px;
+  border-radius: 20px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.05);
+}
+.hero h2 { font-size: 28px; font-weight: 800; margin-bottom: 10px; }
+.hero p { font-size: 16px; color: var(--text-gray); margin-bottom: 18px; }
+
+/* 진행률 바 */
+.progress-wrapper { margin-top: 20px; width: 100%; }
+.progress-label { font-size: 16px; font-weight: 700; margin-bottom: 10px; }
+.progress-bar-bg {
+  width: 100%;
+  height: 10px;
+  background: #e5e7eb;
+  border-radius: 6px;
+}
+.progress-bar-fill {
+  height: 10px;
+  width: 0%;
+  background: #0056ff;
+  border-radius: 6px;
+  transition: width 0.4s;
+}
+
+/* 로드맵 */
+.roadmap {
+  margin-top: 25px;
+  display: flex;
+  gap: 15px;
+  align-items: center;
+  font-size: 15px;
+  font-weight: 600;
+}
+.roadmap .dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--line);
+}
+.roadmap .active { background: var(--primary); }
+
+/* SECTION TITLE */
+.section-title {
+  max-width: 900px;
+  margin: 40px auto 15px auto;
+  font-size: 20px;
+  font-weight: 700;
+}
+
+/* SERVICE CARDS */
+.card-list {
+  max-width: 900px;
+  margin: 0 auto 40px auto;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+.card {
+  background: var(--white);
+  border-radius: 16px;
+  padding: 25px 25px;
+  box-shadow: 0 4px 14px rgba(0,0,0,0.06);
+  cursor: pointer;
+  transition: 0.2s;
+}
+.card-title { font-size: 19px; font-weight: 700; margin-bottom: 6px; }
+.card-desc { color: var(--text-gray); font-size: 15px; }
+.card-arrow { margin-top: 12px; font-size: 15px; color: var(--primary); font-weight: 600; }
+
+/* CTA */
+.cta-wrap {
+  max-width: 900px;
+  margin: 0 auto 60px auto;
+  display: flex;
+  justify-content: space-between;
+}
+.cta-btn {
+  background: var(--primary);
+  padding: 14px 22px;
+  border-radius: 10px;
+  color: white;
+  cursor: pointer;
+  font-weight: 700;
+}
+.cta-btn:hover { background: #003fcc; }
+
+.cta-sub {
+  background: #e5e7eb;
+  color: #111827;
+  padding: 14px 22px;
+  border-radius: 10px;
+  cursor: pointer;
+  font-weight: 700;
+}
+</style>
+</head>
+
+<body>
+
+<header onclick="location.href='index.html'">BlueOn</header>
+
+<!-- HERO -->
+<div class="hero">
+  <h2>브랜드 설계 단계</h2>
+  <p>내 브랜드의 뼈대를 만드는 핵심 단계입니다.</p>
+
+  <!-- 진행률 -->
+  <div class="progress-wrapper">
+    <div class="progress-label">현재 단계 진행률:
+      <span id="progressPercent">0%</span>
+    </div>
+    <div class="progress-bar-bg">
+      <div id="progressBar" class="progress-bar-fill"></div>
+    </div>
+  </div>
+
+  <!-- 로드맵 -->
+  <div class="roadmap">
+    <div class="dot active"></div>
+    <span>설계</span>
+    —
+    <div class="dot"></div>
+    <span>확산</span>
+    —
+    <div class="dot"></div>
+    <span>확장</span>
+  </div>
+</div>
+
+<!-- SECTION TITLE -->
+<div class="section-title">브랜드 설계에 필요한 작업들</div>
+
+<!-- SERVICE CARDS -->
+<div class="card-list">
+
+  <div class="card" onclick="location.href='service-logo.html'">
+    <div class="card-title">🧩 로고 디자인</div>
+    <div class="card-desc">브랜드의 얼굴이 되는 핵심 아이덴티티입니다.</div>
+    <div class="card-arrow">추천 전문가 보기 →</div>
+  </div>
+
+  <div class="card" onclick="location.href='service-font&detailpage.html'">
+    <div class="card-title">🎨 상세페이지·배너·브랜드 이미지 제작</div>
+    <div class="card-desc">고객에게 일관된 인상을 주는 비주얼 설계 단계</div>
+    <div class="card-arrow">추천 전문가 보기 →</div>
+  </div>
+
+  <div class="card" onclick="location.href='service-marketing&copyrighting.html'">
+    <div class="card-title">✍ SNS 운영 + SEO 상위노출 + 광고 집행 대행</div>
+    <div class="card-desc">브랜드 서사와 메시지를 만드는 핵심 단계</div>
+    <div class="card-arrow">추천 전문가 보기 →</div>
+  </div>
+
+  <div class="card" onclick="location.href='service-dev.html'">
+    <div class="card-title">💻 스마트스토어 최적화 + 자사몰 구축 + 랜딩페이지 제작</div>
+    <div class="card-desc">결제·회원관리 등 핵심 기능 개발</div>
+    <div class="card-arrow">추천 전문가 보기 →</div>
+  </div>
+
+</div>
+
+<!-- CTA -->
+<div class="cta-wrap">
+  <div class="cta-btn" onclick="location.href='brand-spread.html'">다음 단계(브랜드 확산) →</div>
+  <div class="cta-sub" onclick="location.href='my-brand.html'">나의 브랜드로 돌아가기</div>
+</div>
+
+<script>
+/* ==========================================================
+    1) Task 정의
+========================================================== */
+const TASK_KEYS = [
+  "task_logo",        
+  "task_visual",      
+  "task_story",       
+  "task_programming"  
+];
+
+/* ==========================================================
+    2) 서비스명 + 카테고리 자동 분석 (귀찮음 해결 완성판)
+========================================================== */
+
+function findTaskAuto(service) {
+  if (!service) return null;
+
+  const text = `
+    ${service.title || ""}
+    ${service.main_category || ""}
+    ${service.sub_category || ""}
+  `.replace(/\s+/g, ""); // 공백 제거
+
+  const lower = text.toLowerCase();
+
+  console.log("🔍 자동 분류 텍스트:", text);
+
+  // -----------------------------
+  // 로고 / 키비주얼
+  // -----------------------------
+  if (text.includes("로고") || text.includes("키비주얼") || lower.includes("logo")) {
+    return "task_logo";
+  }
+
+  // -----------------------------
+  // 상세페이지 / 배너 / 이미지 / 디자인류
+  // -----------------------------
+  if (
+    text.includes("상세페이지") ||
+    text.includes("배너") ||
+    text.includes("브랜드이미지") ||
+    text.includes("카드뉴스") ||
+    lower.includes("detail") ||
+    lower.includes("banner") ||
+    lower.includes("visual")
+  ) {
+    return "task_visual";
+  }
+
+  // -----------------------------
+  // 마케팅 / SEO / SNS / 광고 / 카피
+  // -----------------------------
+  if (
+    text.includes("seo") ||
+    text.includes("광고") ||
+    text.includes("카피") ||
+    text.includes("블로그") ||
+    text.includes("sns") ||
+    lower.includes("marketing")
+  ) {
+    return "task_story";
+  }
+
+  // -----------------------------
+  // 개발 / 쇼핑몰 구축 / 스마트스토어 / 홈페이지
+  // -----------------------------
+  if (
+    text.includes("개발") ||
+    text.includes("자사몰") ||
+    text.includes("스마트스토어") ||
+    text.includes("홈페이지") ||
+    text.includes("랜딩페이지") ||
+    lower.includes("dev")
+  ) {
+    return "task_programming";
+  }
+
+  // 여전히 못 찾으면 로그 찍고 null
+  console.warn("❗ 분류 실패 → 기본값 null");
+  return null;
+}
+
+/* ==========================================================
+    3) Task 저장
+========================================================== */
+function completeBrandTask(taskKey) {
+  if (!taskKey) return false;
+
+  if (localStorage.getItem(taskKey) === "done") return false;
+
+  localStorage.setItem(taskKey, "done");
+  return true;
+}
+
+/* ==========================================================
+    4) 진행률 계산
+========================================================== */
+function computeProgress() {
+  let done = 0;
+  TASK_KEYS.forEach(k => {
+    if (localStorage.getItem(k) === "done") done++;
+  });
+  return Math.round((done / TASK_KEYS.length) * 100);
+}
+
+function updateProgressUI() {
+  const percent = computeProgress();
+  document.getElementById("progressPercent").textContent = percent + "%";
+  document.getElementById("progressBar").style.width = percent + "%";
+}
+
+/* ==========================================================
+    5) 로드 시 초기화 (브랜드 첫 생성자가 아니라면 유지)
+========================================================== */
+async function initProgress() {
+  const res = await fetch("/brand/check");
+  const data = await res.json();
+
+  const hasLocal = TASK_KEYS.some(k => localStorage.getItem(k) === "done");
+
+  if (!data.hasPlan && !hasLocal) {
+    TASK_KEYS.forEach(k => localStorage.removeItem(k));
+  }
+
+  updateProgressUI();
+}
+
+/* ==========================================================
+    6) 결제 성공 시 호출하는 함수 (이것만 부르면 자동 매핑됨)
+========================================================== */
+window.applyBrandTaskFromService = function(service) {
+  const taskKey = findTaskAuto(service);
+  console.log("📝 자동 분류 Task:", taskKey);
+  completeBrandTask(taskKey);
+  updateProgressUI();
+};
+
+initProgress();
+</script>
+
+
+</body>
+</html>

@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>로그인 | BlueOn</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --primary:#0056ff;
+    --line:#e5e7eb;
+    --text:#111827;
+    --muted:#6b7280;
+    --white:#ffffff;
+    --error:#ef4444;
+  }
+
+  html,body { height:100%; margin:0; padding:0; }
+
+  body {
+    font-family:"Noto Sans KR",sans-serif;
+    background:#f9fafb;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+  }
+
+  .sheet {
+    width: calc(100% - 60px);
+    max-width: 450px;
+    background: var(--white);
+    border-radius: 16px;
+    border: 1px solid var(--line);
+    overflow: hidden;
+    box-shadow: 0 4px 25px rgba(0,0,0,0.05);
+  }
+
+  .header {
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    position:relative;
+    padding:40px 24px 30px;
+    border-bottom:1px solid var(--line);
+  }
+
+  .header span {
+    font-size:22px;
+    font-weight:800;
+    color:var(--primary);
+  }
+
+  .close {
+    position:absolute;
+    right:16px;
+    top:16px;
+    border:0;
+    background:transparent;
+    font-size:22px;
+    cursor:pointer;
+    color:#9ca3af;
+  }
+
+  .body { padding:40px 36px 30px; }
+
+  /* 기존 input */
+  .input {
+    display:block;
+    width:100%;
+    padding:14px 16px;
+    border-radius:10px;
+    border:1px solid var(--line);
+    font-size:15px;
+    margin-bottom:4px;
+    outline:none;
+    transition:0.25s;
+    background:#fff;
+  }
+
+  .input:focus {
+    border-color:var(--primary);
+    box-shadow:0 0 0 2px rgba(0,86,255,0.12);
+  }
+
+  /* ❗오류 input 스타일 */
+  .input.error {
+    border-color: var(--error);
+    background:#fff5f5;
+  }
+
+  /* 오류 메시지 */
+  .error-msg {
+    font-size:13px;
+    color:var(--error);
+    margin:4px 2px 12px;
+    display:none;
+  }
+
+  .error-msg.show {
+    display:block;
+  }
+
+  .row {
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    margin:16px 0 20px;
+    font-size:13px;
+    color:var(--muted);
+  }
+
+  .btn {
+    width:100%;
+    padding:14px;
+    border-radius:10px;
+    background:#111;
+    color:#fff;
+    font-weight:700;
+    border:none;
+    cursor:pointer;
+    font-size:15px;
+    transition:0.25s;
+  }
+
+  .btn:hover { background:#222; }
+
+  .footer-note {
+    text-align:center;
+    font-size:13px;
+    color:#9ca3af;
+    margin-top:28px;
+  }
+
+  .footer-note a {
+    color:#111;
+    font-weight:600;
+    text-decoration:none;
+  }
+
+  /* 모달 그대로 */
+  .modal {
+    position: fixed;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%) scale(0.8);
+    background: #fff;
+    border-radius: 16px;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+    padding: 40px 50px;
+    text-align: center;
+    opacity: 0;
+    pointer-events: none;
+    transition: all 0.4s ease;
+    z-index: 9999;
+  }
+  .modal.active { opacity: 1; pointer-events: auto; transform: translate(-50%, -50%) scale(1); }
+  .modal-check { width:80px; height:80px; border-radius:50%; border:4px solid #00c853; margin:0 auto 20px; }
+  .modal.error .modal-check { border-color: var(--error); }
+
+.input {
+  width: calc(100% - 32px); /* 양쪽 여백 넉넉하게 */
+  padding: 14px 16px;
+  margin: 10px auto;
+  display: block;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  font-size: 15px;
+  outline: none;
+  transition: 0.25s;
+}
+
+
+</style>
+</head>
+
+<body>
+
+  <div class="sheet">
+    <div class="header">
+      <span>BlueOn</span>
+      <button class="close" onclick="closeLogin()">×</button>
+    </div>
+
+    <div class="body">
+      <form onsubmit="return submitLogin(event)">
+
+        <!-- 이메일 -->
+        <input class="input" id="email" type="text" placeholder="이메일을 입력해 주세요.">
+        <p class="error-msg" id="email-error">올바른 이메일 주소가 아닙니다.</p>
+
+        <!-- 비밀번호 -->
+        <input class="input" id="password" type="password" placeholder="비밀번호를 입력해 주세요.">
+        <p class="error-msg" id="pw-error">영문, 숫자, 특수문자 포함 8자 이상 입력해주세요.</p>
+
+        <div class="row">
+          <label><input type="checkbox"> 로그인 유지</label>
+          <a href="reset-password.html" style="color:#6b7280;text-decoration:none;">
+  아이디/비밀번호 찾기
+</a>
+
+        </div>
+
+        <button class="btn" type="submit">로그인</button>
+      </form>
+
+      <div class="footer-note">
+        아직 BlueOn 회원이 아니신가요?
+        <a href="signup.html">회원가입</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- 모달 -->
+  <div id="modal" class="modal">
+    <div class="modal-check"></div>
+    <h3 id="modalTitle">로그인 완료!</h3>
+    <p id="modalText">잠시 후 메인 페이지로 이동합니다.</p>
+  </div>
+
+<script>
+const API_URL = "http://localhost:3000";
+
+/* ---------- 입력 즉시 오류 검사 ---------- */
+document.addEventListener("DOMContentLoaded", () => {
+  const email = document.getElementById("email");
+  const password = document.getElementById("password");
+  const emailError = document.getElementById("email-error");
+  const pwError = document.getElementById("pw-error");
+
+  // 이메일 검사
+  email.addEventListener("input", () => {
+    const regex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!regex.test(email.value.trim())) {
+      email.classList.add("error");
+      emailError.classList.add("show");
+    } else {
+      email.classList.remove("error");
+      emailError.classList.remove("show");
+    }
+  });
+
+  // 비밀번호 검사 (첫 글자 입력부터 바로 검사)
+  password.addEventListener("input", () => {
+    const regex = /^(?=.*[A-Za-z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=\[\]{};':",.<>/?]).{8,}$/;
+    if (!regex.test(password.value)) {
+      password.classList.add("error");
+      pwError.classList.add("show");
+    } else {
+      password.classList.remove("error");
+      pwError.classList.remove("show");
+    }
+  });
+});
+
+/* ---------- 기존 로그인 코드 그대로 유지 ---------- */
+function closeLogin() {
+  if (window.top !== window.self) {
+    window.parent.postMessage({type:'CLOSE_LOGIN'}, '*');
+  } else {
+    history.back();
+  }
+}
+
+async function submitLogin(e) {
+  e.preventDefault();
+
+  const email = document.getElementById("email").value.trim();
+  const password = document.getElementById("password").value.trim();
+
+  try {
+    await fetch(`${API_URL}/logout`, { method: "POST", credentials: "include" });
+
+    const res = await fetch(`${API_URL}/login`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ email, password })
+    });
+
+    const data = await res.json();
+
+    if (res.ok && data.success) {
+      showModal("로그인 성공!", "잠시 후 메인 페이지로 반영됩니다.", false);
+      setTimeout(() => {
+        if (window.top !== window.self) {
+          window.parent.postMessage({ type: "LOGIN_SUCCESS" }, "*");
+          window.parent.postMessage({ type: "CLOSE_LOGIN" }, "*");
+        } else {
+          window.location.href = "index.html";
+        }
+      }, 1200);
+    } else {
+      showModal("로그인 실패", data.message || "비밀번호를 확인해 주세요.", true);
+    }
+
+  } catch (err) {
+    showModal("서버 오류", "서버와 연결할 수 없습니다.", true);
+  }
+}
+
+// 모달 함수
+function showModal(title, text, isError) {
+  const modal = document.getElementById("modal");
+  const modalTitle = document.getElementById("modalTitle");
+  const modalText = document.getElementById("modalText");
+
+  modal.classList.remove("error", "active");
+  modalTitle.textContent = title;
+  modalText.textContent = text;
+
+  if (isError) modal.classList.add("error");
+  modal.classList.add("active");
+
+  setTimeout(() => modal.classList.remove("active", "error"), 2500);
+}
+</script>
+
+</body>
+</html>

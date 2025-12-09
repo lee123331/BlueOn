@@ -1,0 +1,1278 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>BlueOn | 전문가 매칭 플랫폼</title>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;800&display=swap" rel="stylesheet">
+
+  <style>
+    :root {
+      --primary: #0056ff;
+      --primary-light: #eaf1ff;
+      --bg: #f9fafb;
+      --text-dark: #111827;
+      --text-gray: #6b7280;
+      --white: #ffffff;
+      --line: #e5e7eb;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: "Noto Sans KR", sans-serif;
+      background: var(--bg);
+      color: var(--text-dark);
+      transition: background 0.4s, color 0.4s;
+    }
+
+    /* HEADER */
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 18px 70px;
+      background: var(--white);
+      border-bottom: 1px solid var(--line);
+      transition: background 0.3s, border-color 0.3s;
+    }
+
+    .logo {
+      font-size: 22px;
+      font-weight: 800;
+      color: var(--primary);
+      cursor: pointer;
+    }
+
+    .auth-buttons {
+      display: flex;
+      align-items: center;
+    }
+
+    .auth-buttons button {
+      margin-left: 10px;
+      padding: 8px 16px;
+      border-radius: 8px;
+      border: 1px solid var(--primary);
+      background: var(--white);
+      color: var(--primary);
+      cursor: pointer;
+      font-weight: 500;
+      transition: 0.25s;
+    }
+    .auth-buttons button:hover { background: var(--primary); color: var(--white); }
+
+    /* 프로필 아이콘 + 드롭다운 */
+    #user-menu {
+      display: none;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .logout-btn {
+      border: 1px solid var(--line);
+      background: #fff;
+      color: #111;
+      padding: 8px 14px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 600;
+      transition: all 0.2s ease;
+    }
+    .logout-btn:hover { background: var(--primary); color: #fff; border-color: var(--primary); }
+
+    .profile-container {
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .profile-container img {
+      width: 42px;
+      height: 42px;
+      border-radius: 50%;
+      object-fit: cover;
+      cursor: pointer;
+      border: 2px solid #e5e7eb;
+      transition: all 0.25s ease;
+      background-color: #fff;
+    }
+    .profile-container img:hover { border-color: var(--primary); transform: scale(1.05); }
+
+    .dropdown {
+      display: none;
+      position: absolute;
+      right: 0;
+      top: 54px;
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 6px 24px rgba(0,0,0,0.15);
+      overflow: hidden;
+      z-index: 100;
+      min-width: 170px;
+    }
+    .dropdown a {
+      display: block;
+      padding: 12px 18px;
+      text-decoration: none;
+      color: #111;
+      font-size: 14px;
+      font-weight: 500;
+      white-space: nowrap;
+      transition: background 0.2s ease;
+    }
+    .dropdown a:hover { background: #f3f6ff; color: var(--primary); }
+
+    /* 다크모드 */
+    body.dark-mode {
+      --bg: #0c1324;
+      --white: #10182b;
+      --text-dark: #e8ecff;
+      --text-gray: #aeb9d8;
+      --line: #2a3550;
+      background: var(--bg);
+      color: var(--text-dark);
+    }
+    body.dark-mode header { background: #121b2f; border-color: #1c2642; }
+    body.dark-mode .auth-buttons button {
+      background: transparent; color: #cfd8ff; border-color: #3d4e88;
+    }
+    body.dark-mode .auth-buttons button:hover {
+      background: #2442a8; color: #fff; border-color: #2442a8;
+    }
+    body.dark-mode .dropdown { background: #18223c; box-shadow: 0 8px 25px rgba(0,0,0,0.4); }
+    body.dark-mode .dropdown a { color: #d9e2ff; }
+    body.dark-mode .dropdown a:hover { background: #2442a8; color: #fff; }
+
+    /* HERO SECTION */
+    .hero {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      max-width: 1200px;
+      margin: 100px auto 60px;
+      padding: 0 40px;
+      gap: 50px;
+    }
+    .hero-left { flex: 1; }
+
+    .hero-left h2 {
+      font-size: 42px;
+      font-weight: 800;
+      line-height: 1.3;
+      color: var(--text-dark);
+    }
+    .hero-left h2 span {
+      background: linear-gradient(90deg, #0056ff, #3c8cff);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .hero-left p { font-size: 17px; color: var(--text-gray); margin: 20px 0 35px; }
+
+    /* SEARCH BAR */
+    .search-bar {
+      display: flex;
+      align-items: center;
+      background: var(--white);
+      border-radius: 50px;
+      border: 1px solid #e5e7eb;
+      overflow: hidden;
+      max-width: 550px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+    }
+    .search-bar input {
+      flex: 1; border: none; padding: 14px 20px; font-size: 15px; outline: none; background: transparent; color: var(--text-dark);
+    }
+    .search-bar button {
+      background: var(--primary); color: white; border: none; padding: 14px 28px; font-weight: 600; cursor: pointer; transition: 0.2s;
+    }
+    .search-bar button:hover { background: #0044cc; }
+
+    /* CATEGORY ICONS */
+    .category-inline { display: flex; gap: 35px; flex-wrap: wrap; margin-top: 40px; }
+    .category { text-align: center; transition: 0.25s; cursor: pointer; }
+    .category:hover { transform: translateY(-5px); }
+    .category img {
+      width: 68px; height: 68px; margin-bottom: 8px;
+      filter: drop-shadow(0px 6px 10px rgba(0, 86, 255, 0.15));
+    }
+    .category p { font-size: 14px; font-weight: 500; }
+
+    /* BANNER */
+    .hero-banner {
+      flex: 0.9;
+      background: linear-gradient(160deg, #0056ff 0%, #4f8bff 100%);
+      color: white; border-radius: 22px; padding: 60px 40px;
+      box-shadow: 0 10px 30px rgba(0, 86, 255, 0.3);
+    }
+    body.dark-mode .hero-banner {
+      background: linear-gradient(160deg, #002b91 0%, #0048ff 100%);
+      box-shadow: 0 10px 30px rgba(0, 86, 255, 0.35);
+    }
+    .hero-banner h3 { font-size: 24px; font-weight: 700; margin-bottom: 18px; }
+    .hero-banner p { font-size: 15px; line-height: 1.6; opacity: 0.95; margin-bottom: 25px; }
+    .hero-banner button {
+      background: white; color: var(--primary); border: none; padding: 12px 28px; border-radius: 10px; font-weight: 600; cursor: pointer; transition: 0.3s;
+    }
+    .hero-banner button:hover { background: #f1f5ff; }
+
+    /* POPULAR SECTION */
+    .popular-section { background: var(--white); padding: 80px 40px; transition: background 0.4s; }
+    body.dark-mode .popular-section { background: #0f1729; }
+    .popular-box {
+      flex: 1; background: #fff; border-radius: 16px; padding: 30px;
+      box-shadow: 0 5px 18px rgba(0,0,0,0.06);
+      transition: background 0.3s, box-shadow 0.3s;
+    }
+    body.dark-mode .popular-box {
+      background: #16203a; box-shadow: 0 5px 25px rgba(0,0,0,0.3);
+    }
+    .popular-box h3 { font-size: 20px; font-weight: 800; margin-bottom: 20px; }
+    .popular-box img { width: 80px; height: 80px; display: block; margin: 0 auto 8px; }
+
+    footer {
+      background: var(--white); border-top: 1px solid var(--line);
+      text-align: center; padding: 40px 20px; font-size: 14px; color: var(--text-gray); margin-top: 80px;
+    }
+    body.dark-mode footer { background: #121b2f; color: #aab6d9; border-color: #1c2642; }
+
+/* ------------------------------------------------ */
+/* 🔔 알림 아이콘 (출력 아이콘 + 배지) */
+/* ------------------------------------------------ */
+.header-notice {
+  position: relative;
+  margin-left: 20px;
+  margin-right: 15px;
+  cursor: pointer;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.notice-icon {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* 반듯한 텍스트 종 아이콘 */
+.notice-bell {
+  font-size: 22px;
+  line-height: 1;
+  display: block;
+}
+
+/* 숫자 뱃지 */
+.notice-badge {
+  position: absolute;
+  top: -5px;
+  right: -8px;
+  background: #ff3b30;
+  color: #fff;
+  border-radius: 50%;
+  padding: 2px 6px;
+  font-size: 11px;
+  font-weight: bold;
+  display: none;
+}
+
+/* ------------------------------------------------ */
+/* 🔽 크몽 스타일 알림 패널 */
+/* ------------------------------------------------ */
+.notice-panel {
+  position: absolute;
+  right: -40px;        /* 헤더 기준 자연스럽게 보이도록 조정 */
+  top: 45px;
+  width: 380px;
+  background: #fff;
+  border-radius: 20px;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.12);
+  display: none;
+  padding: 0;
+  z-index: 1000;
+}
+
+/* 탭 메뉴 */
+.notice-tabs {
+  display: flex;
+  gap: 40px;                      /* 🔥 탭 간 간격 여기서 조절 */
+  justify-content: center;        /* 🔥 두 메뉴를 패널 중앙 정렬 */
+  padding: 20px 0 0;              
+  font-size: 16px;
+  font-weight: 600;
+  color: #666;
+  position: relative;
+}
+
+.notice-tab {
+  cursor: pointer;
+  padding-bottom: 12px;
+}
+
+.notice-tab.active {
+  color: #111;
+}
+
+/* 탭 언더라인 (크몽 스타일) */
+.notice-tab-underline {
+  width: 80px;    /* 밑줄 길이 */
+  height: 3px;
+  background: #111;
+  position: absolute;
+  top: 52px;
+  border-radius: 20px;
+  transition: 0.25s ease;
+}
+
+
+
+/* ------------------------------------------------ */
+/* 📦 알림 내용 영역 */
+/* ------------------------------------------------ */
+.notice-content {
+  text-align: center;
+  padding: 70px 0 50px;
+}
+
+/* 빈 상태 */
+.notice-empty-icon {
+  font-size: 45px;
+  margin-bottom: 10px;
+}
+
+.notice-empty-title {
+  color: #333;
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+/* 하단 안내 */
+.notice-footer {
+  color: #888;
+  font-size: 12px;
+  margin-top: 40px;
+  line-height: 1.5;
+}
+/* ================================
+   알림 아이템 카드 스타일 
+================================ */
+.notice-item-panel {
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 16px 18px;
+  margin-bottom: 14px;
+
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+
+  box-shadow: 0 2px 6px rgba(0,0,0,0.06);
+  border: 1px solid #e5e7eb;
+  animation: fadeIn 0.2s ease;
+}
+
+/* 제목/내용 */
+.notice-msg {
+  font-size: 14.5px;
+  color: #111827;
+  line-height: 1.45;
+  white-space: pre-line;
+  word-break: keep-all;
+}
+
+/* 날짜 */
+.notice-date {
+  font-size: 12px;
+  color: #6b7280;
+  margin-top: 2px;
+}
+
+/* 애니메이션 */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.header-chat {
+  position: relative;
+  margin-left: 30px;   /* 🔥 여기가 간격 */
+  margin-right: 15px;
+  cursor: pointer;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+
+.chat-bubble {
+  font-size: 22px;
+  line-height: 1;
+  display: block;
+}
+#noticePanel {
+  max-height: 420px;  /* 원하는 높이 */
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+.chat-remove-btn {
+  background: transparent;
+  border: none;
+  font-size: 16px;
+  color: #9ca3af;
+  cursor: pointer;
+  padding: 4px;
+  transition: 0.2s;
+}
+
+.chat-remove-btn:hover {
+  color: #ef4444;
+}
+
+  </style>
+</head>
+
+<body>
+<header>
+  <div class="logo" onclick="location.href='index.html'">BlueOn</div>
+
+  <nav>
+
+    <!-- 비로그인 -->
+    <div id="auth-buttons" class="auth-buttons">
+      <button onclick="location.href='login.html'">로그인</button>
+      <button onclick="location.href='signup.html'">회원가입</button>
+    </div>
+
+    <!-- 로그인 후 -->
+    <div id="user-menu">
+
+      <button id="openSupportIndex" class="logout-btn" style="margin-left:15px;">
+        고객센터
+      </button>
+
+      <button id="logout-btn" class="logout-btn">로그아웃</button>
+
+      <!-- ========================= -->
+      <!-- 🔔 알림 아이콘 영역 -->
+      <!-- ========================= -->
+      <div class="header-notice">
+        <div class="notice-icon">
+          <span class="notice-bell">🔔</span>
+          <span id="notice-badge" class="notice-badge">0</span>
+        </div>
+
+        <!-- 알림 패널 -->
+        <div class="notice-panel" id="noticePanel">
+          <div class="notice-tabs">
+            <div class="notice-tab active" data-tab="trade">거래 알림</div>
+            <div class="notice-tab" data-tab="system">BlueOn 알림</div>
+          </div>
+
+          <div class="notice-tab-underline"></div>
+
+          <div class="notice-content" id="noticeContent">
+            <div class="notice-empty">
+              <div class="notice-empty-icon">🌈</div>
+              <p class="notice-empty-title">놓친 알림 없이<br>모두 확인하셨어요!</p>
+            </div>
+
+            <p class="notice-footer">
+              최근 30일 동안의 알림만 보관되며,<br>이후 자동 삭제됩니다.
+            </p>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- ========================= -->
+      <!-- 💬 채팅 아이콘 영역 -->
+      <!-- ========================= -->
+      <div class="header-chat" id="openChat" style="position:relative; margin-left:15px; cursor:pointer;">
+        <span class="chat-bubble">💬</span>
+
+        <!-- 🔴 새 메시지 badge -->
+        <div id="chatBadge" style="
+          position:absolute;
+          top:-3px;
+          right:-3px;
+          width:10px;
+          height:10px;
+          background:red;
+          border-radius:50%;
+          display:none;
+        "></div>
+      </div>
+
+      <!-- ========================= -->
+      <!-- 프로필 -->
+      <!-- ========================= -->
+      <div class="profile-container">
+        <img id="profile-icon" src="assets/default_profile.png" alt="프로필" />
+        <div class="dropdown" id="dropdown-menu">
+          <!-- JS에서 동적으로 채움 -->
+        </div>
+      </div>
+
+    </div>
+
+  </nav>
+</header>
+<script src="/socket.io/socket.io.js"></script>
+
+
+
+  <!-- HERO -->
+  <section class="hero">
+    <div class="hero-left">
+      <h2>
+        <span>당신의 아이디어를 브랜드로,</span><br>
+        BlueOn이 함께 설계합니다
+      </h2>
+
+      <p>
+        온라인 비즈니스의 시작은 ‘브랜드 설계’입니다.<br>
+        기획 · 디자인 · 개발 전 과정을 BlueOn이 함께합니다.
+      </p>
+
+      <div class="search-bar">
+        <input id="mainSearch" type="text" placeholder="어떤 브랜드를 만들고 싶으신가요?" />
+       <button id="mainSearchBtn">시작하기</button>
+      </div>
+
+      <div class="category-inline">
+        <div class="category">
+          <img src="https://img.icons8.com/3d-fluency/94/paint-palette.png" alt="디자인">
+          <p>브랜드 디자인</p>
+        </div>
+        <div class="category">
+          <img src="https://img.icons8.com/3d-fluency/94/source-code.png" alt="프로그래밍">
+          <p>웹 개발</p>
+        </div>
+        <div class="category">
+          <img src="https://img.icons8.com/3d-fluency/94/camera.png" alt="사진·영상">
+          <p>콘텐츠 제작</p>
+        </div>
+        <div class="category">
+          <img src="https://img.icons8.com/3d-fluency/94/megaphone.png" alt="마케팅">
+          <p>브랜딩·마케팅</p>
+        </div>
+        <div class="category">
+          <img src="https://img.icons8.com/3d-fluency/94/document.png" alt="글쓰기">
+          <p>카피라이팅</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="hero-banner">
+      <h3>당신의 브랜드를<br>처음부터 함께 설계합니다</h3>
+      <p>
+        단순 전문가 연결이 아닙니다.<br>
+        브랜드 전략 · 디자인 · 개발까지<br>
+        BlueOn이 전 과정을 함께합니다.
+      </p>
+      <button id="startBrandBtn">브랜드 설계 시작하기</button>
+    </div>
+  </section>
+
+  <!-- POPULAR -->
+<section class="popular-section">
+  <div style="
+    display:flex;
+    gap:30px;
+    max-width:1200px;
+    margin:0 auto;
+    flex-wrap:wrap;
+  ">
+
+    <!-- 박스 1 : 브랜드 디자인 -->
+    <div class="popular-box">
+      <h3 style="color:#ff7b00;">브랜드 디자인에서 많이 찾는 서비스</h3>
+      <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:18px;">
+        <div style="text-align:center;">
+          <img src="https://img.icons8.com/3d-fluency/94/paint-palette.png">
+          <p>로고 디자인</p>
+        </div>
+        <div style="text-align:center;">
+          <img src="https://img.icons8.com/3d-fluency/94/name-tag.png">
+          <p>브랜드 키비주얼</p>
+        </div>
+        <div style="text-align:center;">
+          <img src="https://img.icons8.com/3d-fluency/94/design.png">
+          <p>상세페이지 제작</p>
+        </div>
+        <div style="text-align:center;">
+          <img src="https://img.icons8.com/3d-fluency/94/edit-image.png">
+          <p>SNS 카드뉴스</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- 박스 2 : 개발 / 쇼핑몰 구축 -->
+    <div class="popular-box">
+      <h3 style="color:#0056ff;">웹·앱 개발에서 인기 있어요</h3>
+      <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:18px;">
+        <div style="text-align:center;">
+          <img src="https://img.icons8.com/3d-fluency/94/source-code.png">
+          <p>자사몰 구축</p>
+        </div>
+        <div style="text-align:center;">
+          <img src="https://img.icons8.com/3d-fluency/94/laptop-coding.png">
+          <p>스마트스토어 커스터마이징</p>
+        </div>
+        <div style="text-align:center;">
+          <img src="https://img.icons8.com/3d-fluency/94/workflow.png
+">
+          <p>API 연동</p>
+        </div>
+        <div style="text-align:center;">
+          <img src="https://img.icons8.com/3d-fluency/94/services.png">
+          <p>관리자 페이지 개발</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- 박스 3 : 마케팅·콘텐츠 제작 -->
+    <div class="popular-box">
+      <h3 style="color:#7a4bff;">요즘 뜨는 마케팅·콘텐츠 서비스</h3>
+      <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:18px;">
+        <div style="text-align:center;">
+          <img src="https://img.icons8.com/3d-fluency/94/camera.png">
+          <p>숏폼 영상 제작</p>
+        </div>
+        <div style="text-align:center;">
+          <img src="https://img.icons8.com/3d-fluency/94/documentary.png">
+          <p>리뷰 영상 제작</p>
+        </div>
+        <div style="text-align:center;">
+          <img src="https://img.icons8.com/3d-fluency/94/megaphone.png">
+          <p>SNS 운영 대행</p>
+        </div>
+        <div style="text-align:center;">
+          <img src="https://img.icons8.com/3d-fluency/94/positive-dynamic.png">
+          <p>SEO 상위 노출</p>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<footer style="
+  background: var(--white);
+  border-top: 1px solid var(--line);
+  text-align:center;
+  padding:40px 20px;
+  color:#6b7280;
+  font-size:14px;
+  line-height:1.7;
+  margin-top:80px;
+">
+
+  <!-- 기존 문구 유지 -->
+  <div style="font-size:14px; margin-bottom:10px;">
+    © 2025 BlueOn | 신뢰로 연결되는 전문가 매칭 플랫폼
+  </div>
+
+  <!-- 기존 약관 링크 섹션 유지 -->
+  <p style="margin-top:10px; margin-bottom:22px;">
+    <a href="privacy-policy.html" 
+       style="color:#6b7280; font-size:13px; text-decoration:underline; margin-right:12px;">
+      개인정보 이용 약관
+    </a>
+
+    <a href="terms-of-service.html" 
+       style="color:#6b7280; font-size:13px; text-decoration:underline;">
+      전자상거래 표준약관
+    </a>
+  </p>
+
+  <!-- 사업자 정보 추가 섹션 -->
+  <div style="font-size:13px; color:#6b7280; margin-top:20px; line-height:1.6;">
+    상호명: 블루온&nbsp;&nbsp;|&nbsp;&nbsp;대표자: 이동건<br>
+    사업자등록번호: 894-06-03078<br>
+    주소: 경상남도 김해시 인제로11번길 36, 201호(삼정동)<br>
+    업태/종목: 정보통신업 · 도매 및 소매업 / 포털 및 기타 인터넷 정보 매개 서비스업 · 전자상거래 소매 중개업
+  </div>
+
+  <!-- 고객센터 -->
+  <div style="font-size:13px; margin-top:18px;">
+    고객센터: support@blueon.kr&nbsp;&nbsp;|&nbsp;&nbsp;010-3585-3426
+  </div>
+
+  <!-- 저작권 -->
+  <div style="margin-top:25px; color:#9ca3af; font-size:12px;">
+    © 2025 BlueOn. All rights reserved.
+  </div>
+
+</footer>
+
+
+
+  <!-- 로그인 모달 -->
+  <div id="loginOverlay" style="position:fixed;inset:0;display:none;place-items:center;z-index:9999;background:rgba(0,0,0,.45);">
+    <iframe src="login.html" title="로그인" style="width:min(520px,92vw);height:560px;border:0;border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.25);"></iframe>
+  </div>
+
+<script>
+/* ================================================================
+   전역 기본 설정
+================================================================ */
+const API_URL = "http://localhost:3000";
+
+/* ================================================================
+   로그인 모달
+================================================================ */
+const overlay = document.getElementById("loginOverlay");
+
+function openLoginModal() {
+  overlay.style.display = "grid";
+}
+
+window.addEventListener("message", async (e) => {
+  if (!e.data) return;
+
+  if (e.data.type === "LOGIN_SUCCESS") {
+    overlay.style.display = "none";
+    await loadUserState();
+  }
+
+  if (e.data.type === "CLOSE_LOGIN") {
+    overlay.style.display = "none";
+  }
+});
+
+function showToast(message) {
+  const toast = document.getElementById("toast");
+  toast.textContent = message;
+  toast.style.opacity = "1";
+  toast.style.transform = "translateY(0)";
+
+  setTimeout(() => {
+    toast.style.opacity = "0";
+    toast.style.transform = "translateY(20px)";
+  }, 1800);
+}
+
+/* ================================================================
+   로그인 상태 로드
+================================================================ */
+async function loadUserState() {
+  const authButtons = document.getElementById("auth-buttons");
+  const userMenu = document.getElementById("user-menu");
+  const profileIcon = document.getElementById("profile-icon");
+  const dropdown = document.getElementById("dropdown-menu");
+
+  try {
+    const meRes = await fetch(`${API_URL}/auth/me`, { credentials: "include" });
+    const me = await meRes.json();
+
+    if (!me.success) {
+      authButtons.style.display = "flex";
+      userMenu.style.display = "none";
+      return;
+    }
+
+    // 로그인 상태 UI
+    authButtons.style.display = "none";
+    userMenu.style.display = "flex";
+
+    let finalAvatar = me.user.avatar_url || "assets/default_profile.png";
+
+    // 전문가 프로필 이미지 확인
+    try {
+      const expertRes = await fetch(`${API_URL}/expert/profile/${me.user.id}`);
+      const expertData = await expertRes.json();
+
+      if (expertData.success && expertData.profile?.avatar_url) {
+        finalAvatar = expertData.profile.avatar_url;
+      }
+    } catch {}
+
+    profileIcon.src = finalAvatar;
+
+    // 메뉴 렌더링
+    const isExpert = !!me.user.isExpert;
+    dropdown.innerHTML = isExpert
+      ? `
+        <a href="expert-register-step1.html">프로필 관리</a>
+        <a href="service-register.html">서비스 등록</a>
+        <a href="mypage.html">마이페이지</a>
+        <a href="#" id="logout-link">로그아웃</a>`
+      : `
+        <a href="expert-register-step1.html">전문가 등록</a>
+        <a href="profile-edit.html">프로필 관리</a>
+        <a href="#" id="logout-link">로그아웃</a>`;
+
+    activateDropdownFeatures();
+
+  } catch (err) {
+    console.error("유저 상태 로드 오류:", err);
+  }
+}
+
+/* ================================================================
+   드롭다운 + 로그아웃
+================================================================ */
+function activateDropdownFeatures() {
+  const profileIcon = document.getElementById("profile-icon");
+  const dropdown = document.getElementById("dropdown-menu");
+  const logoutLink = document.getElementById("logout-link");
+  const logoutBtn = document.getElementById("logout-btn");
+
+  profileIcon.onclick = (e) => {
+    e.stopPropagation();
+    dropdown.style.display = dropdown.style.display === "block" ? "none" : "block";
+  };
+
+  document.addEventListener("click", (e) => {
+    if (!e.target.closest(".profile-container")) dropdown.style.display = "none";
+  });
+
+  async function logout() {
+    try {
+      const res = await fetch(`${API_URL}/logout`, {
+        method: "POST",
+        credentials: "include",
+      });
+      const data = await res.json();
+
+      if (data.success) {
+        showToast("로그아웃 되었습니다.");
+        setTimeout(() => location.href = "index.html", 1500);
+      } else {
+        showToast("로그아웃 실패");
+      }
+    } catch {
+      showToast("서버 오류");
+    }
+  }
+
+  if (logoutLink) logoutLink.onclick = (e) => { e.preventDefault(); logout(); };
+  if (logoutBtn) logoutBtn.onclick = (e) => { e.preventDefault(); logout(); };
+}
+
+/* ================================================================
+   알림 날짜 포맷
+================================================================ */
+function formatDate(dateString) {
+  const d = new Date(dateString);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+/* ================================================================
+   DOMContentLoaded — 전체 초기화
+================================================================ */
+document.addEventListener("DOMContentLoaded", () => {
+
+  /* ============================================================
+     브랜드 설계 시작 버튼
+  ============================================================ */
+ const startBtn = document.getElementById("startBrandBtn");
+
+if (startBtn) {
+  startBtn.addEventListener("click", async () => {
+    console.log("📦 브랜드 설계 시작하기 클릭됨");
+
+    try {
+      const res = await fetch(`${API_URL}/brand/check`, {
+        credentials: "include"
+      });
+      const data = await res.json();
+
+      console.log("🔍 brand/check 결과:", data);
+
+      if (data.hasPlan) {
+        // 이미 설계 단계 작성 O → 로드맵으로 이동
+        location.href = "brand-roadmap.html";
+      } else {
+        // 설계 X → 설계 단계 첫 페이지로 이동
+        location.href = "brand-flow.html";
+      }
+    } catch (err) {
+      console.error("brand-check 오류:", err);
+      // 서버 오류일 땐 기본적으로 brand-flow 로 이동
+      location.href = "brand-flow.html";
+    }
+  });
+}
+
+
+  /* ============================================================
+     카테고리 이동
+  ============================================================ */
+  document.querySelectorAll(".category").forEach((cat) => {
+    cat.addEventListener("click", () => {
+      const type = cat.dataset.category;
+      if (type)
+        location.href = `category.html?type=${encodeURIComponent(type)}`;
+    });
+  });
+
+  /* ============================================================
+     검색 기능
+  ============================================================ */
+  const searchInput = document.querySelector(".search-bar input");
+  const searchBtn = document.getElementById("mainSearchBtn");
+
+  async function checkBrandPlan() {
+    const res = await fetch(`${API_URL}/brand/check`, { credentials: "include" });
+    const data = await res.json();
+    return data.hasPlan;
+  }
+
+  function goSearch() {
+    const keyword = searchInput.value.trim();
+    checkBrandPlan().then(hasPlan => {
+      if (hasPlan) location.href = "brand-roadmap.html";
+      else location.href = `brand-flow.html?keyword=${encodeURIComponent(keyword)}`;
+    });
+  }
+
+  searchBtn.onclick = goSearch;
+  searchInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") goSearch();
+  });
+
+  /* ============================================================
+     고객센터
+  ============================================================ */
+  const openSupport = document.getElementById("openSupportIndex");
+  const supportModal = document.getElementById("supportModal");
+  const closeSupport = document.getElementById("closeSupport");
+
+  if (openSupport) openSupport.onclick = () => supportModal.style.display = "grid";
+  if (closeSupport) closeSupport.onclick = () => supportModal.style.display = "none";
+  supportModal?.addEventListener("click", (e) => {
+    if (e.target === supportModal) supportModal.style.display = "none";
+  });
+
+  /* ============================================================
+     🔔 알림 패널
+  ============================================================ */
+  const noticeIcon = document.querySelector(".notice-icon");
+  const noticePanel = document.getElementById("noticePanel");
+  const noticeBadge = document.getElementById("notice-badge");
+  const noticeContent = document.getElementById("noticeContent");
+  const tabs = document.querySelectorAll(".notice-tab");
+  const underline = document.querySelector(".notice-tab-underline");
+
+  let currentTab = "trade";
+  let lastNoticeRequestId = 0;
+
+  async function loadUnreadBadge() {
+    try {
+      const res = await fetch(`${API_URL}/notice/unread-count`, { credentials: "include" });
+      const data = await res.json();
+
+      if (data.success && data.count > 0) {
+        noticeBadge.textContent = data.count;
+        noticeBadge.style.display = "flex";
+      } else {
+        noticeBadge.style.display = "none";
+      }
+    } catch {}
+  }
+
+  function moveUnderline(tab) {
+    const parentRect = tab.parentElement.getBoundingClientRect();
+    const tabRect = tab.getBoundingClientRect();
+    underline.style.left =
+      (tabRect.left - parentRect.left) + (tabRect.width - underline.offsetWidth) / 2 + "px";
+  }
+
+ /* ================================
+   🔔 알림 목록 불러오기
+================================ */
+async function loadNotices(type = "trade") {
+  currentTab = type;
+  noticeContent.innerHTML = "";
+
+  const res = await fetch(`${API_URL}/notice/list?type=${type}`, {
+    credentials: "include",
+  });
+  const data = await res.json();
+
+  if (!data.success || !data.notices || data.notices.length === 0) {
+    noticeContent.innerHTML = `
+      <div class="notice-empty">
+        <div class="notice-empty-icon">🌈</div>
+        <p class="notice-empty-title">놓친 알림 없이<br>모두 확인하셨어요!</p>
+      </div>
+      <p class="notice-footer">최근 30일 동안의 알림만 보관됩니다.</p>
+    `;
+    return;
+  }
+
+  data.notices.forEach((n) => {
+    const item = document.createElement("div");
+    item.classList.add("notice-item-panel");
+
+    item.dataset.roomId = n.room_id ? String(n.room_id) : "";
+    item.dataset.fromUser = n.from_user ? String(n.from_user) : "";
+
+    item.innerHTML = `
+  <div class="chat-left">
+    <img src="${room.other_avatar}" />
+    <span>${room.other_nickname}</span>
+  </div>
+
+  <button class="chat-remove-btn">✕</button>
+`;
+
+
+    /* ================================
+       🔥 클릭 → 알림 제거 + 채팅 이동
+    ================================= */
+    item.onclick = async () => {
+      // 패널 닫기
+      noticePanel.style.display = "none";
+
+      // 화면에서 즉시 제거
+      item.remove();
+
+      const roomId = item.dataset.roomId;
+      const fromUser = item.dataset.fromUser;
+
+      // 기존 채팅방 이동
+      if (roomId && roomId !== "null" && roomId !== "undefined") {
+        location.href = `chat.html?room=${roomId}`;
+        return;
+      }
+
+      // 새 채팅 생성
+      if (fromUser) {
+        try {
+          const res = await fetch(`${API_URL}/chat/start`, {
+            method: "POST",
+            credentials: "include",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ targetId: fromUser }),
+          });
+
+          const d = await res.json();
+
+          if (d.success && d.roomId) {
+            location.href = `chat.html?room=${d.roomId}`;
+            return;
+          } else {
+            alert("채팅방 생성 실패");
+          }
+        } catch (err) {
+          console.error("채팅 생성 오류:", err);
+          alert("서버 오류로 채팅방을 열 수 없습니다.");
+        }
+      }
+    };
+
+    noticeContent.appendChild(item);
+  });
+
+  // 뱃지 숨기기
+  noticeBadge.style.display = "none";
+
+  // 서버에 읽음 처리 요청
+  await fetch(`${API_URL}/notice/read-all`, {
+    method: "POST",
+    credentials: "include",
+  });
+}
+
+/* ================================
+   🔔 알림 패널 토글
+================================ */
+noticeIcon.onclick = () => {
+  const open = noticePanel.style.display === "block";
+  noticePanel.style.display = open ? "none" : "block";
+
+  if (!open) {
+    const active = document.querySelector(".notice-tab.active");
+    requestAnimationFrame(() => moveUnderline(active));
+
+    // ❌ 패널 열 때 매번 알림 재로드하던 코드 제거함
+    // loadNotices(currentTab);  ← 삭제!
+  }
+};
+
+/* ================================
+   🔄 탭 전환 시만 목록 재로드
+================================ */
+tabs.forEach((tab) => {
+  tab.onclick = () => {
+    if (tab.dataset.tab === currentTab) return;
+
+    tabs.forEach((t) => t.classList.remove("active"));
+    tab.classList.add("active");
+
+    currentTab = tab.dataset.tab;
+
+    moveUnderline(tab);
+
+    // 탭을 바꿀 때만 서버에서 새로 불러옴
+    loadNotices(currentTab);
+  };
+});
+
+/* ================================
+   🔘 외부 클릭 → 패널 닫기
+================================ */
+document.addEventListener("click", (e) => {
+  if (!noticePanel.contains(e.target) && !noticeIcon.contains(e.target)) {
+    noticePanel.style.display = "none";
+  }
+});
+
+/* ================================
+   🔴 안 읽은 알림 배지 로드
+================================ */
+loadUnreadBadge();
+
+
+  /* ============================================================
+     💬 채팅 버튼
+  ============================================================ */
+  const chatBtn = document.getElementById("openChat");
+  if (chatBtn) {
+    chatBtn.onclick = () => location.href = "/chat.html";
+  }
+
+  /* ============================================================
+     페이지 로드 시 로그인 상태 체크
+  ============================================================ */
+  loadUserState();
+});
+</script>
+
+
+<div id="toast" style="
+  position: fixed;
+  bottom: 40px;
+  right: 40px;
+  padding: 14px 22px;
+  background: rgba(0,0,0,0.85);
+  color: #fff;
+  font-size: 14px;
+  border-radius: 10px;
+  box-shadow: 0 4px 14px rgba(0,0,0,0.25);
+  opacity: 0;
+  transform: translateY(20px);
+  pointer-events: none;
+  transition: all 0.35s ease;
+  z-index: 99999;
+"></div>
+
+<!-- 고객센터 모달 -->
+<div id="supportModal" style="
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.45);
+  display: none;
+  place-items: center;
+  z-index: 9999;
+  backdrop-filter: blur(2px);
+">
+  <div style="
+    background: #fff;
+    width: min(480px, 90vw);
+    padding: 28px;
+    border-radius: 18px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.18);
+    max-height: 85vh;
+    overflow-y: auto;
+  ">
+
+    <!-- Header -->
+    <h2 style="font-size:22px; font-weight:800; margin-bottom:15px; color:#111827;">
+      고객센터 · 문의하기
+    </h2>
+
+    <!-- Desc -->
+    <p style="color:#6b7280; font-size:14px; margin-bottom:20px;">
+      BlueOn 팀이 최대한 빠르게 도움을 드립니다.<br>
+      아래에서 자주 묻는 질문을 확인하거나, 직접 문의해주세요.
+    </p>
+
+    <!-- FAQ BOX -->
+<div style="margin-bottom:25px;">
+  <h3 style="font-size:15px; font-weight:700; margin-bottom:12px;">자주 묻는 질문</h3>
+
+  <!-- FAQ ITEM 1 -->
+  <div style="margin-bottom:12px;">
+    <div onclick="location.href='refund-policy.html'" style="
+      padding:12px 14px;
+      background:#f3f4f6;
+      border-radius:10px;
+      font-weight:600;
+      cursor:pointer;">
+      결제/환불은 어떻게 처리되나요?
+    </div>
+  </div>
+
+  <!-- FAQ ITEM 2 -->
+  <div style="margin-bottom:12px;">
+    <div onclick="location.href='expert-inquiry-guide.html'" style="
+      padding:12px 14px;
+      background:#f3f4f6;
+      border-radius:10px;
+      font-weight:600;
+      cursor:pointer;
+    ">
+      전문가에게 작업 문의를 남기고 싶어요.
+    </div>
+  </div>
+
+  <!-- FAQ ITEM 3 -->
+  <div style="margin-bottom:12px;">
+    <div onclick="location.href='work-not-satisfied.html'" style="
+      padding:12px 14px;
+      background:#f3f4f6;
+      border-radius:10px;
+      font-weight:600;
+      cursor:pointer;
+    ">
+      작업이 마음에 들지 않을 땐 어떻게 하나요? 
+    </div>
+  </div>
+    <div id="faq3" style="display:none; padding:10px 14px; font-size:14px; color:#6b7280;">
+      전문가에게 수정 요청이 가능하며,<br>
+      수정 범위는 서비스 등록 시 작성된 ‘수정 횟수/조건’을 따릅니다.
+    </div>
+    <div style="
+  background:#eef4ff;
+  border-left:4px solid #0056ff;
+  padding:14px 18px;
+  border-radius:10px;
+  margin-bottom:20px;
+  font-size:14px;
+  line-height:1.7;
+  color:#1e293b;
+">
+  <b>📞 고객센터 연락처</b><br>
+  이메일: <b>di702934@gmail.com</b><br>
+  전화번호: <b>010-3585-3426</b><br>
+  운영 시간: 평일 18:00 ~ 22:00
+</div>
+  </div>
+</div>
+<!-- 🔥 PG 심사용: 브랜드 설계 분기 기능 임시 비활성화 스크립트 -->
+<script>
+(function(){
+  const btn = document.getElementById("startBrandBtn");
+  if (!btn) return;
+
+  // 기존 이벤트 덮어쓰기 (override)
+  btn.addEventListener("click", function(e){
+    e.preventDefault();
+    console.log("⚠️ PG 심사 모드: brand-flow 이동 차단 → roadmap으로 고정 이동됨");
+    window.location.href = "brand-roadmap.html";
+  }, true); // ← true = 기존 핸들러보다 우선 실행됨
+})();
+</script>
+
+</body>
+</html>
+<script src="/socket.io/socket.io.js"></script>
+<script src="/header-chat.js"></script>
+

@@ -1,0 +1,681 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>BlueOn | 프로필 설정</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;800&display=swap" rel="stylesheet">
+
+<style>
+:root {
+  --primary: #0056ff;
+  --bg: #f9fafb;
+  --white: #ffffff;
+  --text-dark: #111827;
+  --text-gray: #6b7280;
+  --line: #e5e7eb;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{
+  font-family:"Noto Sans KR",sans-serif;
+  background:var(--bg);
+  color:var(--text-dark);
+  font-size:16px;
+}
+/* HEADER */
+header{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  padding:18px 70px;
+  background:var(--white);
+  border-bottom:1px solid var(--line);
+}
+.logo{font-size:22px;font-weight:800;color:var(--primary);cursor:pointer;}
+header img#headerAvatar{
+  width:40px;height:40px;border-radius:50%;object-fit:cover;cursor:pointer;
+}
+/* 전체 레이아웃 */
+.profile-layout{
+  display:flex;
+  max-width:1300px;
+  margin:60px auto;
+  gap:40px;
+}
+.sidebar{width:240px;padding:20px 10px;}
+.sidebar h3{font-size:18px;font-weight:700;margin-bottom:15px;color:var(--primary);}
+.content{
+  flex:1;background:var(--white);border:1px solid var(--line);
+  border-radius:12px;padding:40px 50px;box-shadow:0 6px 18px rgba(0,0,0,0.04);
+}
+.content h2{font-size:22px;font-weight:700;margin-bottom:30px;}
+.profile-area{display:flex;align-items:flex-start;gap:50px;}
+.profile-left{display:flex;flex-direction:column;align-items:center;width:160px;}
+.profile-left img{
+  width:110px;height:110px;border-radius:50%;object-fit:cover;background-color:#fff;
+  border:none;box-shadow:0 2px 8px rgba(0,0,0,0.08);
+}
+.profile-left button{
+  background:var(--primary);color:#fff;border:none;padding:8px 18px;border-radius:8px;
+  cursor:pointer;font-size:14px;margin-top:10px;transition:0.2s;
+}
+.profile-left button:hover{background:#0044cc;}
+.profile-right{flex:1;display:flex;flex-direction:column;gap:20px;}
+.nickname-section label{font-weight:600;margin-bottom:6px;display:block;}
+.nickname-input{
+  display:flex;align-items:center;justify-content:space-between;border:1px solid var(--line);
+  border-radius:6px;padding:10px 14px;background:#f9fafb;
+}
+.nickname-input input{border:none;background:transparent;font-size:16px;outline:none;width:100%;}
+.nickname-input span{font-size:14px;color:var(--text-gray);}
+
+/* 닉네임 상태 메시지 */
+#nickname-status {
+  font-size: 14px;
+  margin-top: 4px;
+  font-weight: 600;
+}
+
+.textarea-section textarea{width:100%;height:120px;border:1px solid var(--line);border-radius:6px;padding:12px;resize:none;font-size:15px;}
+.textarea-section textarea:focus{border-color:var(--primary);}
+.textarea-section small{display:block;text-align:right;font-size:13px;color:var(--text-gray);margin-top:4px;}
+.tip-box{background:#eaf1ff;border:1px solid #bcd3ff;border-radius:8px;padding:14px 18px;font-size:14px;color:#1e3a8a;margin:10px 0;font-weight:500;}
+.change-btn{align-self:flex-end;background:#111;color:#fff;border:none;padding:10px 20px;border-radius:8px;cursor:pointer;font-size:15px;}
+.change-btn:hover{background:#333;}
+/* 비밀번호 변경 */
+.password-box{border-top:1px solid var(--line);margin-top:50px;padding-top:40px;}
+.password-box h3{font-size:18px;font-weight:700;margin-bottom:20px;}
+.alert-box{background:#f4f8ff;border:1px solid #d6e4ff;border-radius:8px;padding:14px 18px;font-size:14px;color:#374151;margin-bottom:20px;}
+.password-fields{display:flex;flex-direction:column;gap:18px;}
+.password-fields input{
+  width:100%;padding:12px;border:1px solid var(--line);border-radius:8px;outline:none;transition:border-color 0.15s, background 0.15s;
+}
+.password-fields input:focus{border-color:var(--primary);}
+.input-error {
+  border: 2px solid #ef4444 !important;
+  background: #fff5f5 !important;
+  box-shadow: 0 0 6px rgba(239,68,68,0.3);
+}
+.pw-error{font-size:13px;color:#ef4444;margin-top:4px;display:none;}
+/* 회원 탈퇴 */
+.leave-box{border-top:1px solid var(--line);margin-top:50px;padding-top:40px;}
+.leave-box h3{font-size:18px;font-weight:700;margin-bottom:20px;}
+.notice-box{background:#f8fafc;border:1px solid var(--line);border-radius:8px;padding:15px 20px;font-size:13px;color:#374151;margin-bottom:15px;line-height:1.6;}
+.leave-confirm{display:flex;align-items:center;gap:8px;margin-top:10px;}
+.leave-btn{
+  margin-top:20px;align-self:flex-end;background:#f3f4f6;color:#111;border:1px solid #d1d5db;
+  padding:10px 20px;border-radius:8px;cursor:pointer;font-size:15px;transition:all 0.25s ease;
+}
+.leave-btn:disabled{background:#e5e7eb;color:#9ca3af;border-color:#d1d5db;cursor:not-allowed;}
+.leave-btn.active{background:var(--primary);color:#fff;border-color:var(--primary);}
+.leave-btn.active:hover{background:#0044cc;border-color:#0044cc;color:#fff;}
+.leave-confirm input[type="checkbox"]{
+  -webkit-appearance:none;-moz-appearance:none;appearance:none;width:18px;height:18px;border:2px solid var(--line);
+  border-radius:4px;cursor:pointer;background:#fff;transition:all 0.2s ease;
+}
+.leave-confirm input[type="checkbox"]:hover{border-color:var(--primary);}
+.leave-confirm input[type="checkbox"]:checked{background:var(--primary);border-color:var(--primary);}
+.leave-confirm input[type="checkbox"]:checked::after{
+  content:"✔";color:#fff;font-size:13px;font-weight:bold;position:absolute;margin-left:2px;margin-top:-1px;
+}
+.leave-confirm label{cursor:pointer;user-select:none;color:var(--text-dark);}
+/* 토스트 */
+.alert-box-custom{
+  position:fixed;top:40px;right:40px;background:var(--white);border:1px solid var(--primary);
+  box-shadow:0 8px 20px rgba(0,86,255,0.15);border-radius:12px;padding:16px 26px;
+  font-size:15px;font-weight:500;color:var(--primary);opacity:0;transform:translateY(-10px);
+  pointer-events:none;transition:all 0.4s ease;z-index:1000;
+}
+.alert-box-custom.show{opacity:1;transform:translateY(0);}
+.alert-box-custom.error{border-color:#ef4444;color:#ef4444;box-shadow:0 8px 20px rgba(239,68,68,0.15);}
+
+/* 모달 */
+.confirm-modal {
+  position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+  background: rgba(0, 0, 0, 0.45); display: none; align-items: center; justify-content: center;
+  z-index: 2000; animation: fadeIn 0.3s ease;
+}
+.confirm-content {
+  background: var(--white); padding: 35px 40px; border-radius: 16px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.15); text-align: center;
+  max-width: 420px; width: 90%; animation: popIn 0.25s ease;
+}
+.confirm-content h4 {font-size: 20px; font-weight: 700; margin-bottom: 10px;}
+.confirm-content p {font-size: 14px; color: var(--text-gray); line-height: 1.6; margin-bottom: 25px;}
+.confirm-actions {display: flex; justify-content: center; gap: 12px;}
+.confirm-btn, .cancel-btn {
+  padding: 10px 20px; border-radius: 8px; border: none; cursor: pointer;
+  font-size: 15px; font-weight: 500; transition: 0.25s;
+}
+.cancel-btn {background: #f3f4f6; color: #111827; border: 1px solid #d1d5db;}
+.cancel-btn:hover {background: #e5e7eb;}
+.confirm-btn {background: var(--primary); color: #fff;}
+.confirm-btn:hover {background: #0044cc;}
+/* 프로필 드롭다운 */
+.profile-menu-container {
+  position: relative;
+  display: inline-block;
+}
+.profile-dropdown {
+  display: none;
+  position: absolute;
+  right: 0;
+  top: 50px;
+  background: var(--white);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  box-shadow: 0 6px 20px rgba(0,0,0,0.12);
+  min-width: 160px;
+  overflow: hidden;
+  z-index: 1000;
+}
+.profile-dropdown a {
+  display: block;
+  padding: 12px 16px;
+  font-size: 14px;
+  color: var(--text-dark);
+  text-decoration: none;
+  transition: background 0.2s;
+}
+.profile-dropdown a:hover {
+  background: #f3f6ff;
+  color: var(--primary);
+}
+</style>
+</head>
+
+<body>
+<header>
+  <div class="logo" onclick="location.href='index.html'">BlueOn</div>
+
+  <div class="profile-menu-container">
+    <img id="headerAvatar" src="assets/default_profile.png" alt="프로필 아이콘" />
+    <div id="profileDropdown" class="profile-dropdown">
+      <a href="profile-edit.html">프로필 설정</a>
+      <a href="expert-register-step1.html">서비스 등록</a>
+      <a href="#" id="logoutBtn">로그아웃</a>
+    </div>
+  </div>
+</header>
+
+<main class="profile-layout">
+  <aside class="sidebar"><h3>프로필 관리</h3></aside>
+  <section class="content">
+    <h2>기본 정보</h2>
+
+    <form id="profileForm" enctype="multipart/form-data">
+      <div class="profile-area">
+        <div class="profile-left">
+          <img id="preview" src="assets/default_profile.png" alt="프로필 이미지">
+          <input type="file" id="avatar" name="avatar" accept="image/*" style="display:none;">
+          <button type="button" id="changeAvatarBtn">프로필 변경</button>
+        </div>
+
+        <div class="profile-right">
+          <div class="nickname-section">
+            <label>닉네임</label>
+            <div class="nickname-input">
+              
+              <input type="text" id="nickname" name="nickname" maxlength="17" placeholder="닉네임을 입력하세요.">
+
+              <small id="nickname-status" style="font-size:13px; margin-top:4px;"></small>
+               
+              <span id="char-count">0/17</span>
+            </div>
+
+            <div id="nickname-status"></div>
+          </div>
+
+          <div class="tip-box">
+            TIP: 닉네임은 30일마다 한 번만 변경 가능합니다.
+          </div>
+
+          <div class="textarea-section">
+            <label>자기소개</label>
+            <textarea id="intro" name="intro" placeholder="자기소개를 입력해주세요. (최대 255자)"></textarea>
+            <small id="intro-count">0/255</small>
+          </div>
+        </div>
+      </div>
+
+      <button type="submit" class="change-btn" style="margin-top:30px;">프로필 저장</button>
+    </form>
+
+    <div class="password-box">
+      <h3>비밀번호 변경</h3>
+      <div class="alert-box">대문자, 숫자, 특수문자를 포함한 8자 이상이어야 합니다.</div>
+      <form id="passwordForm" class="password-fields" novalidate>
+        <div class="pw-group">
+          <input type="password" id="currentPassword" placeholder="현재 비밀번호" required>
+          <small class="pw-error" id="error-current"></small>
+        </div>
+        <div class="pw-group">
+          <input type="password" id="newPassword" placeholder="새 비밀번호" required>
+          <small class="pw-error" id="error-new"></small>
+        </div>
+        <div class="pw-group">
+          <input type="password" id="confirmPassword" placeholder="새 비밀번호 확인" required>
+          <small class="pw-error" id="error-confirm"></small>
+        </div>
+        <button type="submit" class="change-btn">변경하기</button>
+      </form>
+    </div>
+
+    <div class="leave-box">
+      <h3>회원 탈퇴</h3>
+      <div class="notice-box">탈퇴 시 모든 서비스 이용 기록이 삭제되며, 복구가 불가능합니다.</div>
+
+      <div class="leave-confirm">
+        <input type="checkbox" id="agree"><label for="agree">안내 사항을 모두 확인하였습니다.</label>
+      </div>
+
+      <button id="deleteBtn" class="leave-btn">회원 탈퇴</button>
+    </div>
+  </section>
+</main>
+
+<div id="confirmModal" class="confirm-modal">
+  <div class="confirm-content">
+    <h4>정말 탈퇴하시겠습니까?</h4>
+    <p>탈퇴 후에는 계정 및 모든 데이터가 삭제되며 복구가 불가능합니다.</p>
+    <div class="confirm-actions">
+      <button id="cancelDelete" class="cancel-btn">취소</button>
+      <button id="confirmDelete" class="confirm-btn">탈퇴하기</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast" class="alert-box-custom"></div>
+
+<script>
+const API_URL = "http://localhost:3000";
+
+function toast(msg,isError=false){
+  const box=document.getElementById("toast");
+  if(!box)return;
+  box.textContent=msg;
+  box.className=`alert-box-custom ${isError?"error":""} show`;
+  setTimeout(()=>box.classList.remove("show"),2500);
+}
+
+/* 프로필 이미지 */
+const avatarInput=document.getElementById("avatar");
+const preview=document.getElementById("preview");
+const changeBtn=document.getElementById("changeAvatarBtn");
+const profileForm=document.getElementById("profileForm");
+const headerAvatar=document.getElementById("headerAvatar");
+const nicknameInput=document.getElementById("nickname");
+const introInput=document.getElementById("intro");
+const charCnt=document.getElementById("char-count");
+const introCnt=document.getElementById("intro-count");
+const nicknameStatusBox=document.getElementById("nickname-status");
+
+if(changeBtn) changeBtn.addEventListener("click",()=>avatarInput.click());
+if(avatarInput) avatarInput.addEventListener("change",(e)=>{
+  const f=e.target.files?.[0];if(!f)return;
+  const r=new FileReader();
+  r.onload=ev=>{
+    preview.src=ev.target.result;
+    headerAvatar.src=ev.target.result;
+  };
+  r.readAsDataURL(f);
+});
+
+if(nicknameInput) nicknameInput.addEventListener("input",()=>charCnt.textContent=`${nicknameInput.value.length}/17`);
+if(introInput) introInput.addEventListener("input",()=>introCnt.textContent=`${introInput.value.length}/255`);
+
+/* ==========================================================
+   상태 변수
+========================================================== */
+let nicknameValid = false;
+let currentUserNickname = "";   // /me 불러올 때 채워짐
+let nicknameTimer = null;       // debounce 타이머
+
+/* ==========================================================
+   프로필 저장
+========================================================== */
+if (profileForm) {
+  profileForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+
+    if (!nicknameValid) {
+      toast("닉네임을 다시 확인해주세요.", true);
+      return;
+    }
+
+    const fd = new FormData(profileForm);
+
+    try {
+      const res = await fetch(`${API_URL}/profile/update`, {
+        method: "POST",
+        body: fd,
+        credentials: "include",
+      });
+
+      const data = await res.json();
+
+      if (data.success) {
+        toast("프로필이 저장되었습니다 ✅");
+
+        if (data.user?.avatar_url) {
+          headerAvatar.src = data.user.avatar_url;
+        }
+
+        setTimeout(() => (window.location.href = "profile.html"), 1500);
+      } else {
+        toast(data.message || "프로필 저장 실패", true);
+      }
+    } catch (err) {
+      console.error("❌ 프로필 저장 오류:", err);
+      toast("서버 오류", true);
+    }
+  });
+}
+
+/* ==========================================================
+   서버 중복 체크 (available만 사용)
+========================================================== */
+async function checkNicknameDuplicate(nickname) {
+  try {
+    const res = await fetch(
+      `${API_URL}/expert/check-nickname?nickname=${encodeURIComponent(
+        nickname
+      )}`
+    );
+    const data = await res.json();
+
+    if (!data.success) return false;
+
+    // 서버는 available = true/false만 사용
+    return data.available;
+  } catch (err) {
+    console.error("닉네임 체크 오류:", err);
+    return false;
+  }
+}
+
+/* ==========================================================
+   닉네임 입력 시 중복 검사 (최종 안정화 버전)
+   - debounce 400ms 적용
+   - 본인 닉네임 즉시 OK
+   - 깜빡임/충돌 0%
+========================================================== */
+nicknameInput.addEventListener("input", () => {
+  const nickname = nicknameInput.value.trim();
+
+  // 글자 수 표시
+  charCnt.textContent = `${nickname.length}/17`;
+
+  // 입력 비었을 때
+  if (!nickname) {
+    nicknameStatusBox.textContent = "";
+    nicknameValid = false;
+    return;
+  }
+
+  // 🔵 본인 닉네임이면 서버에게 가지 않음
+  if (nickname === currentUserNickname) {
+    nicknameStatusBox.style.color = "#16a34a";
+    nicknameStatusBox.textContent = "현재 사용 중인 닉네임입니다.";
+    nicknameValid = true;
+    return;
+  }
+
+  // 🔴 입력 중일 때 기존 타이머 취소
+  clearTimeout(nicknameTimer);
+
+  // 0.4초 동안 입력 멈추면 딱 한 번 검사
+  nicknameTimer = setTimeout(async () => {
+    const available = await checkNicknameDuplicate(nickname);
+
+    if (!available) {
+      nicknameStatusBox.style.color = "#ef4444";
+      nicknameStatusBox.textContent = "이미 사용 중인 닉네임입니다.";
+      nicknameValid = false;
+    } else {
+      nicknameStatusBox.style.color = "#16a34a";
+      nicknameStatusBox.textContent = "사용 가능한 닉네임입니다.";
+      nicknameValid = true;
+    }
+  }, 400);
+});
+
+/* ==========================================================
+   초기 유저 정보 불러오기 (/me)
+========================================================== */
+window.addEventListener("DOMContentLoaded", async () => {
+  try {
+    const res = await fetch(`${API_URL}/me`, { credentials: "include" });
+    const data = await res.json();
+
+    if (data.success && data.user) {
+      // 현재 닉네임 저장 → 본인 닉네임 예외 처리에 필요
+      currentUserNickname = data.user.nickname || "";
+
+      // 기본 입력값 세팅
+      nicknameInput.value = currentUserNickname;
+      introInput.value = data.user.intro || "";
+
+      charCnt.textContent = `${currentUserNickname.length}/17`;
+      introCnt.textContent = `${introInput.value.length}/255`;
+
+      if (data.user.avatar_url) {
+        preview.src = data.user.avatar_url;
+        headerAvatar.src = data.user.avatar_url;
+      }
+    }
+  } catch (e) {
+    console.error("프로필 불러오기 실패", e);
+  }
+});
+
+
+/* ========================= (비밀번호 변경 기존 코드 그대로) ======================= */
+/* 비밀번호 검증 */
+const passwordForm=document.getElementById("passwordForm");
+const currentPw=document.getElementById("currentPassword");
+const newPw=document.getElementById("newPassword");
+const confirmPw=document.getElementById("confirmPassword");
+const errorCurrent=document.getElementById("error-current");
+const errorNew=document.getElementById("error-new");
+const errorConfirm=document.getElementById("error-confirm");
+
+function validatePassword(pw){
+  return /^(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*]).{8,}$/.test(pw);
+}
+
+function setErr(el,msgEl,msg){el.classList.add("input-error");msgEl.textContent=msg;msgEl.style.display="block";}
+function clearErr(el,msgEl){el.classList.remove("input-error");msgEl.textContent="";msgEl.style.display="none";}
+
+[currentPw,newPw,confirmPw].forEach(input=>{
+  input.addEventListener("input",()=>{
+    const v=input.value.trim();
+    const errBox=input===currentPw?errorCurrent:input===newPw?errorNew:errorConfirm;
+
+    if(v.length>0 && !validateField(input,v)){
+      setErr(input,errBox,getErrorMessage(input));
+    }else if(validateField(input,v)){
+      clearErr(input,errBox);
+    }
+  });
+});
+
+function validateField(input,val){
+  if(input===newPw) return validatePassword(val);
+  if(input===confirmPw) return val===newPw.value.trim();
+  if(input===currentPw) return true;
+  return true;
+}
+function getErrorMessage(input){
+  if(input===newPw) return "대문자, 숫자, 특수문자를 포함한 8자 이상이어야 합니다.";
+  if(input===confirmPw) return "비밀번호가 일치하지 않습니다.";
+  if(input===currentPw) return "현재 비밀번호가 일치하지 않습니다.";
+  return "입력값을 확인해주세요.";
+}
+
+let pwCheckTimer;
+async function verifyCurrentPassword(){
+  const val=currentPw.value.trim();
+  if(!val){
+    clearErr(currentPw,errorCurrent);
+    return;
+  }
+  try{
+    const res=await fetch(`${API_URL}/profile/check-password`,{
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      credentials:"include",
+      body:JSON.stringify({currentPassword:val})
+    });
+    const data=await res.json();
+
+    if(!data.valid){
+      setErr(currentPw,errorCurrent,"현재 비밀번호가 일치하지 않습니다.");
+    }else clearErr(currentPw,errorCurrent);
+  }catch(err){
+    console.error("비밀번호 검증 오류:",err);
+  }
+}
+currentPw.addEventListener("input",()=>{
+  clearTimeout(pwCheckTimer);
+  pwCheckTimer=setTimeout(()=>verifyCurrentPassword(),600);
+});
+currentPw.addEventListener("blur",()=>{
+  clearTimeout(pwCheckTimer);
+  verifyCurrentPassword();
+});
+
+if(passwordForm){
+  passwordForm.addEventListener("submit",async(e)=>{
+    e.preventDefault();
+    const cur=currentPw.value.trim(), np=newPw.value.trim(), cp=confirmPw.value.trim();
+    let err=false;
+
+    if(!cur){setErr(currentPw,errorCurrent,"현재 비밀번호를 입력해주세요.");err=true;}
+    if(!validatePassword(np)){setErr(newPw,errorNew,getErrorMessage(newPw));err=true;}
+    if(cp!==np){setErr(confirmPw,errorConfirm,getErrorMessage(confirmPw));err=true;}
+
+    if(err){toast("입력값을 확인해주세요.",true);return;}
+
+    try{
+      const res=await fetch(`${API_URL}/profile/change-password`,{
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        credentials:"include",
+        body:JSON.stringify({currentPassword:cur,newPassword:np})
+      });
+      const data=await res.json();
+
+      if(data.success){
+        toast("비밀번호가 변경되었습니다.");
+        [currentPw,newPw,confirmPw].forEach(i=>i.value="");
+      }else{
+        if(data.message.includes("현재")) setErr(currentPw,errorCurrent,"현재 비밀번호가 일치하지 않습니다.");
+        else toast("비밀번호 변경 실패",true);
+      }
+    }catch{
+      toast("서버 오류",true);
+    }
+  });
+}
+
+/* 회원탈퇴 */
+const agree=document.getElementById("agree");
+const delBtn=document.getElementById("deleteBtn");
+const modal=document.getElementById("confirmModal");
+const cancelDelete=document.getElementById("cancelDelete");
+const confirmDelete=document.getElementById("confirmDelete");
+
+delBtn.disabled=true;
+agree.addEventListener("change",()=>{
+  delBtn.disabled=!agree.checked;
+  delBtn.classList.toggle("active",agree.checked);
+});
+delBtn.addEventListener("click",()=>{
+  if(!agree.checked) return toast("안내사항에 동의해주세요.",true);
+  modal.style.display="flex";
+});
+cancelDelete.addEventListener("click",()=>modal.style.display="none");
+
+confirmDelete.addEventListener("click",async()=>{
+  try{
+    const res=await fetch(`${API_URL}/profile/delete`,{method:"POST",credentials:"include"});
+    const data=await res.json();
+    if(data.success){
+      toast("회원 탈퇴 완료");
+      setTimeout(()=>location.href="index.html",1500);
+    }else toast("회원 탈퇴 실패",true);
+  }catch{
+    toast("서버 오류",true);
+  }
+});
+
+/* 유저 정보 불러오기 */
+window.addEventListener("DOMContentLoaded",async()=>{
+  try{
+    const res=await fetch(`${API_URL}/me`,{credentials:"include"});
+    const data=await res.json();
+    if(data.success && data.user){
+      if(data.user.avatar_url){
+        preview.src=data.user.avatar_url;
+        headerAvatar.src=data.user.avatar_url;
+      }
+      nicknameInput.value=data.user.nickname || "";
+      introInput.value=data.user.intro || "";
+      charCnt.textContent=`${nicknameInput.value.length}/17`;
+      introCnt.textContent=`${introInput.value.length}/255`;
+    }
+    currentUserNickname = data.user.nickname; // 🔵 현재 사용자 닉네임 저장
+
+  }catch(e){
+    console.error("프로필 불러오기 실패",e);
+  }
+});
+
+/* 프로필 드롭다운 */
+const headerAvatarImg=document.getElementById("headerAvatar");
+const dropdown=document.getElementById("profileDropdown");
+headerAvatarImg.addEventListener("click",()=>{
+  dropdown.style.display=dropdown.style.display==="block"?"none":"block";
+});
+document.addEventListener("click",e=>{
+  if(!e.target.closest(".profile-menu-container")) dropdown.style.display="none";
+});
+
+/* 전문가 여부 메뉴 자동변경 */
+async function loadUserState(){
+  try{
+    const res=await fetch(`${API_URL}/expert/is-registered`,{credentials:"include"});
+    const data=await res.json();
+
+    if(data.isExpert){
+      dropdown.innerHTML=`
+        <a href="expert-profile.html">전문가 프로필</a>
+        <a href="expert-register-step1.html">서비스 등록</a>
+        <a href="#" id="logoutBtn">로그아웃</a>
+      `;
+    }else{
+      dropdown.innerHTML=`
+        <a href="profile-edit.html">프로필 설정</a>
+        <a href="mypage.html">마이페이지</a>
+        <a href="#" id="logoutBtn">로그아웃</a>
+      `;
+    }
+  }catch(err){
+    console.error("유저 상태 불러오기 실패",err);
+  }
+}
+loadUserState();
+
+/* 로그아웃 */
+document.addEventListener("click",async(e)=>{
+  if(e.target.id==="logoutBtn"){
+    await fetch(`${API_URL}/logout`,{method:"POST",credentials:"include"});
+    location.href="index.html";
+  }
+});
+</script>
+
+
+</body>
+</html>

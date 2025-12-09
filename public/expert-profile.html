@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>BlueOn | 전문가 프로필</title>
+
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;800&display=swap" rel="stylesheet" />
+
+<style>
+:root {
+  --primary:#0056ff;
+  --bg:#f3f4f6;
+  --white:#ffffff;
+  --text-dark:#111827;
+  --text-gray:#6b7280;
+  --line:#e5e7eb;
+}
+
+*{margin:0;padding:0;box-sizing:border-box;}
+body{
+  font-family:"Noto Sans KR",sans-serif;
+  background:var(--bg);
+  color:var(--text-dark);
+}
+
+/* ===== 상단 헤더 ===== */
+header{
+  width:100%;
+  background:var(--white);
+  border-bottom:1px solid var(--line);
+  padding:16px 40px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+}
+header .logo{
+  font-weight:800;
+  font-size:22px;
+  color:var(--primary);
+  cursor:pointer;
+}
+header .edit-profile-btn{
+  height:40px;
+  padding:0 18px;
+  background:var(--primary);
+  color:#fff;
+  border:none;
+  border-radius:10px;
+  font-weight:600;
+  cursor:pointer;
+  transition:0.25s;
+  transform:translateY(3px);
+}
+header .edit-profile-btn:hover{
+  background:#0044cc;
+}
+
+.wrapper{
+  max-width:1200px;
+  margin:40px auto 60px;
+  padding:0 24px;
+}
+
+.card{
+  background:var(--white);
+  border-radius:18px;
+  border:1px solid var(--line);
+  box-shadow:0 6px 20px rgba(0,0,0,0.04);
+  padding:24px 28px;
+  margin-bottom:24px;
+}
+
+/* ===== 프로필 상단 ===== */
+.profile-header{
+  display:flex;
+  align-items:center;
+  gap:24px;
+}
+.profile-header img{
+  width:110px;
+  height:110px;
+  border-radius:50%;
+  object-fit:cover;
+  box-shadow:0 4px 14px rgba(0,0,0,0.15);
+}
+.profile-main{ flex:1; }
+.profile-name{ font-size:22px; font-weight:800; margin-bottom:6px; }
+.profile-email{ font-size:14px; color:var(--text-gray); }
+.profile-intro{ margin-top:12px; font-size:14px; white-space:pre-line; }
+
+.section-title{ font-size:18px; font-weight:800; margin-bottom:6px; }
+.section-sub{ font-size:13px; color:var(--text-gray); margin-bottom:18px; }
+
+.field-group{ margin-bottom:14px; }
+.field-group label{
+  display:block;
+  font-size:13px;
+  font-weight:600;
+  margin-bottom:6px;
+}
+.readonly-input,
+.readonly-textarea{
+  width:100%;
+  border-radius:10px;
+  border:1px solid #e5e7eb;
+  background:#f9fafb;
+  padding:10px 12px;
+  font-size:14px;
+  color:#111827;
+  white-space:pre-line;
+}
+.readonly-textarea{
+  min-height:68px;
+}
+
+.empty-text{
+  color:var(--text-gray);
+  font-size:14px;
+}
+</style>
+</head>
+
+<body>
+
+<!-- HEADER -->
+<header>
+  <div class="logo" onclick="location.href='index.html'">BlueOn</div>
+  <button class="edit-profile-btn" onclick="location.href='expert-register-step1.html'">프로필 변경</button>
+</header>
+
+<div class="wrapper">
+
+  <!-- 상단 프로필 카드 -->
+  <section class="card profile-top">
+    <div class="profile-header">
+      <img id="profile-avatar" src="assets/default_profile.png" alt="프로필 이미지">
+      <div class="profile-main">
+        <div class="profile-name" id="profile-name"></div>
+        <div class="profile-email" id="profile-email"></div>
+        <p class="profile-intro" id="profile-intro"></p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 브랜드 스토리 -->
+  <section class="card">
+    <div class="section-title">브랜드 스토리</div>
+    <div class="section-sub">전문가의 작업 방식과 방향성</div>
+    <div id="brand-story">
+      <p class="empty-text">브랜드 스토리가 없습니다.</p>
+    </div>
+  </section>
+
+  <!-- 전문 역량 -->
+  <section class="card">
+    <div class="section-title">전문 역량 & 인증</div>
+    <div class="section-sub">보유 스킬, 자격증, 작업 스타일</div>
+    <div id="skills-box">
+      <p class="empty-text">등록된 역량 정보가 없습니다.</p>
+    </div>
+  </section>
+
+</div>
+
+<script>
+const API_URL = "http://localhost:3000";
+
+/* 읽기 전용 필드 생성 */
+function createField(label, value, multi=false){
+  const group = document.createElement("div");
+  group.className = "field-group";
+
+  const lab = document.createElement("label");
+  lab.textContent = label;
+  group.appendChild(lab);
+
+  const box = document.createElement("div");
+  box.className = multi ? "readonly-textarea" : "readonly-input";
+  box.textContent = value || "";
+  group.appendChild(box);
+
+  return group;
+}
+
+document.addEventListener("DOMContentLoaded", loadProfile);
+
+async function loadProfile(){
+  try{
+    /* ---------------------- 유저 기본 정보 ---------------------- */
+    const meRes = await fetch(`${API_URL}/me`, { credentials:"include" });
+    const meData = await meRes.json();
+
+    if(!meData.success || !meData.user){
+      alert("로그인이 필요합니다.");
+      location.href="login.html";
+      return;
+    }
+
+    const me = meData.user;
+
+    document.getElementById("profile-name").textContent  = me.nickname || me.name || "전문가";
+    document.getElementById("profile-email").textContent = me.email;
+    document.getElementById("profile-intro").textContent = me.intro || "";
+    document.getElementById("profile-avatar").src =
+      me.avatar_url || "assets/default_profile.png";
+
+    /* ---------------------- 전문가 프로필 ---------------------- */
+    const res = await fetch(`${API_URL}/expert/profile/${me.id}`);
+    const data = await res.json();
+
+    if(!data.success || !data.profile){
+      console.log("전문가 프로필 없음 – 기본 사용자정보만 표시");
+      return;
+    }
+
+    const p = data.profile;
+
+    /* 아바타 우선순위 */
+    const finalAvatar =
+      p.avatar_url ||
+      me.avatar_url ||
+      "assets/default_profile.png";
+
+    document.getElementById("profile-avatar").src = finalAvatar;
+
+    /* ---------------------- 브랜드 스토리 ---------------------- */
+    const brandBox = document.getElementById("brand-story");
+    brandBox.innerHTML = "";
+
+    if(!p.story_work && !p.story_care && !p.story_brand && !p.story_goal){
+      brandBox.innerHTML = `<p class="empty-text">브랜드 스토리가 없습니다.</p>`;
+    } else {
+      if (p.story_work)  brandBox.appendChild(createField("작업 철학", p.story_work, true));
+      if (p.story_care)  brandBox.appendChild(createField("고객 케어 방식", p.story_care, true));
+      if (p.story_brand) brandBox.appendChild(createField("브랜드 방향성", p.story_brand, true));
+      if (p.story_goal)  brandBox.appendChild(createField("전문가 목표", p.story_goal, true));
+    }
+
+    /* ---------------------- 전문 역량 ---------------------- */
+    const skillBox = document.getElementById("skills-box");
+    skillBox.innerHTML = "";
+
+    const skillsArr   = p.skills_json        || [];
+    const toolsArr    = p.tools_json         || [];
+    const certArr     = p.certificates_json  || [];
+    const stylesArr   = p.styles_json        || [];
+    const strength    = p.strength           || "";
+
+    const hasSkillData =
+      skillsArr.length || toolsArr.length || certArr.length || stylesArr.length || strength;
+
+    if(!hasSkillData){
+      skillBox.innerHTML = `<p class="empty-text">등록된 역량 정보가 없습니다.</p>`;
+    } else {
+
+      if (skillsArr.length)
+        skillBox.appendChild(createField("보유 스킬", skillsArr.join(", "), true));
+
+      if (toolsArr.length){
+        const toolText = toolsArr.map(t => `${t.name} (${t.level}★)`).join("\n");
+        skillBox.appendChild(createField("툴 숙련도", toolText, true));
+      }
+
+      if (certArr.length)
+        skillBox.appendChild(createField("자격증 / 인증", certArr.join(", "), true));
+
+      if (stylesArr.length)
+        skillBox.appendChild(createField("작업 스타일", stylesArr.join(", "), true));
+
+      if (strength)
+        skillBox.appendChild(createField("핵심 강점", strength, true));
+    }
+
+  } catch(err){
+    console.error("❌ 프로필 로딩 오류:", err);
+  }
+}
+</script>
+
+</body>
+</html>

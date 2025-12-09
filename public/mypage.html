@@ -1,0 +1,714 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>마이페이지 | BlueOn</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;800&display=swap" rel="stylesheet">
+
+<style>
+body {
+  font-family: "Noto Sans KR", sans-serif;
+  margin: 0;
+  background: linear-gradient(180deg, #eef2ff 0, #f5f6fa 120px);
+}
+
+/* HEADER */
+header {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  background: rgba(255,255,255,0.96);
+  backdrop-filter: blur(8px);
+  padding: 16px 60px;
+  border-bottom: 1px solid #e5e7eb;
+  font-weight: 800;
+  font-size: 22px;
+  color: #0056ff;
+  cursor: pointer;
+}
+
+/* MAIN WRAPPER */
+.main-wrapper {
+  max-width: 1180px;
+  margin: 32px auto 60px;
+  padding: 0 24px 40px;
+}
+
+/* =========================
+   상단 전문가 프로필 섹션
+========================= */
+.profile-section {
+  margin-bottom: 40px;
+}
+
+.expert-profile-wrapper {
+  display: flex;
+  justify-content: center;
+}
+
+.expert-profile-box {
+  width: 100%;
+  max-width: 980px;
+  display: flex;
+  gap: 26px;
+  background: #ffffff;
+  padding: 30px 34px;
+  border-radius: 20px;
+  box-shadow: 0 10px 28px rgba(15,23,42,0.08);
+  border: 1px solid #e5e7eb;
+}
+
+/* 프로필 이미지 */
+.expert-avatar {
+  width: 104px;
+  height: 104px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid #e5e7eb;
+}
+
+/* 전문가 정보 */
+.expert-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.expert-top-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+}
+
+.expert-name {
+  font-size: 22px;
+  font-weight: 800;
+}
+
+.edit-profile-btn {
+  background: #0056ff;
+  color: #fff;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 4px 10px rgba(37,99,235,0.25);
+}
+.edit-profile-btn:hover {
+  background: #003fcc;
+}
+
+/* 소개글 */
+.expert-intro-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 8px;
+  max-width: 580px;
+}
+
+.expert-intro-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: #2563eb;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #e0ecff;
+}
+
+.expert-intro {
+  font-size: 14px;
+  color: #4b5563;
+  line-height: 1.6;
+  transition: 0.25s ease;
+  flex: 1;
+}
+
+/* 접힌 상태 */
+.expert-intro.collapsed {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* 펼침/접기 버튼 */
+.toggle-intro-btn {
+  font-size: 16px;
+  cursor: pointer;
+  user-select: none;
+  color: #6b7280;
+}
+.toggle-intro-btn:hover {
+  color: #111827;
+}
+
+/* 통계 */
+.expert-stats {
+  display: flex;
+  gap: 24px;
+  margin-top: 12px;
+  font-size: 13px;
+  color: #6b7280;
+}
+
+.expert-stat-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.expert-stat-icon {
+  font-size: 14px;
+}
+
+.expert-stats strong {
+  font-size: 15px;
+  color: #111827;
+  font-weight: 800;
+}
+
+/* =========================
+   서비스 섹션 타이틀
+========================= */
+.section-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  margin: 40px 0 10px;
+}
+
+.section-title {
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.section-subtitle {
+  font-size: 13px;
+  color: #6b7280;
+  margin-top: 4px;
+}
+
+.section-meta {
+  font-size: 13px;
+  color: #9ca3af;
+}
+
+/* 얇은 구분선 */
+.section-divider {
+  height: 1px;
+  width: 100%;
+  margin-bottom: 22px;
+  background: linear-gradient(90deg, rgba(59,130,246,0.4), rgba(148,163,184,0.1));
+}
+
+/* =========================
+   서비스 카드 그리드
+========================= */
+.service-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(310px, 1fr));
+  gap: 26px;
+}
+
+/* CARD */
+.service-card {
+  background: #ffffff;
+  border-radius: 18px;
+  overflow: hidden;
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 6px 18px rgba(15,23,42,0.08);
+  transition: 0.22s;
+  position: relative;
+  cursor: pointer;
+}
+.service-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 10px 26px rgba(15,23,42,0.15);
+}
+
+/* 카드 상단 작은 태그 */
+.card-badge {
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #1d4ed8;
+  background: rgba(219,234,254,0.95);
+}
+
+/* ⋮ 메뉴 버튼 */
+.card-menu-btn {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  background: #ffffffcc;
+  backdrop-filter: blur(8px);
+  width: 32px;
+  height: 32px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  border-radius: 10px;
+  font-size: 20px;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+  opacity: 0;
+  transition: 0.2s;
+  z-index: 10;
+}
+.service-card:hover .card-menu-btn {
+  opacity: 1;
+}
+
+/* 드롭다운 메뉴 */
+.card-dropdown {
+  position: absolute;
+  top: 50px;
+  right: 12px;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 8px 0;
+  width: 140px;
+  box-shadow: 0 6px 16px rgba(0,0,0,0.08);
+  display: none;
+  z-index: 20;
+}
+.card-dropdown.show {
+  display: block;
+}
+.card-dropdown button {
+  width: 100%;
+  background: none;
+  border: none;
+  padding: 10px 14px;
+  font-size: 14px;
+  text-align: left;
+  cursor: pointer;
+  color: #ef4444;
+}
+.card-dropdown button:hover {
+  background: #fef2f2;
+}
+
+/* 썸네일 */
+.thumb-box {
+  aspect-ratio: 4 / 3;
+  background: #f3f4f6;
+  overflow: hidden;
+}
+.thumb-box img.thumb {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* 카드 본문 */
+.card-body {
+  padding: 18px 18px 16px;
+}
+.card-title {
+  font-size: 17px;
+  font-weight: 700;
+  margin-bottom: 6px;
+  line-height: 1.35;
+}
+.card-price {
+  font-size: 16px;
+  font-weight: 800;
+  color: #0056ff;
+  margin-top: 2px;
+}
+.card-category {
+  font-size: 13px;
+  margin-top: 4px;
+  color: #6b7280;
+}
+
+/* Empty */
+.empty-box {
+  text-align: center;
+  padding: 60px 20px;
+  font-size: 18px;
+  color: #777;
+  background: #ffffff;
+  border-radius: 16px;
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 4px 14px rgba(0,0,0,0.04);
+}
+.toggle-intro-btn {
+  font-size: 12px;
+  padding: 0 4px;       /* 클릭 범위 확보 */
+  cursor: pointer;
+  user-select: none;
+  color: #6b7280;
+}
+.toggle-intro-btn:hover {
+  color: #111827;
+}
+
+/* 삭제 모달 & 토스트는 기존 인라인 스타일 그대로 사용 가능 */
+</style>
+</head>
+
+<body>
+
+<header onclick="location.href='index.html'">BlueOn</header>
+
+<main class="main-wrapper">
+
+  <!-- 상단 전문가 프로필 -->
+  <section class="profile-section">
+    <div class="expert-profile-wrapper">
+      <div class="expert-profile-box">
+        <img src="/assets/default_profile.png" id="expertAvatar" class="expert-avatar">
+
+
+        <div class="expert-info">
+          <div class="expert-top-row">
+            <h2 id="expertName" class="expert-name">전문가 닉네임</h2>
+            <button class="edit-profile-btn" onclick="location.href='expert-register-step1.html'">
+              프로필 관리
+            </button>
+          </div>
+
+          <div class="expert-intro-wrapper">
+            <span class="expert-intro-label">전문가 소개</span>
+            <p id="expertIntro" class="expert-intro collapsed">
+              여기에 전문가 소개글이 들어갑니다. 글이 길어지면 한 줄로 줄어들고 펼치기 버튼을 누르면 전체가 보입니다.
+            </p>
+            <span id="toggleIntroBtn" class="toggle-intro-btn">더보기</span>
+          </div>
+
+          <div class="expert-stats">
+            <div class="expert-stat-item">
+              <span class="expert-stat-icon">🛠</span>
+              <span><strong id="svcCount">0</strong> 서비스</span>
+            </div>
+            <div class="expert-stat-item">
+              <span class="expert-stat-icon">💸</span>
+              <span><strong id="salesCount">0</strong> 판매</span>
+            </div>
+            <div class="expert-stat-item">
+              <span class="expert-stat-icon">💬</span>
+              <span><strong id="chatCount">0</strong> 문의</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 서비스 섹션 -->
+  <section>
+    <div class="section-head">
+      <div>
+        <h2 class="section-title">내 서비스 목록</h2>
+        <p class="section-subtitle">등록한 서비스 카드들을 한 곳에서 관리할 수 있어요.</p>
+      </div>
+      <div class="section-meta">
+        카드 클릭 시 상세 페이지로 이동 · 오른쪽 점 3개 버튼으로 삭제 가능
+      </div>
+    </div>
+
+    <div class="section-divider"></div>
+
+    <div id="serviceList" class="service-grid"></div>
+  </section>
+<!-- 삭제 모달 -->
+<div id="deleteModal" style="
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.45);
+  display: none;
+  place-items: center;
+  z-index: 200;
+">
+  <div style="
+    background: #fff;
+    padding: 26px;
+    border-radius: 14px;
+    width: 90%;
+    max-width: 380px;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.2);
+    text-align: center;
+  ">
+    <h3 style="font-size:18px; font-weight:800; margin-bottom:10px;">서비스 삭제</h3>
+    <p style="font-size:14px; color:#555; margin-bottom:20px;">
+      정말로 삭제하시겠습니까? 복구할 수 없습니다.
+    </p>
+
+    <button id="confirmDeleteBtn" style="
+      width:100%;
+      padding:12px;
+      background:#ef4444;
+      color:white;
+      border:none;
+      border-radius:8px;
+      font-size:15px;
+      margin-bottom:10px;
+      cursor:pointer;
+    ">삭제하기</button>
+
+    <button id="cancelDeleteBtn" style="
+      width:100%;
+      padding:12px;
+      background:#e5e7eb;
+      color:#111;
+      border:none;
+      border-radius:8px;
+      font-size:15px;
+      cursor:pointer;
+    ">취소</button>
+  </div>
+</div>
+
+</main>
+
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+  const API = "http://localhost:3000";
+
+  /* --------------------------
+      JSON Safe Parse
+  --------------------------- */
+  function safeJsonParse(value) {
+    if (!value) return [];
+    if (Array.isArray(value)) return value;
+    try { return JSON.parse(value.replace(/'/g, '"')); }
+    catch { return []; }
+  }
+
+/* --------------------------
+    Toast 알람 (우측 상단)
+--------------------------- */
+function toast(message) {
+  const t = document.getElementById("toast");
+  t.textContent = message;
+
+  // 보여주기
+  t.style.opacity = "1";
+  t.style.transform = "translateY(0)";
+
+  // 2초 뒤 사라지기
+  setTimeout(() => {
+    t.style.opacity = "0";
+    t.style.transform = "translateY(-20px)";
+  }, 2000);
+}
+
+  /* --------------------------
+      서비스 불러오기
+  --------------------------- */
+  async function loadServices() {
+    try {
+      const res = await fetch(`${API}/expert/my-services`, { credentials:"include" });
+      const data = await res.json();
+
+      const list = document.getElementById("serviceList");
+      list.innerHTML = "";
+
+      if (!data.success || data.services.length === 0) {
+        list.innerHTML = `<div class="empty-box">등록된 서비스가 없습니다.</div>`;
+        return;
+      }
+
+      data.services.forEach((svc) => {
+        const imgs = safeJsonParse(svc.main_images);
+        const thumbnail = imgs[0] || "/assets/default_service.jpg";
+
+        const card = document.createElement("div");
+        card.classList.add("service-card");
+        card.dataset.id = svc.id;
+
+        card.innerHTML = `
+          <div class="card-menu-btn">⋮</div>
+
+          <div class="card-dropdown">
+            <button class="delete-service-btn" data-id="${svc.id}">서비스 삭제</button>
+          </div>
+
+          <div class="thumb-box">
+            <img class="thumb" src="${thumbnail}" />
+          </div>
+
+          <div class="card-body">
+            <div class="card-title">${svc.title}</div>
+            <div class="card-price">${Number(svc.price_basic).toLocaleString()}원~</div>
+            <div class="card-category">${svc.sub_category}</div>
+          </div>
+        `;
+
+        // 카드 클릭 → 상세 페이지 이동
+        card.addEventListener("click", (e) => {
+          if (e.target.closest(".card-menu-btn") || e.target.closest(".card-dropdown")) return;
+          location.href = `service-detail.html?id=${svc.id}`;
+        });
+
+        list.appendChild(card);
+      });
+
+    } catch (err) {
+      console.error("불러오기 오류:", err);
+    }
+  }
+
+  /* --------------------------
+      ⋮ 메뉴 토글
+  --------------------------- */
+  document.addEventListener("click", (e) => {
+    const menuBtn = e.target.closest(".card-menu-btn");
+    const dropdown = e.target.closest(".card-dropdown");
+
+    document.querySelectorAll(".card-dropdown").forEach(d => d.classList.remove("show"));
+
+    if (menuBtn) {
+      menuBtn.nextElementSibling.classList.add("show");
+      e.stopPropagation();
+    }
+
+    if (dropdown) e.stopPropagation();
+  });
+
+  /* --------------------------
+      삭제 버튼 클릭 → 모달 열기
+  --------------------------- */
+  document.addEventListener("click", (e) => {
+    const btn = e.target.closest(".delete-service-btn");
+    if (!btn) return;
+
+    deleteTargetId = btn.dataset.id;
+    document.getElementById("deleteModal").style.display = "grid";
+  });
+
+  /* --------------------------
+      모달 취소
+  --------------------------- */
+  document.getElementById("cancelDeleteBtn").onclick = () => {
+    document.getElementById("deleteModal").style.display = "none";
+    deleteTargetId = null;
+  };
+
+  /* --------------------------
+      모달 삭제 실행
+  --------------------------- */
+  document.getElementById("confirmDeleteBtn").onclick = async () => {
+    if (!deleteTargetId) return;
+
+    const res = await fetch(`${API}/expert/delete-service/${deleteTargetId}`, {
+      method: "DELETE",
+      credentials: "include"
+    });
+    const data = await res.json();
+
+    if (data.success) {
+      document.querySelector(`.service-card[data-id="${deleteTargetId}"]`).remove();
+      toast("삭제되었습니다.");
+    } else {
+      toast("삭제 실패: " + data.message);
+    }
+
+    document.getElementById("deleteModal").style.display = "none";
+    deleteTargetId = null;
+  };
+const intro = document.getElementById("expertIntro");
+const toggleBtn = document.getElementById("toggleIntroBtn");
+
+toggleBtn.addEventListener("click", () => {
+  const isCollapsed = intro.classList.contains("collapsed");
+
+  if (isCollapsed) {
+    intro.classList.remove("collapsed");
+    toggleBtn.textContent = "접기"; // 펼쳐졌을 때 위 화살표
+  } else {
+    intro.classList.add("collapsed");
+    toggleBtn.textContent = "더보기"; // 접혔을 때 아래 화살표
+  }
+});
+async function loadExpertProfile() {
+  try {
+    const res = await fetch(`${API}/expert/mypage`, { credentials: "include" });
+    const data = await res.json();
+
+    if (!data.success || !data.profile) return;
+
+    const p = data.profile;
+
+    /* ============================================
+       🔵 프로필 이미지 처리
+    ============================================ */
+    const avatarEl = document.getElementById("expertAvatar");
+    let avatar = p.avatar_url;
+
+    if (!avatar) {
+      avatar = "/assets/default_profile.png";
+    } else {
+      // 업로드된 경로가 /uploads/... 형식인지 검사
+      if (!avatar.startsWith("/uploads/") && !avatar.startsWith("/assets/")) {
+        avatar = "/uploads/" + avatar;
+      }
+    }
+
+    avatarEl.src = avatar;
+
+
+    /* ============================================
+       🔵 닉네임 / 소개글
+    ============================================ */
+    document.getElementById("expertName").textContent =
+      p.nickname || "전문가";
+
+    document.getElementById("expertIntro").textContent =
+      p.intro || "아직 소개글이 없습니다!";
+
+
+    /* ============================================
+       🔵 통계 숫자 표시
+       serviceCount → 등록 서비스 수
+       salesCount → 판매 수 (buy_count)
+       chatCount → 문의 수 (채팅방 개수)
+    ============================================ */
+    document.getElementById("svcCount").textContent = p.serviceCount ?? 0;
+    document.getElementById("salesCount").textContent = p.salesCount ?? 0;
+    document.getElementById("chatCount").textContent = p.chatCount ?? 0;
+
+  } catch (err) {
+    console.error("loadExpertProfile error:", err);
+  }
+}
+
+
+  /* --------------------------
+      최초 실행
+  --------------------------- */
+loadExpertProfile();
+loadServices();
+
+
+});
+</script>
+<!-- Toast -->
+<div id="toast" style="
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  background: #333;
+  color: white;
+  padding: 12px 16px;
+  border-radius: 8px;
+  font-size: 14px;
+  opacity: 0;
+  transform: translateY(-20px);
+  transition: all 0.3s ease;
+  z-index: 9999;
+"></div>
+
+</body>
+</html>

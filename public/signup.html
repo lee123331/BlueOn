@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>회원가입 | BlueOn</title>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;800&display=swap" rel="stylesheet">
+
+  <style>
+    :root {
+      --primary: #0056ff;
+      --gray-line: #e5e7eb;
+      --text-gray: #6b7280;
+      --white: #ffffff;
+      --error: #ef4444;
+      --success: #111;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: "Noto Sans KR", sans-serif;
+      background-color: var(--white);
+      color: #111827;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+      padding: 30px 20px;
+    }
+
+    h1 { font-size: 26px; font-weight: 800; color: var(--primary); margin-bottom: 8px; }
+    h2 { font-size: 17px; font-weight: 600; text-align: center; line-height: 1.6; margin-bottom: 35px; }
+
+    /* 폼 */
+    form {
+      width: 100%;
+      max-width: 430px;
+      background: #fff;
+      border: 1px solid var(--gray-line);
+      border-radius: 16px;
+      padding: 40px 30px;
+      box-shadow: 0 4px 25px rgba(0,0,0,0.05);
+      display: flex;
+      flex-direction: column;
+      gap: 22px;
+    }
+
+    label { font-size: 14px; font-weight: 700; display: block; margin-bottom: 6px; }
+
+    .input-wrap {
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    input {
+      width: 100%;
+      padding: 14px 15px;
+      border-radius: 10px;
+      border: 1px solid var(--gray-line);
+      font-size: 15px;
+      transition: 0.2s;
+      outline: none;
+    }
+
+    input.error {
+      border-color: var(--error) !important;
+      box-shadow: 0 0 0 2px rgba(239,68,68,0.15);
+    }
+
+    input.success {
+      border-color: var(--success);
+      box-shadow: 0 0 0 2px rgba(0,0,0,0.1);
+    }
+
+    .error-text {
+      color: var(--error);
+      font-size: 13px;
+      margin-left: 4px;
+      opacity: 0;
+      max-height: 0;
+      transition: all 0.25s ease;
+      overflow: hidden;
+    }
+
+    .error-text.show {
+      opacity: 1;
+      max-height: 26px;
+    }
+
+    /* 약관 */
+    .terms {
+      background: #f9fafb;
+      border-radius: 12px;
+      border: 1px solid var(--gray-line);
+      padding: 22px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .terms h3 {
+      font-size: 15px;
+      font-weight: 700;
+      color: #111;
+      margin-bottom: 4px;
+    }
+
+    .term-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      line-height: 1.5;
+    }
+
+    .term-item input[type="checkbox"] {
+      margin-top: 3px;
+      width: 16px;
+      height: 16px;
+    }
+
+    /* 버튼 */
+    button {
+      width: 100%;
+      padding: 15px 0;
+      font-size: 16px;
+      font-weight: 700;
+      border-radius: 10px;
+      border: none;
+      background: #bbb;
+      color: white;
+      cursor: not-allowed;
+      transition: 0.2s;
+      margin-top: 6px;
+    }
+
+    button.active {
+      background: #111;
+      cursor: pointer;
+    }
+    button.active:hover { background: #333; }
+
+    /* 성공 모달 */
+    #modal {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%) scale(0.85);
+      background: #fff;
+      padding: 40px 50px;
+      border-radius: 16px;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.25);
+      text-align: center;
+      opacity: 0;
+      pointer-events: none;
+      transition: all 0.3s;
+      z-index: 9999;
+    }
+    #modal.active {
+      opacity: 1;
+      pointer-events: auto;
+      transform: translate(-50%, -50%) scale(1);
+    }
+
+    .modal-check {
+      width: 70px;
+      height: 70px;
+      border-radius: 50%;
+      border: 4px solid #00c853;
+      margin: 0 auto 16px;
+    }
+
+    .modal-title {
+      font-size: 20px;
+      font-weight: 800;
+      margin-bottom: 6px;
+    }
+
+    .modal-msg {
+      font-size: 14px;
+      color: #555;
+    }
+
+    /* 오류 모달 */
+    #errorModal {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.35);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 10000;
+      opacity: 0;
+      transition: opacity 0.25s;
+    }
+    #errorModal.active {
+      display: flex;
+      opacity: 1;
+    }
+
+    .error-box {
+      background: #fff;
+      padding: 32px 40px;
+      border-radius: 16px;
+      text-align: center;
+      box-shadow: 0 8px 30px rgba(0,0,0,0.25);
+      width: 330px;
+    }
+
+    .error-icon {
+      font-size: 46px;
+      margin-bottom: 12px;
+      color: #ef4444;
+    }
+
+    #errorTitle {
+      font-size: 20px;
+      font-weight: 800;
+      margin-bottom: 6px;
+      color: #ef4444;
+    }
+
+    #errorMessage {
+      font-size: 14px;
+      line-height: 1.6;
+      color: #555;
+    }
+  </style>
+</head>
+
+<body>
+
+  <h1>BlueOn</h1>
+  <h2>이메일로<br>BlueOn에 가입하세요</h2>
+
+  <form id="signupForm" novalidate>
+
+  <!-- 이메일 -->
+  <div>
+    <label for="email">이메일</label>
+    <div class="input-wrap">
+      <input type="email" id="email" placeholder="이메일을 입력해 주세요" />
+      <p class="error-text" id="emailError">이메일 주소가 올바르지 않아요.</p>
+    </div>
+  </div>
+
+  <!-- 전화번호 추가 -->
+  <div>
+    <label for="phone">휴대폰 번호</label>
+    <div class="input-wrap">
+      <input type="text" id="phone" placeholder="숫자만 입력해주세요 (예: 01012345678)" />
+      <p class="error-text" id="phoneError">휴대폰 번호 형식이 올바르지 않습니다.</p>
+    </div>
+  </div>
+
+  <!-- 비밀번호 -->
+  <div>
+    <label for="password">비밀번호</label>
+    <div class="input-wrap">
+      <input type="password" id="password" placeholder="영문, 숫자, 특수문자 포함 8자 이상" />
+      <p class="error-text" id="passwordError">비밀번호 조건을 만족하지 않습니다.</p>
+    </div>
+  </div>
+
+  <!-- 비밀번호 확인 -->
+  <div class="input-wrap">
+    <input type="password" id="confirm" placeholder="비밀번호를 한 번 더 입력해 주세요" autocomplete="new-password">
+    <p class="error-text" id="confirmError">비밀번호가 일치하지 않습니다.</p>
+  </div>
+
+  <!-- 약관 -->
+  <div class="terms">
+    <h3>약관 동의</h3>
+
+    <div class="term-item">
+      <input type="checkbox" id="agreeAll">
+      <label for="agreeAll"><strong>모두 동의합니다.</strong></label>
+    </div>
+
+    <div class="term-item">
+      <input type="checkbox" class="term" id="term1">
+      <label for="term1">만 14세 이상입니다.</label>
+    </div>
+
+    <div class="term-item">
+      <input type="checkbox" class="term" id="term2">
+      <label for="term2">서비스 이용약관에 동의합니다.</label>
+    </div>
+
+    <div class="term-item">
+      <input type="checkbox" class="term" id="term3">
+      <label for="term3">개인정보 수집 및 이용에 동의합니다.</label>
+    </div>
+  </div>
+
+  <button id="signupBtn" type="submit" disabled>가입완료</button>
+
+</form>
+
+
+  <!-- 성공 모달 -->
+  <div id="modal" class="modal">
+    <div class="modal-check"></div>
+    <h3 class="modal-title">회원가입 완료!</h3>
+    <p class="modal-msg">잠시 후 로그인 페이지로 이동합니다.</p>
+  </div>
+
+  <!-- 오류 모달 -->
+  <div id="errorModal" class="error-modal">
+    <div class="error-box">
+      <div class="error-icon">⚠️</div>
+      <h3 id="errorTitle">오류 발생</h3>
+      <p id="errorMessage">다시 시도해주세요.</p>
+    </div>
+  </div>
+
+<script>
+/* ===== 요소 캐싱 ===== */
+const email     = document.getElementById("email");
+const password  = document.getElementById("password");
+const confirmPw = document.getElementById("confirm");
+const btn       = document.getElementById("signupBtn");
+const phoneInput = document.getElementById("phone");
+const phoneError = document.getElementById("phoneError");
+const signupBtn = document.getElementById("signupBtn");
+
+/* 오류 문구 */
+const emailError   = document.getElementById("emailError");
+const passwordError= document.getElementById("passwordError");
+const confirmError = document.getElementById("confirmError");
+
+/* 모달 */
+const successModal = document.getElementById("modal");
+const errorModal   = document.getElementById("errorModal");
+const errorTitle   = document.getElementById("errorTitle");
+const errorMessage = document.getElementById("errorMessage");
+
+/* 에러 모달 표시 */
+function showErrorModal(title, message) {
+  if (!errorModal || !errorTitle || !errorMessage) return;
+
+  errorTitle.textContent = title;
+  errorMessage.textContent = message;
+
+  errorModal.classList.add("active");
+  setTimeout(() => {
+    errorModal.classList.remove("active");
+  }, 2000);
+}
+
+/* 이메일 검사 */
+function checkEmail() {
+  const value = email.value.trim();
+  const valid = /^[\w.-]+@[\w.-]+\.[A-Za-z]{2,}$/.test(value);
+
+  email.classList.toggle("error", !valid && value.length > 0);
+  email.classList.toggle("success", valid);
+  emailError.classList.toggle("show", !valid && value.length > 0);
+
+  return valid;
+}
+
+/* 비밀번호 검사 */
+function checkPassword() {
+  const value = password.value;
+  const valid = /^(?=.*[A-Za-z])(?=.*\d)(?=.*[!@#$%^&*]).{8,}$/.test(value);
+
+  password.classList.toggle("error", !valid && value.length > 0);
+  password.classList.toggle("success", valid);
+  passwordError.classList.toggle("show", !valid && value.length > 0);
+
+  return valid;
+}
+
+/* 비밀번호 재입력 검사 */
+function checkConfirm() {
+  const pw = password.value;
+  const cf = confirmPw.value;
+
+  if (cf.length === 0) {
+    confirmPw.classList.remove("error", "success");
+    confirmError.classList.remove("show");
+    return false;
+  }
+
+  const match = (pw === cf);
+
+  if (!match) {
+    confirmPw.classList.add("error");
+    confirmPw.classList.remove("success");
+    confirmError.classList.add("show");
+  } else {
+    confirmPw.classList.add("success");
+    confirmPw.classList.remove("error");
+    confirmError.classList.remove("show");
+  }
+
+  return match;
+}
+
+/* 버튼 활성화 */
+function updateButton() {
+  const ready =
+    checkEmail() &&
+    checkPassword() &&
+    checkConfirm() &&
+    document.getElementById("term1").checked &&
+    document.getElementById("term2").checked;
+
+  btn.disabled = !ready;
+  btn.classList.toggle("active", ready);
+}
+
+/* ===== 이벤트 등록 ===== */
+email.addEventListener("input", () => {
+  checkEmail();
+  updateButton();
+});
+
+password.addEventListener("input", () => {
+  checkPassword();
+  checkConfirm();  
+  updateButton();
+});
+
+/* 🔥 비밀번호 재입력: 첫 글자부터 반응 (IME 문제 해결버전) */
+confirmPw.addEventListener("keydown", () => {
+  setTimeout(() => {
+    checkConfirm();
+    updateButton();
+  }, 0);
+});
+
+/* 약관 체크박스 */
+document.querySelectorAll(".term").forEach(cb =>
+  cb.addEventListener("change", updateButton)
+);
+
+document.getElementById("agreeAll").addEventListener("change", e => {
+  document.querySelectorAll(".term").forEach(cb => (cb.checked = e.target.checked));
+  updateButton();
+});
+
+/* ===== 제출 ===== */
+document.getElementById("signupForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+
+  if (!(checkEmail() && checkPassword() && checkConfirm())) return;
+
+  try {
+    const res = await fetch("http://localhost:3000/signup", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({
+    email: email.value.trim(),
+    password: password.value.trim(),
+    phone: phoneInput.value.trim()
+  })
+});
+
+
+    if (res.status === 409) {
+      showErrorModal("이메일 중복", "이미 가입된 이메일입니다.");
+      return;
+    }
+
+    let data = {};
+    try {
+      data = await res.json();
+    } catch (err) { }
+
+    if (!res.ok || data.success === false) {
+      showErrorModal("회원가입 실패", data.message || "다시 시도해주세요.");
+      return;
+    }
+
+    successModal.classList.add("active");
+    setTimeout(() => {
+      window.location.href = "login.html";
+    }, 2000);
+
+  } catch (err) {
+    console.error(err);
+    showErrorModal("서버 오류", "서버와 통신할 수 없습니다.");
+  }
+});
+function validatePhone() {
+  const value = phoneInput.value.trim();
+  const valid = /^01[0-9]{8,9}$/.test(value);
+
+  if (!valid) {
+    phoneError.style.display = "block";
+  } else {
+    phoneError.style.display = "none";
+  }
+
+  return valid;
+}
+function updateSignupButton() {
+  const isEmailValid = emailError.style.display === "none";
+  const isPwValid = passwordError.style.display === "none";
+  const isConfirmValid = confirmError.style.display === "none";
+  const isPhoneValid = phoneError.style.display === "none";
+
+  const allTermsChecked = 
+    term1.checked && term2.checked && term3.checked;
+
+  if (isEmailValid && isPwValid && isConfirmValid && isPhoneValid && allTermsChecked) {
+    signupBtn.disabled = false;
+  } else {
+    signupBtn.disabled = true;
+  }
+}
+phoneInput.addEventListener("input", () => {
+  validatePhone();
+  updateSignupButton();
+});
+
+</script>
+
+</body>
+</html>

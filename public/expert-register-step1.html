@@ -1,0 +1,544 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BlueOn | 전문가 등록 – 전문가 소개</title>
+
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;800&display=swap" rel="stylesheet">
+
+<style>
+:root {
+  --primary:#0056ff;
+
+  --bg:#ffffff;
+  --white:#ffffff;
+
+  --text-dark:#111827;
+  --text-gray:#6b7280;
+  --line:#e5e7eb;
+}
+
+*{margin:0;padding:0;box-sizing:border-box;}
+
+body{
+  font-family:"Noto Sans KR",sans-serif;
+  background:var(--bg);
+  color:var(--text-dark);
+}
+
+/* 전체 레이아웃 */
+.wrapper{
+  background: var(--white);
+  max-width:1400px;
+  margin:0 auto;
+  padding:40px 30px;
+  display:flex;
+  gap:40px;
+}
+
+/* ========== ASIDE ========== */
+aside{
+  width:260px;
+  background:var(--white);
+  border:1px solid var(--line);
+  padding:25px 20px;
+  border-radius:12px;
+  box-shadow:0 5px 18px rgba(0,0,0,0.04);
+}
+
+.aside-title{
+  font-size:18px;
+  font-weight:700;
+  margin-bottom:20px;
+  color:var(--primary);
+}
+
+.menu-item{
+  padding:12px 12px;
+  border-radius:8px;
+  margin-bottom:8px;
+  font-size:15px;
+  cursor:pointer;
+  transition:0.2s;
+}
+
+.menu-item:hover{
+  background:#eef3ff;
+}
+
+.menu-item.active{
+  background:var(--primary);
+  color:#fff;
+  font-weight:600;
+}
+
+/* ========== CONTENT ========== */
+section.content{
+  flex:1;
+  background:var(--white);
+  border:1px solid var(--line);
+  border-radius:12px;
+  padding:40px 50px 80px; /* 아래쪽 여백 넉넉하게 */
+  box-shadow:0 6px 18px rgba(0,0,0,0.04);
+}
+
+section h2{
+  font-size:24px;
+  font-weight:800;
+  margin-bottom:30px;
+}
+
+/* 프로필 + 닉네임 UI */
+.profile-row{
+  display:flex;
+  align-items:flex-start;
+  gap:40px;
+  margin-bottom:26px;
+}
+
+.profile-avatar{
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  gap:12px;
+}
+
+.profile-avatar img{
+  width:110px;
+  height:110px;
+  border-radius:50%;
+  object-fit:cover;
+  border:3px solid #e5e5e5;
+  box-shadow:0 4px 12px rgba(0,0,0,0.08);
+}
+
+.profile-btn{
+  padding:7px 14px;
+  border-radius:7px;
+  background:#f3f4f6;
+  border:1px solid var(--line);
+  cursor:pointer;
+  font-size:13px;
+  font-weight:600;
+}
+.profile-btn:hover{
+  background:#e9efff;
+  border-color:#c7d6ff;
+}
+
+/* 닉네임 라인 */
+.nickname-row{
+  display:flex;
+  align-items:center;
+  gap:28px;
+  flex:1;
+}
+
+/* 왼쪽 라벨 */
+.nickname-label{
+  width:80px;
+  font-size:15px;
+  font-weight:700;
+}
+
+/* 입력 영역 */
+.nickname-input-box{
+  flex:1;
+  display:flex;
+  flex-direction:column;
+  margin-top:30px;
+}
+
+/* 닉네임 입력란 회색 배경 */
+.nickname-input-box input{
+  width:100%;
+  padding:12px 14px;
+  border-radius:8px;
+  border:1px solid var(--line);
+  font-size:15px;
+  background:#f5f5f5;
+  outline:none;
+}
+
+/* placeholder 진하게 */
+#nicknameInput::placeholder{
+  color:#6b7280;
+  font-weight:600;
+}
+
+/* 포커스 시 테두리만 파란색 */
+.nickname-input-box input:focus{
+  border-color:var(--primary);
+  background:#e4e2e2;
+}
+
+/* 상태 메시지 */
+.status-msg{
+  margin-top:5px;
+  font-size:12px;
+  min-height:14px;
+}
+.status-msg.ok{color:#16a34a;}
+.status-msg.error{color:#ef4444;}
+
+/* TIP */
+.tip-box{
+  background:#f5f7ff;
+  border:1px solid #dbeafe;
+  padding:16px 18px;
+  border-radius:10px;
+  font-size:13px;
+  color:var(--text-gray);
+  margin-bottom:26px;
+}
+.tip-box li{
+  margin-left:18px;
+  list-style:square;
+}
+
+/* 폼 공통 */
+.form-group{
+  position:static;
+  overflow:visible;
+  margin-bottom:25px;
+}
+.form-group label{
+  font-weight:700;
+  margin-bottom:8px;
+  display:block;
+}
+
+/* 상세 자기소개 회색 배경 */
+#introDetail{
+  width:100%;
+  padding:14px;
+  border:1px solid var(--line);
+  border-radius:8px;
+  font-size:15px;
+  background:#f5f5f5;
+  outline:none;
+}
+#introDetail:focus{
+  border-color:var(--primary);
+}
+
+/* 셀렉트 박스 (상/하위 카테고리) */
+.select-box{
+  width:100%;
+  padding:16px;
+  font-size:15px;
+  border:1px solid var(--line);
+  border-radius:10px;
+  background:#f5f5f5;
+  outline:none;
+  cursor:pointer;
+}
+
+.select-box:focus{
+  border-color:var(--primary);
+  background:#e4e2e2;
+}
+.form-section {
+  padding-bottom: 200px; /* 충분한 공간 확보 */
+}
+
+/* 버튼 */
+.next-button{
+  margin-top:35px;
+  padding:14px 36px;
+  background:var(--primary);
+  color:#fff;
+  border:none;
+  border-radius:10px;
+  font-weight:700;
+  font-size:16px;
+  cursor:pointer;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+}
+.next-button:hover{
+  background:#0044cc;
+}
+</style>
+</head>
+
+<body>
+
+<div class="wrapper">
+
+  <!-- ASIDE -->
+  <aside>
+    <div class="aside-title">전문가 등록</div>
+
+    <div class="menu-item active" onclick="goStep('intro')">전문가 소개</div>
+    <div class="menu-item" onclick="goStep('career')">경력 사항</div>
+    <div class="menu-item" onclick="goStep('skill')">전문 역량 & 인증</div>
+    <div class="menu-item" onclick="goStep('brand')">브랜드 스토리</div>
+  </aside>
+
+  <!-- CONTENT -->
+  <section class="content">
+
+    <h2>전문가 소개</h2>
+
+    <!-- 프로필 + 닉네임 -->
+    <div class="profile-row">
+
+      <div class="profile-avatar">
+        <img id="expertPreview" src="assets/default_profile.png" alt="프로필 이미지">
+        <input type="file" id="expertAvatar" accept="image/*" hidden>
+        <button type="button" class="profile-btn" onclick="document.getElementById('expertAvatar').click()">프로필 변경</button>
+      </div>
+
+      <div class="nickname-row">
+        <label for="nicknameInput" class="nickname-label">닉네임</label>
+        <div class="nickname-input-box">
+          <input id="nicknameInput" type="text" placeholder="닉네임 입력">
+          <small id="nicknameStatus" class="status-msg"></small>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- TIP -->
+    <div class="tip-box">
+      <ul>
+        <li>닉네임은 최초 1회만 변경할 수 있습니다.</li>
+        <li>특수문자, 공백, 과도한 광고성 문구는 사용이 제한될 수 있습니다.</li>
+        <li>한글/영문/숫자만 사용할 수 있으며, 이메일 아이디 또는 비밀번호와 동일한 문자열은 사용이 불가능합니다.</li>
+      </ul>
+    </div>
+
+    <!-- 상세 소개 -->
+    <div class="form-group">
+      <label for="introDetail">상세 자기소개</label>
+      <textarea id="introDetail" rows="7" placeholder="전문가님의 경험, 작업 스타일, 고객과의 협업 방식 등을 자유롭게 작성해주세요."></textarea>
+    </div>
+
+    <!-- 상위 카테고리 -->
+    <div class="form-group">
+      <label for="topCategory">상위 카테고리</label>
+      <select id="topCategory" class="select-box">
+        <option value="">상위 카테고리를 선택하세요</option>
+        <option value="shop">쇼핑몰 제작·구축</option>
+        <option value="detail">상세페이지 기획·디자인</option>
+        <option value="brand">브랜드 디자인</option>
+        <option value="ux">전환율 개선 · UX/UI 최적화</option>
+      </select>
+    </div>
+
+    <!-- 하위 카테고리 -->
+    <div class="form-group">
+      <label for="subCategory">하위 카테고리</label>
+      <select id="subCategory" class="select-box">
+        <option value="">하위 카테고리를 선택하세요</option>
+      </select>
+    </div>
+
+    <button class="next-button" type="button" onclick="goNextStep()">
+  다음 단계로 이동
+</button>
+
+  </section>
+
+</div>
+<script>
+  const API_URL = "http://localhost:3000";
+/* ==========================================================
+   BlueOn 전문가 등록 – STEP1 자동 저장 / 자동 복원 (완성본)
+========================================================== */
+
+/* DOM 요소 */
+const nicknameInput = document.getElementById("nicknameInput");
+const nicknameStatus = document.getElementById("nicknameStatus");
+const introDetail = document.getElementById("introDetail");
+const topCategory = document.getElementById("topCategory");
+const subCategory = document.getElementById("subCategory");
+const avatarInput = document.getElementById("expertAvatar");
+const avatarPreview = document.getElementById("expertPreview");
+
+/* 하위 카테고리 목록 */
+const categoryMap = {
+  shop: [
+    "쇼핑몰 구축(카페24)", "쇼핑몰 구축(스마트스토어)", "쇼핑몰 구축(자사몰)",
+    "쇼핑몰 리뉴얼", "쇼핑몰 UI 디자인", "쇼핑몰 기능 개발"
+  ],
+  detail: [
+    "상세페이지 디자인", "상세페이지 기획", "배너 디자인", "상품 촬영 연계"
+  ],
+  brand: [
+    "로고 디자인", "브랜드 키트 제작", "BI·CI 디자인", "브랜드 스토리텔링"
+  ],
+  ux: [
+    "UX 구조 설계", "전환율 분석", "고객 여정 지도(CJM)", "UI 개선"
+  ]
+};
+
+/* ==========================================================
+   STEP1 저장 함수
+========================================================== */
+function saveStep1() {
+  const data = {
+    nickname: nicknameInput.value || "",
+    intro: introDetail.value || "",
+    topCategory: topCategory.value || "",
+    subCategory: subCategory.value || "",
+    avatarUrl: avatarPreview.dataset.url || ""
+  };
+
+  localStorage.setItem("expert_step1", JSON.stringify(data));
+}
+
+/* ==========================================================
+   STEP1 불러오기
+========================================================== */
+function loadStep1() {
+  const saved = localStorage.getItem("expert_step1");
+  if (!saved) return;
+
+  const data = JSON.parse(saved);
+
+  /* 기본 필드 복원 */
+  nicknameInput.value = data.nickname || "";
+  introDetail.value = data.intro || "";
+  topCategory.value = data.topCategory || "";
+
+  /* 상위 선택 후 하위 카테고리 활성화 */
+  if (data.topCategory) {
+    renderSubCategories(data.topCategory);
+    subCategory.value = data.subCategory || "";
+  }
+
+  /* 아바타 복원 */
+  if (data.avatarUrl) {
+    avatarPreview.src = data.avatarUrl;
+    avatarPreview.dataset.url = data.avatarUrl;
+  }
+}
+
+/* ==========================================================
+   하위 카테고리 렌더링
+========================================================== */
+function renderSubCategories(topKey) {
+  subCategory.innerHTML = `<option value="">하위 카테고리를 선택하세요</option>`;
+  if (!categoryMap[topKey]) return;
+
+  categoryMap[topKey].forEach(text => {
+    const opt = document.createElement("option");
+    opt.value = text;
+    opt.textContent = text;
+    subCategory.appendChild(opt);
+  });
+}
+
+/* ==========================================================
+   상위 카테고리 변경
+========================================================== */
+topCategory.addEventListener("change", () => {
+  renderSubCategories(topCategory.value);
+  saveStep1();
+});
+
+/* 하위 카테고리 변경 시 */
+subCategory.addEventListener("change", saveStep1);
+
+/* ==========================================================
+   아바타 업로드
+========================================================== */
+async function uploadAvatarToServer(file) {
+  const fd = new FormData();
+  fd.append("avatar", file);
+
+  const res = await fetch("http://localhost:3000/expert/upload-avatar", {
+    method: "POST",
+    body: fd,
+    credentials: "include"
+  });
+
+  const data = await res.json();
+  return data.url;   // 예: "/uploads/파일명.png"
+}
+
+/* 파일 선택 이벤트 */
+avatarInput.addEventListener("change", async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+
+  const url = await uploadAvatarToServer(file);
+  if (!url) {
+    alert("이미지 업로드 실패");
+    return;
+  }
+
+  avatarPreview.src = url;
+  avatarPreview.dataset.url = url;
+
+  saveStep1();
+});
+
+/* ==========================================================
+   닉네임 중복 체크
+========================================================== */
+nicknameInput.addEventListener("blur", async () => {
+  const nickname = nicknameInput.value.trim();
+  if (!nickname) return;
+
+  const res = await fetch(
+    "http://localhost:3000/expert/check-nickname?nickname=" + encodeURIComponent(nickname)
+  );
+  const data = await res.json();
+
+  console.log("닉네임 중복 체크 결과:", data);
+
+  nicknameStatus.textContent = "";
+  nicknameStatus.className = "status-msg";
+
+  if (data.available) {
+    nicknameStatus.textContent = "사용 가능한 닉네임입니다.";
+    nicknameStatus.classList.add("ok");
+  } else {
+    nicknameStatus.textContent = "이미 사용 중인 닉네임입니다.";
+    nicknameStatus.classList.add("error");
+  }
+
+  saveStep1();
+});
+
+
+/* ==========================================================
+   입력 자동 저장
+========================================================== */
+nicknameInput.addEventListener("input", saveStep1);
+introDetail.addEventListener("input", saveStep1);
+
+/* ==========================================================
+   step 이동
+========================================================== */
+function goStep(step) {
+  const map = {
+    intro: "expert-register-step1.html",
+    career: "expert-register-step2.html",
+    skill: "expert-register-step3.html",
+    brand: "expert-register-step4.html"
+  };
+  location.href = map[step];
+}
+
+function goNextStep() {
+  saveStep1();
+  location.href = "expert-register-step2.html";
+}
+
+/* ==========================================================
+   초기 실행
+========================================================== */
+window.addEventListener("DOMContentLoaded", () => {
+  loadStep1();
+});
+</script>
+
+
+</body>
+</html>

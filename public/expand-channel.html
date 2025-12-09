@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>BlueOn | 국내 채널 확장 전략</title>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;800&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --primary:#0056ff;
+      --primary-light:#eaf1ff;
+      --bg:#f9fafb;
+      --white:#ffffff;
+      --line:#e5e7eb;
+      --text-dark:#111827;
+      --text-gray:#6b7280;
+      --badge:#eef2ff;
+    }
+    *{margin:0;padding:0;box-sizing:border-box;}
+    body{
+      font-family:"Noto Sans KR",sans-serif;
+      background:var(--bg);
+      color:var(--text-dark);
+    }
+
+    /* HEADER */
+    header{
+      width:100%;
+      background:var(--white);
+      border-bottom:1px solid var(--line);
+      padding:18px 40px;
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+    }
+    header .logo{
+      font-size:22px;
+      font-weight:800;
+      color:var(--primary);
+      cursor:pointer;
+    }
+    header .step-label{
+      font-size:13px;
+      color:var(--text-gray);
+    }
+
+    /* WRAPPER */
+    .wrapper{
+      max-width:960px;
+      margin:32px auto 60px;
+      padding:0 20px;
+    }
+
+    /* HERO */
+    .hero-card{
+      background:var(--white);
+      border-radius:20px;
+      padding:30px 30px 26px;
+      box-shadow:0 4px 16px rgba(0,0,0,0.05);
+      border:1px solid #e5e7eb;
+    }
+    .hero-tag{
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      font-size:12px;
+      padding:5px 10px;
+      border-radius:999px;
+      background:var(--primary-light);
+      color:#1d4ed8;
+      font-weight:600;
+      margin-bottom:12px;
+    }
+    .hero-title{
+      font-size:24px;
+      font-weight:800;
+      margin-bottom:8px;
+    }
+    .hero-sub{
+      font-size:14px;
+      color:var(--text-gray);
+      line-height:1.6;
+      margin-bottom:14px;
+    }
+
+    /* Mini roadmap */
+    .mini-roadmap{
+      display:flex;
+      align-items:center;
+      gap:8px;
+      font-size:12px;
+      margin-top:8px;
+      color:var(--text-gray);
+    }
+    .mini-dot{
+      width:10px;
+      height:10px;
+      border-radius:50%;
+      background:#d1d5db;
+    }
+    .mini-dot.active{
+      background:var(--primary);
+    }
+    .mini-label.active{
+      color:var(--primary);
+      font-weight:700;
+    }
+
+    /* SECTION TITLE */
+    .section-title{
+      margin:32px auto 8px;
+      font-size:18px;
+      font-weight:800;
+    }
+    .section-sub{
+      font-size:13px;
+      color:var(--text-gray);
+      margin-bottom:16px;
+    }
+
+    /* CHANNEL GRID */
+    .channel-grid{
+      display:grid;
+      grid-template-columns:repeat(auto-fit,minmax(260px,1fr));
+      gap:18px;
+      margin-bottom:28px;
+    }
+    .channel-card{
+      background:var(--white);
+      border-radius:16px;
+      padding:18px 18px 16px;
+      border:1px solid #e5e7eb;
+      box-shadow:0 3px 10px rgba(0,0,0,0.03);
+    }
+    .channel-head{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      margin-bottom:8px;
+    }
+    .channel-title{
+      font-size:15px;
+      font-weight:700;
+    }
+    .channel-tag{
+      padding:3px 8px;
+      border-radius:999px;
+      background:var(--badge);
+      font-size:11px;
+      color:#4338ca;
+      font-weight:600;
+    }
+    .channel-desc{
+      font-size:13px;
+      color:var(--text-gray);
+      line-height:1.6;
+      margin-bottom:10px;
+    }
+    .channel-list{
+      list-style:none;
+      padding-left:0;
+      margin:0;
+      font-size:12px;
+      color:var(--text-gray);
+    }
+    .channel-list li{
+      margin-bottom:4px;
+    }
+
+    /* PRIORITY & CHECKLIST */
+    .priority-wrap{
+      display:grid;
+      grid-template-columns:2fr 1.4fr;
+      gap:18px;
+      margin-top:10px;
+    }
+    @media(max-width:820px){
+      .priority-wrap{grid-template-columns:1fr;}
+    }
+    .card{
+      background:var(--white);
+      border-radius:16px;
+      padding:18px 18px 16px;
+      border:1px solid #e5e7eb;
+      box-shadow:0 3px 10px rgba(0,0,0,0.03);
+    }
+    .card-title{
+      font-size:15px;
+      font-weight:700;
+      margin-bottom:6px;
+    }
+    .card-sub{
+      font-size:12px;
+      color:var(--text-gray);
+      margin-bottom:10px;
+    }
+
+    .pill-row{
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+      margin-top:4px;
+    }
+    .pill{
+      padding:6px 10px;
+      border-radius:999px;
+      font-size:12px;
+      border:1px solid #e5e7eb;
+      cursor:pointer;
+      background:#f9fafb;
+    }
+    .pill.active{
+      border-color:var(--primary);
+      background:var(--primary-light);
+      color:#1d4ed8;
+      font-weight:600;
+    }
+
+    .checklist{
+      list-style:none;
+      padding-left:0;
+      font-size:12px;
+      color:var(--text-gray);
+    }
+    .checklist li{
+      display:flex;
+      align-items:flex-start;
+      gap:6px;
+      margin-bottom:6px;
+    }
+    .check-dot{
+      margin-top:4px;
+      width:6px;
+      height:6px;
+      border-radius:999px;
+      background:#d1d5db;
+    }
+    .check-dot.active{
+      background:var(--primary);
+    }
+
+    /* CTA */
+    .cta-wrap{
+      margin-top:30px;
+      display:flex;
+      justify-content:space-between;
+      gap:10px;
+      flex-wrap:wrap;
+    }
+    .cta-left{
+      font-size:13px;
+      color:var(--text-gray);
+    }
+    .cta-btn-primary,
+    .cta-btn-sub{
+      border:none;
+      padding:11px 18px;
+      border-radius:10px;
+      font-size:13px;
+      font-weight:700;
+      cursor:pointer;
+      white-space:nowrap;
+    }
+    .cta-btn-primary{
+      background:var(--primary);
+      color:#fff;
+    }
+    .cta-btn-primary:hover{
+      background:#003fcc;
+    }
+    .cta-btn-sub{
+      background:#e5e7eb;
+      color:#111827;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo" onclick="location.href='index.html'">BlueOn</div>
+  <div class="step-label">브랜드 확장 단계 · 📡 국내 채널 확장 전략</div>
+</header>
+
+<div class="wrapper">
+
+  <!-- HERO -->
+  <section class="hero-card">
+    <div class="hero-tag">
+      📡 <span>국내 채널 확장 전략</span>
+    </div>
+    <h1 class="hero-title">국내 채널에서 브랜드 영향력을 넓혀봅시다.</h1>
+    <p class="hero-sub">
+      네이버 · 카카오 · SNS · 커머스 채널을 한 번에 정리하고,<br>
+      우리 브랜드에게 맞는 핵심 채널만 골라 집중할 수 있도록 도와주는 단계입니다.
+    </p>
+
+    <div class="mini-roadmap">
+      <div class="mini-dot"></div><span>설계</span>
+      <span>—</span>
+      <div class="mini-dot"></div><span>확산</span>
+      <span>—</span>
+      <div class="mini-dot active"></div><span class="mini-label active">확장</span>
+    </div>
+  </section>
+
+  <!-- SECTION: 채널 유형 -->
+  <h2 class="section-title">국내 채널 유형 정리</h2>
+  <p class="section-sub">우리 브랜드가 어디에서 가장 잘 보일 수 있을지, 먼저 큰 채널 유형부터 정리해봅니다.</p>
+
+  <div class="channel-grid">
+    <!-- 검색·포털 -->
+    <div class="channel-card">
+      <div class="channel-head">
+        <div class="channel-title">🔍 검색·포털 채널</div>
+        <span class="channel-tag">네이버 중심</span>
+      </div>
+      <p class="channel-desc">
+        검색 기반 유입이 필요한 브랜드라면 네이버 검색·블로그·지도 노출이 핵심입니다.
+      </p>
+      <ul class="channel-list">
+        <li>• 네이버 블로그 · 포스트 운영</li>
+        <li>• 네이버 검색 상단 노출(SEO)</li>
+        <li>• 네이버 지도/플레이스 정보 최적화</li>
+      </ul>
+    </div>
+
+    <!-- SNS·콘텐츠 -->
+    <div class="channel-card">
+      <div class="channel-head">
+        <div class="channel-title">📱 SNS·콘텐츠 채널</div>
+        <span class="channel-tag">브랜드 스토리</span>
+      </div>
+      <p class="channel-desc">
+        브랜드의 분위기·라이프스타일을 보여주고 싶다면 SNS 채널이 가장 효과적입니다.
+      </p>
+      <ul class="channel-list">
+        <li>• 인스타그램 피드 · 릴스</li>
+        <li>• 유튜브 · 쇼츠 · 브랜디드 영상</li>
+        <li>• 틱톡 · 숏폼 콘텐츠 실험</li>
+      </ul>
+    </div>
+
+    <!-- 커머스·판매 -->
+    <div class="channel-card">
+      <div class="channel-head">
+        <div class="channel-title">🛒 커머스·판매 채널</div>
+        <span class="channel-tag">매출 직결</span>
+      </div>
+      <p class="channel-desc">
+        직접 매출과 연결되는 채널로, 상품 구조·리뷰·전환율 개선이 핵심 포인트입니다.
+      </p>
+      <ul class="channel-list">
+        <li>• 스마트스토어 · 쿠팡 · 11번가 등 마켓</li>
+        <li>• 자사몰 · 랜딩페이지</li>
+        <li>• 리뷰 · 찜 · 재구매 유도 구조</li>
+      </ul>
+    </div>
+
+    <!-- 커뮤니티·로컬 -->
+    <div class="channel-card">
+      <div class="channel-head">
+        <div class="channel-title">👥 커뮤니티·로컬 채널</div>
+        <span class="channel-tag">신뢰 기반</span>
+      </div>
+      <p class="channel-desc">
+        지역 기반·커뮤니티 기반 브랜드라면, 좁고 깊은 신뢰 채널을 활용하는 전략이 필요합니다.
+      </p>
+      <ul class="channel-list">
+        <li>• 네이버 카페 · 맘카페 · 전문 커뮤니티</li>
+        <li>• 당근마켓 · 번개장터 등 로컬 마켓</li>
+        <li>• 오프라인 매장 · 팝업 스토어 연계</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- SECTION: 우선순위 & 체크리스트 -->
+  <h2 class="section-title">우리 브랜드의 핵심 채널 정하기</h2>
+  <p class="section-sub">모든 채널을 다 가져가기보다는, 2~3개의 핵심 채널에 집중하는 것이 좋습니다.</p>
+
+  <div class="priority-wrap">
+    <!-- 좌측: 우선순위 선택 -->
+    <div class="card">
+      <div class="card-title">우선적으로 키울 채널 선택</div>
+      <p class="card-sub">아래 채널 중 지금 당장 집중하고 싶은 채널을 골라보세요. (복수 선택 가능)</p>
+      <div class="pill-row" id="channelPills">
+        <button class="pill" data-key="search">🔍 검색·포털</button>
+        <button class="pill" data-key="sns">📱 SNS·콘텐츠</button>
+        <button class="pill" data-key="commerce">🛒 커머스·판매</button>
+        <button class="pill" data-key="community">👥 커뮤니티·로컬</button>
+      </div>
+    </div>
+
+    <!-- 우측: 간단 체크리스트 -->
+    <div class="card">
+      <div class="card-title">국내 채널 확장을 위한 체크리스트</div>
+      <p class="card-sub">아래 항목이 어느 정도 준비되었는지 스스로 점검해보세요.</p>
+      <ul class="checklist" id="checklist">
+        <li>
+          <span class="check-dot"></span>
+          <span>핵심 채널(2~3개)을 선택했고, 나머지는 ‘보조 채널’로 정리했다.</span>
+        </li>
+        <li>
+          <span class="check-dot"></span>
+          <span>각 채널마다 목표(노출·신뢰·매출 등)를 명확하게 정했다.</span>
+        </li>
+        <li>
+          <span class="check-dot"></span>
+          <span>채널 운영에 필요한 리소스(시간·디자인·콘텐츠)를 현실적으로 계산해봤다.</span>
+        </li>
+        <li>
+          <span class="check-dot"></span>
+          <span>광고/마케팅이 필요한 채널과, organic(자연 유입) 위주 채널을 구분해두었다.</span>
+        </li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- CTA -->
+  <div class="cta-wrap">
+    <div class="cta-left">
+      채널 우선순위가 정리되었다면,<br />
+      이제 실제 실행을 도와줄 전문가 서비스를 선택해볼 차례입니다.
+    </div>
+    <div style="display:flex;gap:8px;align-items:center;">
+      <button class="cta-btn-sub" onclick="history.back()">← 이전 단계로 돌아가기</button>
+      <button class="cta-btn-primary" onclick="location.href='expand-channel-experts.html'">
+        국내 채널 확장 전문가 보러가기 →
+      </button>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  // 간단한 UI 인터랙션(선택 토글 + 체크리스트 시각 효과)
+  document.addEventListener("DOMContentLoaded", () => {
+    const pills = document.querySelectorAll("#channelPills .pill");
+    const dots = document.querySelectorAll("#checklist .check-dot");
+
+    pills.forEach(pill => {
+      pill.addEventListener("click", () => {
+        pill.classList.toggle("active");
+        updateChecklistDots();
+      });
+    });
+
+    function updateChecklistDots() {
+      const activeCount = document.querySelectorAll("#channelPills .pill.active").length;
+      dots.forEach((dot, idx) => {
+        if (idx < activeCount) {
+          dot.classList.add("active");
+        } else {
+          dot.classList.remove("active");
+        }
+      });
+    }
+  });
+</script>
+
+</body>
+</html>

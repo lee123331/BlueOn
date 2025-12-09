@@ -1,0 +1,595 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BlueOn | 전문가 등록 – 브랜드 스토리</title>
+
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;800&display=swap" rel="stylesheet">
+
+<style>
+:root {
+  --primary:#0056ff;
+  --bg:#ffffff;
+  --white:#ffffff;
+  --text-dark:#111827;
+  --text-gray:#6b7280;
+  --line:#e5e7eb;
+}
+
+*{margin:0;padding:0;box-sizing:border-box;}
+
+body{
+  font-family:"Noto Sans KR",sans-serif;
+  background:var(--bg);
+  color:var(--text-dark);
+}
+
+/* 전체 레이아웃 */
+.wrapper{
+  max-width:1400px;
+  margin:0 auto;
+  padding:40px 30px;
+  display:flex;
+  gap:40px;
+}
+
+/* ASIDE */
+aside{
+  width:260px;
+  background:var(--white);
+  border:1px solid var(--line);
+  padding:25px 20px;
+  border-radius:12px;
+  box-shadow:0 5px 18px rgba(0,0,0,0.04);
+}
+
+.aside-title{
+  font-size:18px;
+  font-weight:700;
+  margin-bottom:20px;
+  color:var(--primary);
+}
+
+.menu-item{
+  padding:12px 12px;
+  border-radius:8px;
+  margin-bottom:8px;
+  font-size:15px;
+  cursor:pointer;
+  transition:0.2s;
+}
+.menu-item:hover{background:#eef3ff;}
+.menu-item.active{
+  background:var(--primary);
+  color:#fff;
+  font-weight:600;
+}
+
+/* CONTENT */
+section.content{
+  flex:1;
+  background:var(--white);
+  border:1px solid var(--line);
+  border-radius:12px;
+  padding:40px 50px;
+  box-shadow:0 6px 18px rgba(0,0,0,0.04);
+}
+
+section h2{
+  font-size:24px;
+  font-weight:800;
+  margin-bottom:30px;
+}
+
+/* ============================
+   전문가 스토리 카드
+============================ */
+.story-card {
+  width: 100%;
+  background: #ffffff;
+  border-radius: 14px;
+  padding: 16px 20px;
+  margin-bottom: 16px;
+  border: 1px solid #eef0f3;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
+  transition: 0.25s ease;
+  cursor: pointer;
+}
+.story-card:hover {
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.07);
+  border-color: #d9e2ff;
+}
+.story-title {
+  font-size: 16px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.story-title .arrow {
+  transition: transform 0.25s ease;
+  font-size: 16px;
+  opacity: 0.7;
+}
+.story-card.open .arrow {
+  transform: rotate(180deg);
+  opacity: 1;
+}
+.story-content {
+  margin-top: 14px;
+  display: none;
+  animation: fadeSlide 0.22s ease forwards;
+}
+.story-card.open .story-content {
+  display: block;
+}
+
+@keyframes fadeSlide {
+  from { opacity: 0; transform: translateY(-6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.story-textarea {
+  width: 100%;
+  resize: none;
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px solid #dee1e7;
+  background: #f9fafc;
+  font-size: 14px;
+  min-height: 95px;
+  line-height: 1.45;
+  outline: none;
+}
+.story-textarea:focus {
+  border-color: var(--primary);
+  background: #ffffff;
+  box-shadow: 0 0 0 3px rgba(0, 86, 255, 0.12);
+}
+
+/* 버튼 */
+.finish-btn{
+  margin-top:35px;
+  width:100%;
+  padding:14px;
+  border-radius:10px;
+  background:var(--primary);
+  color:#fff;
+  font-size:17px;
+  font-weight:700;
+  border:none;
+  cursor:pointer;
+}
+.finish-btn:hover{background:#0044cc;}
+
+.toast {
+  position: fixed;
+  top: 30px;
+  right: 30px;
+  min-width: 260px;
+  max-width: 360px;
+  padding: 14px 18px;
+  background: #0056ff;
+  color: #fff;
+  border-radius: 10px;
+  font-size: 15px;
+  font-weight: 600;
+  z-index: 9999;
+  opacity: 0;
+  transform: translateY(-20px);
+  pointer-events: none;
+  transition: all 0.35s ease;
+  box-shadow: 0 8px 20px rgba(0,0,0,0.15);
+}
+.toast.show {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.input-error {
+  border-color: #ef4444 !important;
+  background: #fff5f5 !important;
+}
+.input-ok {
+  border-color: #22c55e !important;
+  background: #f0fff4 !important;
+}
+</style>
+</head>
+
+<body>
+
+<div class="wrapper">
+
+<!-- ASIDE -->
+<aside>
+  <div class="aside-title">전문가 등록</div>
+
+  <div class="menu-item" onclick="goStep('intro')">전문가 소개</div>
+  <div class="menu-item" onclick="goStep('career')">경력 사항</div>
+  <div class="menu-item" onclick="goStep('skill')">전문 역량 & 인증</div>
+  <div class="menu-item active" onclick="goStep('brand')">브랜드 스토리 & 계좌정보</div>
+</aside>
+
+<!-- CONTENT -->
+<section class="content">
+
+  <h2>브랜드 스토리 & 계좌정보</h2>
+
+  <!-- 카드 1 -->
+  <div class="story-card">
+    <div class="story-title" onclick="toggleCard(this.parentElement)">
+      <span>작업 철학</span>
+      <span class="arrow">▼</span>
+    </div>
+    <div class="story-content">
+      <textarea id="story_work" class="story-textarea"
+        placeholder="전문가님의 작업 원칙, 일하는 방식 등을 작성해주세요."></textarea>
+    </div>
+  </div>
+
+  <!-- 카드 2 -->
+  <div class="story-card">
+    <div class="story-title" onclick="toggleCard(this.parentElement)">
+      <span>고객 케어 방식</span>
+      <span class="arrow">▼</span>
+    </div>
+    <div class="story-content">
+      <textarea id="story_care" class="story-textarea"
+        placeholder="고객과의 소통 방식, 프로젝트 관리 방식 등을 작성해주세요."></textarea>
+    </div>
+  </div>
+
+  <!-- 카드 3 -->
+  <div class="story-card">
+    <div class="story-title" onclick="toggleCard(this.parentElement)">
+      <span>브랜드 방향</span>
+      <span class="arrow">▼</span>
+    </div>
+    <div class="story-content">
+      <textarea id="story_brand" class="story-textarea"
+        placeholder="브랜드의 핵심 방향성, 제공하는 가치 등을 작성하세요."></textarea>
+    </div>
+  </div>
+
+  <!-- 카드 4 -->
+  <div class="story-card">
+    <div class="story-title" onclick="toggleCard(this.parentElement)">
+      <span>전문가의 목표</span>
+      <span class="arrow">▼</span>
+    </div>
+    <div class="story-content">
+      <textarea id="story_goal" class="story-textarea"
+        placeholder="전문가로서의 장기적 목표와 성장 방향을 작성해주세요."></textarea>
+    </div>
+  </div>
+
+ 
+<!-- STEP 5 – 정산 계좌 -->
+<h2 style="margin-top:50px;">정산 계좌 정보</h2>
+
+<div class="story-card">
+  <div class="story-title" onclick="toggleCard(this.parentElement)">
+    <span>정산 계좌 입력</span>
+    <span class="arrow">▼</span>
+  </div>
+
+  <div class="story-content">
+
+    <label style="font-weight:600; margin-bottom:6px;">은행명</label>
+    <input 
+      id="bankName" 
+      type="text" 
+      placeholder="예: 카카오뱅크"
+      class="story-textarea"
+      style="height:45px;"
+    >
+
+    <label style="font-weight:600; margin-top:16px; margin-bottom:6px;">예금주</label>
+    <input 
+      id="accountHolder" 
+      type="text" 
+      placeholder="예: 홍길동"
+      class="story-textarea"
+      style="height:45px;"
+    >
+
+    <!-- 계좌번호 -->
+    <label style="font-weight:600; margin-top:16px; margin-bottom:6px;">계좌번호</label>
+
+    <div class="input-wrapper" style="position: relative; width: 100%;">
+      <input 
+        id="accountNumber" 
+        type="text" 
+        placeholder="예: 3333021234567"
+        class="story-textarea"
+        style="height:45px;"
+      >
+      <span class="input-hint" 
+            style="
+              position:absolute;
+              right:14px;
+              bottom:8px;
+              font-size:11px;
+              color:#9ca3af;
+              pointer-events:none;">
+        숫자만 입력
+      </span>
+    </div>
+
+    <!-- 🔵 추가: 계좌 안내 메시지 (오류 수정) -->
+    <div id="accountNumberMsg"
+         style="display:none; color:#ef4444; font-size:12px; margin-top:6px;">
+      숫자만 입력 가능합니다.
+    </div>
+
+    <!-- 제출 버튼 -->
+    <button class="finish-btn" onclick="submitAll()">전문가 등록 완료하기</button>
+
+</section>
+</div>
+
+<!-- Toast -->
+<div id="toast" class="toast"></div>
+
+<script>
+/* ========================================================== */
+/*      Step4 입력 element mapping                             */
+/* ========================================================== */
+const STORY_FIELDS = {
+  work: document.getElementById("story_work"),
+  care: document.getElementById("story_care"),
+  brand: document.getElementById("story_brand"),
+  goal: document.getElementById("story_goal"),
+};
+
+/* ---------------- 저장 ---------------- */
+function saveStep4() {
+  const data = {
+    work: STORY_FIELDS.work?.value || "",
+    care: STORY_FIELDS.care?.value || "",
+    brand: STORY_FIELDS.brand?.value || "",
+    goal: STORY_FIELDS.goal?.value || "",
+  };
+  localStorage.setItem("expert_step4", JSON.stringify(data));
+}
+
+/* ---------------- 불러오기 ---------------- */
+function loadStep4() {
+  const saved = localStorage.getItem("expert_step4");
+  if (!saved) return;
+
+  const data = JSON.parse(saved);
+
+  STORY_FIELDS.work.value  = data.work  || "";
+  STORY_FIELDS.care.value  = data.care  || "";
+  STORY_FIELDS.brand.value = data.brand || "";
+  STORY_FIELDS.goal.value  = data.goal  || "";
+}
+
+/* ---------------- 카드 열기/닫기 ---------------- */
+function toggleCard(card) {
+  card.classList.toggle("open");
+}
+
+/* ---------------- 스텝 이동 ---------------- */
+function goStep(step) {
+  const map = {
+    intro: "expert-register-step1.html",
+    career: "expert-register-step2.html",
+    skill: "expert-register-step3.html",
+    brand: "expert-register-step4.html",
+  };
+  location.href = map[step];
+}
+
+/* ==========================================================
+   필수 항목 체크 (Step1~Step4)
+========================================================== */
+function validateRequired(step1, step3, step4) {
+  const missing = [];
+
+  // Step1
+  if (!step1.nickname) missing.push("닉네임");
+  if (!step1.intro) missing.push("전문가 소개");
+  if (!step1.avatarPreview) missing.push("프로필 사진");
+  if (!step1.topCategory) missing.push("메인 카테고리");
+  if (!step1.subCategory) missing.push("서브 카테고리");
+
+  // Step3
+  if (!step3.selectedSkills?.length) missing.push("전문 역량 스킬");
+  if (!step3.toolSkills?.length) missing.push("툴 숙련도");
+  if (!step3.strength) missing.push("강점");
+
+  // Step4
+  if (!step4.work) missing.push("작업 철학");
+  if (!step4.care) missing.push("고객 케어");
+  if (!step4.brand) missing.push("브랜드 방향");
+  if (!step4.goal) missing.push("전문가 목표");
+
+  return missing;
+}
+
+/* ==========================================================
+   전문가 등록 최종 제출
+========================================================== */
+async function submitAll() {
+
+  let step1 = JSON.parse(localStorage.getItem("expert_step1") || "{}");
+  const step2 = JSON.parse(localStorage.getItem("expert_step2") || "{}");
+  const step3 = JSON.parse(localStorage.getItem("expert_step3") || "{}");
+  const savedStep4 = JSON.parse(localStorage.getItem("expert_step4") || "{}");
+
+  // step1 보정
+  step1 = fixStep1(step1);
+
+  // step4 보강 (projects 줄바꿈 → array)
+  const step4 = {
+    ...savedStep4,
+    solutions: document.getElementById("solutions")?.value || "",
+    skills: document.getElementById("skills_text")?.value || "",
+    projects:
+      (document.getElementById("projects")?.value || "")
+        .split("\n")
+        .filter(v => v.trim().length > 0),
+    brandStory: document.getElementById("brand_story")?.value || "",
+  };
+
+  // 필수 항목 검사
+  const missing = validateRequired(step1, step3, step4);
+  if (missing.length > 0) {
+    showToast("누락된 항목: " + missing.join(", "));
+    return;
+  }
+
+  // STEP5 계좌
+  const bankName = localStorage.getItem("expert_bankName") || "";
+  const accountHolder = localStorage.getItem("expert_accountHolder") || "";
+  const accountNumber = localStorage.getItem("expert_accountNumber") || "";
+
+  const res = await fetch("http://localhost:3000/expert/submit", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify({
+      step1,
+      step2,
+      step3,
+      step4,
+      bankName,
+      accountHolder,
+      accountNumber
+    })
+  });
+
+  const data = await res.json();
+
+  if (data.success) {
+    showToast("전문가 등록이 완료되었습니다!");
+    setTimeout(() => location.href = "mypage.html", 1200);
+  } else {
+    showToast(data.message || "등록 중 오류 발생");
+  }
+}
+
+/* ==========================================================
+   Step1 avatar/subCategory 보정
+========================================================== */
+function fixStep1(step1) {
+
+  if (!step1.avatarPreview) {
+    const avatars = [
+      step1.avatar,
+      step1.profile_image,
+      step1.profileImage,
+      step1.avatarUrl,
+      localStorage.getItem("expert_avatar")
+    ];
+    step1.avatarPreview = avatars.find(v => v && v.length > 3) || "";
+  }
+
+  if (!step1.subCategory) {
+    step1.subCategory =
+      step1.selectedSub ||
+      step1.sub ||
+      step1.sub_category ||
+      null;
+  }
+
+  return step1;
+}
+
+/* ==========================================================
+   Step4 + Step5 자동 저장
+========================================================== */
+function enableAutoSaveStep4() {
+  Object.values(STORY_FIELDS).forEach(field => {
+    field?.addEventListener("input", saveStep4);
+  });
+
+  document.getElementById("solutions")?.addEventListener("input", saveStep4);
+  document.getElementById("skills_text")?.addEventListener("input", saveStep4);
+  document.getElementById("projects")?.addEventListener("input", saveStep4);
+  document.getElementById("brand_story")?.addEventListener("input", saveStep4);
+}
+
+function loadAccount() {
+  document.getElementById("bankName").value =
+    localStorage.getItem("expert_bankName") || "";
+
+  document.getElementById("accountHolder").value =
+    localStorage.getItem("expert_accountHolder") || "";
+
+  document.getElementById("accountNumber").value =
+    localStorage.getItem("expert_accountNumber") || "";
+}
+
+function saveAccount() {
+  localStorage.setItem("expert_bankName",
+    document.getElementById("bankName").value);
+
+  localStorage.setItem("expert_accountHolder",
+    document.getElementById("accountHolder").value);
+
+  localStorage.setItem("expert_accountNumber",
+    document.getElementById("accountNumber").value);
+}
+
+function enableAutoSaveAccount() {
+  document.getElementById("bankName")?.addEventListener("input", saveAccount);
+  document.getElementById("accountHolder")?.addEventListener("input", saveAccount);
+  document.getElementById("accountNumber")?.addEventListener("input", saveAccount);
+}
+
+/* ==========================================================
+   계좌번호 숫자만
+========================================================== */
+const accountNumberInput = document.getElementById("accountNumber");
+const accountNumberMsg = document.getElementById("accountNumberMsg");
+
+if (accountNumberInput) {
+  accountNumberInput.addEventListener("input", (e) => {
+    let value = e.target.value;
+    const filtered = value.replace(/[^0-9]/g, "");
+
+    if (value !== filtered) {
+      accountNumberMsg.style.display = "block";
+      accountNumberInput.classList.add("input-error");
+      accountNumberInput.classList.remove("input-ok");
+    } else {
+      accountNumberMsg.style.display = "none";
+      accountNumberInput.classList.remove("input-error");
+      accountNumberInput.classList.add("input-ok");
+    }
+
+    e.target.value = filtered;
+    saveAccount();
+  });
+}
+
+/* ==========================================================
+   초기 로드
+========================================================== */
+window.addEventListener("DOMContentLoaded", () => {
+  loadStep4();
+  enableAutoSaveStep4();
+
+  loadAccount();
+  enableAutoSaveAccount();
+});
+
+/* ==========================================================
+   Toast
+========================================================== */
+function showToast(message) {
+  let toast = document.getElementById("toast");
+  if (!toast) return;
+  toast.textContent = message;
+  toast.classList.add("show");
+  setTimeout(() => toast.classList.remove("show"), 2400);
+}
+</script>
+
+</body>
+</html>
