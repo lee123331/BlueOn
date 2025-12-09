@@ -6,6 +6,8 @@ console.log("SOLAPI_API_SECRET =", process.env.SOLAPI_API_SECRET);
 console.log("PORT =", process.env.PORT);
 console.log("SENDER_PHONE =", process.env.SENDER_PHONE);
 
+const PORT = process.env.PORT || 3000;
+
 // =======================
 // 필요한 모듈 로드
 // =======================
@@ -2149,7 +2151,7 @@ app.get("/chat/rooms", async (req, res) => {
   }
 });
 
-
 httpServer.listen(PORT, () => {
   console.log(`🔥 서버 실행됨: PORT = ${PORT}`);
 });
+
