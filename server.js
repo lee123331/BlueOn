@@ -52,11 +52,17 @@ app.use((req, res, next) => {
 });
 app.use(
   cors({
-    origin: ["http://localhost:3000", "http://localhost:5173"],
+    origin: [
+      "http://localhost:3000",
+      "http://localhost:5173",
+      "https://blueon.up.railway.app"   // 🔥 Railway 도메인 추가
+    ],
     credentials: true,
     allowedHeaders: ["Content-Type"],
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   })
 );
+
 
 /* ======================================================
    정적 파일 경로
