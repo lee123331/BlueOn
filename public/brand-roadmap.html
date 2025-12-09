@@ -324,7 +324,10 @@ function updateProgressUI() {
     5) 로드 시 초기화 (브랜드 첫 생성자가 아니라면 유지)
 ========================================================== */
 async function initProgress() {
-  const res = await fetch("/brand/check");
+  const res = await fetch(`${API_URL}/brand/check`, {
+  credentials: "include"
+});
+
   const data = await res.json();
 
   const hasLocal = TASK_KEYS.some(k => localStorage.getItem(k) === "done");

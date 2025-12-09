@@ -3,7 +3,7 @@
    (service-detail.html 기능을 100% 유지한 별도 모듈 버전)
 ========================================================== */
 
-const DETAIL_API = "http://localhost:3000";
+const DETAIL_API = "http://blueon.up.railway.app";
 
 /* -----------------------------------------------
    안전 JSON 파싱
@@ -37,7 +37,8 @@ async function loadServiceDetail(serviceId, container) {
 =================================================================== */
 async function detailLoadServiceData(serviceId, root) {
   try {
-    const res = await fetch(`${DETAIL_API}/services/${serviceId}`);
+   const res = await fetch(`${API}/services/${serviceId}`);
+
     const data = await res.json();
 
     if (!data.success) {

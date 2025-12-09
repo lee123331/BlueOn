@@ -440,7 +440,7 @@
     if (isLoading) return;
     isLoading = true;
     try {
-      const res = await fetch(`http://localhost:3000/api/services?page=${page}`);
+      const res = await fetch(`https://blueon.up.railway.app/api/services?page=${page}`);
       const data = await res.json();
       if (!data.services || data.services.length === 0) return;
 
@@ -488,7 +488,7 @@
 
     try {
       // ✅ 서버 세션 기반 로그인 상태 확인
-      const res = await fetch("http://localhost:3000/me", {
+      const res = await fetch("https://blueon.up.railway.app/me", {
         credentials: "include",
       });
       const data = await res.json();
@@ -519,7 +519,7 @@
     // ✅ 로그아웃 처리
     async function handleLogout() {
       try {
-        await fetch("http://localhost:3000/logout", {
+        await fetch("https://blueon.up.railway.app/logout", {
           method: "POST",
           credentials: "include",
         });

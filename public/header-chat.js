@@ -8,7 +8,10 @@ let CURRENT_USER = null;
 ====================================================== */
 async function loadHeaderUser() {
   try {
-    const res = await fetch("/auth/me", { credentials: "include" });
+    const res = await fetch(`${API}/auth/me`, {
+  credentials: "include"
+});
+
     const data = await res.json();
 
     if (data.success) {
@@ -35,7 +38,7 @@ async function initHeaderChat() {
   console.log("⚡ 소켓 접속 준비:", CURRENT_USER.id);
 
   // 🔥 사용자 ID 포함해서 소켓 연결 (중요!)
-  const headerSocket = io("http://localhost:3000", {
+  const headerSocket = io("http://blueon.up.railway.app", {
     withCredentials: true,
     auth: { userId: CURRENT_USER.id }
   });

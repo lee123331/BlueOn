@@ -345,7 +345,7 @@ section h2{
 
 </div>
 <script>
-  const API_URL = "http://localhost:3000";
+  const API_URL = "http://blueon.up.railway.app";
 /* ==========================================================
    BlueOn 전문가 등록 – STEP1 자동 저장 / 자동 복원 (완성본)
 ========================================================== */
@@ -451,7 +451,7 @@ async function uploadAvatarToServer(file) {
   const fd = new FormData();
   fd.append("avatar", file);
 
-  const res = await fetch("http://localhost:3000/expert/upload-avatar", {
+  const res = await fetch("https://blueon.up.railway.app/expert/upload-avatar", {
     method: "POST",
     body: fd,
     credentials: "include"
@@ -486,7 +486,7 @@ nicknameInput.addEventListener("blur", async () => {
   if (!nickname) return;
 
   const res = await fetch(
-    "http://localhost:3000/expert/check-nickname?nickname=" + encodeURIComponent(nickname)
+    "https://blueon.up.railway.app/expert/check-nickname?nickname=" + encodeURIComponent(nickname)
   );
   const data = await res.json();
 

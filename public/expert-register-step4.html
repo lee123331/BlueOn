@@ -448,7 +448,7 @@ async function submitAll() {
   const accountHolder = localStorage.getItem("expert_accountHolder") || "";
   const accountNumber = localStorage.getItem("expert_accountNumber") || "";
 
-  const res = await fetch("http://localhost:3000/expert/submit", {
+  const res = await fetch("https://blueon.up.railway.app/expert/submit", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     credentials: "include",

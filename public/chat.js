@@ -35,7 +35,10 @@ let socket = null;
 ====================================================== */
 async function loadIsExpert(userId) {
   try {
-    const res  = await fetch(`/expert/profile/${userId}`);
+    const res  = await fetch(`${API_URL}/expert/profile/${userId}`, {
+  credentials: "include"
+});
+
     const data = await res.json();
     return data.success === true;
   } catch {
@@ -47,7 +50,10 @@ async function loadIsExpert(userId) {
    로그인 정보
 ====================================================== */
 async function loadMe() {
-  const res  = await fetch("/auth/me");
+  const res  = await fetch(`${API_URL}/auth/me`, {
+  credentials: "include"
+});
+
   const data = await res.json();
   if (!data.success) return (location.href = "/login.html");
 
@@ -63,7 +69,10 @@ async function loadMe() {
 async function loadTargetProfile() {
   if (!TARGET_ID) return;
 
-  let res  = await fetch(`/expert/profile/${TARGET_ID}`);
+  let res  = await fetch(`${API_URL}/expert/profile/${TARGET_ID}`, {
+  credentials: "include"
+});
+
   let data = await res.json();
 
   if (data.success) {
@@ -72,7 +81,10 @@ async function loadTargetProfile() {
     return;
   }
 
-  res  = await fetch(`/users/profile/${TARGET_ID}`);
+  res  = await fetch(`${API_URL}/users/profile/${TARGET_ID}`, {
+  credentials: "include"
+});
+
   data = await res.json();
 
   if (data.success) {
@@ -88,11 +100,12 @@ async function loadTargetProfile() {
 async function markRead() {
   if (!ROOM_ID) return;
 
-  await fetch("/chat/read", {
-    method : "POST",
-    headers: { "Content-Type": "application/json" },
-    body   : JSON.stringify({ roomId: ROOM_ID })
-  });
+  fetch(`${API_URL}/chat/read`, {
+  method: "POST",
+  credentials: "include",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ roomId: rid })
+});
 
   if (!socket) return;
 
@@ -108,7 +121,10 @@ async function markRead() {
 async function loadMessages() {
   if (!ROOM_ID) return;
 
-  const res  = await fetch(`/chat/messages?roomId=${ROOM_ID}`);
+  const res  = await fetch(`${API_URL}/chat/messages?roomId=${ROOM_ID}`, {
+  credentials: "include"
+});
+
   const data = await res.json();
 
   if (data.success) {
@@ -189,10 +205,16 @@ async function deleteMessage(messageId) {
   if (element) element.remove();
 
   try {
-    const res  = await fetch(`/chat/message/${messageId}`, {
-      method: "DELETE"
-    });
-    const data = await res.json();
+    const res = await fetch(`https://blueon.up.railway.app/chat/message/${messageId}`, {
+  method: "DELETE",
+  credentials: "include",  // 🔥 세션 쿠키 포함해서 보내야 함
+  headers: {
+    "Content-Type": "application/json"
+  }
+});
+
+const data = await res.json();
+
 
     if (data.success && socket) {
       socket.emit("chat:delete", {
@@ -225,18 +247,22 @@ async function sendText() {
   scrollBottom();
   msgInput.value = "";
 
-  const res = await fetch("/chat/send-message", {
-    method : "POST",
-    headers: { "Content-Type": "application/json" },
-    body   : JSON.stringify({
-      roomId      : ROOM_ID,
-      senderId    : CURRENT_USER.id,
-      message     : text,
-      message_type: "text"
-    })
-  });
+const res = await fetch(`https://blueon.up.railway.app/chat/send-message`, {
+  method: "POST",
+  credentials: "include",   // 🔥 세션 유지 필수
+  headers: {
+    "Content-Type": "application/json"
+  },
+  body: JSON.stringify({
+    roomId: ROOM_ID,
+    senderId: CURRENT_USER.id,
+    message: text,
+    message_type: "text"
+  })
+});
 
-  const data = await res.json();
+const data = await res.json();
+
   if (data.success) {
     const el = document.querySelector(
       `[data-message-id='${tempId}']`
@@ -269,18 +295,22 @@ fileInput.addEventListener("change", () => {
 
     scrollBottom();
 
-    const res = await fetch("/chat/send-message", {
-      method : "POST",
-      headers: { "Content-Type": "application/json" },
-      body   : JSON.stringify({
-        roomId      : ROOM_ID,
-        senderId    : CURRENT_USER.id,
-        message     : reader.result,
-        message_type: "image"
-      })
-    });
+  const res = await fetch(`https://blueon.up.railway.app/chat/send-message`, {
+  method: "POST",
+  credentials: "include",   // 🔥 세션 유지 필수
+  headers: {
+    "Content-Type": "application/json"
+  },
+  body: JSON.stringify({
+    roomId      : ROOM_ID,
+    senderId    : CURRENT_USER.id,
+    message     : reader.result,   // base64 이미지 데이터
+    message_type: "image"
+  })
+});
 
-    const data = await res.json();
+const data = await res.json();
+
     if (data.success) {
       const el = document.querySelector(
         `[data-message-id='${tempId}']`
@@ -328,14 +358,20 @@ function scrollBottom() {
 ====================================================== */
 async function loadChatList() {
   try {
-    const res  = await fetch("/chat/rooms");
+    const res = await fetch("https://blueon.up.railway.app/chat/rooms", {
+  credentials: "include"
+});
+
     const data = await res.json();
 
     if (!data.success) return;
 
     chatListArea.innerHTML = "<h2>메시지</h2>";
 
-    const unreadRes  = await fetch("/chat/unread-count");
+    const unreadRes = await fetch("https://blueon.up.railway.app/chat/unread-count", {
+  credentials: "include"
+});
+
     const unreadData = await unreadRes.json();
     const UNREAD     = unreadData.rooms || {};
 
@@ -357,11 +393,13 @@ async function loadChatList() {
         const badge = div.querySelector(".chat-unread-badge");
         if (badge) badge.style.display = "none";
 
-        fetch("/chat/read", {
-          method : "POST",
-          headers: { "Content-Type": "application/json" },
-          body   : JSON.stringify({ roomId: rid })
-        });
+       fetch(`${API_URL}/chat/read`, {
+  method: "POST",
+  credentials: "include",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ roomId: rid })
+});
+
 
         if (socket) {
           socket.emit("chat:read", {
@@ -397,7 +435,7 @@ async function loadChatList() {
 (async function init() {
   await loadMe();
 
-  socket = io("http://localhost:3000", {
+  socket = io("http://blueon.up.railway.app", {
     withCredentials: true,
     auth: { userId: CURRENT_USER.id }
   });

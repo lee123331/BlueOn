@@ -1695,12 +1695,17 @@ function initTabs() {
 }
 async function startChatRoom() {
   const expertId = window.expertId;
-  const res = await fetch(`/chat/start`, {
-    method: "POST",
-    credentials: "include",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ targetId: expertId })
-  });
+  const res = await fetch(`${API}/chat/start`, {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json",
+  },
+  credentials: "include",   // 채팅은 세션 필수
+  body: JSON.stringify({
+    targetId: someUserId
+  })
+});
+
 
   const data = await res.json();
   if (!data.success) {
@@ -1804,7 +1809,7 @@ function addMessage(sender, text) {
   box.scrollTop = box.scrollHeight;
 }
 async function loadOldMessages() {
-  const res = await fetch(`/chat/messages?room=${window.currentRoom}`, {
+  const res = await fetch(`${API}/chat/messages?room=${window.currentRoom}`, {
     credentials: "include"
   });
 

@@ -61,7 +61,7 @@ function fillTags(elementId, list) {
 ====================================================== */
 async function loadBrandPlan() {
   try {
-    const res = await fetch(`/brand-plan/view?user=${USER_ID}`);
+    const res = await fetch(`${API}/brand-plan/view?user=${USER_ID}`);
     const data = await res.json();
 
     console.log("📦 brand-plan/view 결과:", data);
@@ -150,7 +150,8 @@ document.getElementById("resultModal").onclick = (e) => {
    🔥 작업 히스토리 로드
 ====================================================== */
 async function loadHistory() {
-  const res = await fetch(`/brand-plan/history?user=${USER_ID}`);
+  const res = await fetch(`${API}/brand-plan/history?user=${USER_ID}`)
+
   const data = await res.json();
 
   const area = document.getElementById("historyList");

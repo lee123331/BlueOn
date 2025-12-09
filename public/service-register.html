@@ -1334,7 +1334,7 @@ async function submitService() {
 
 /* 서버 전송 */
 try {
-  const res = await fetch("http://localhost:3000/services/create", {
+  const res = await fetch("https://blueon.up.railway.app/services/create", {
     method: "POST",
     body: fd,
     credentials: "include"   // ⭐⭐⭐ 반드시 필요

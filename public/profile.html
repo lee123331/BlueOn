@@ -217,7 +217,7 @@
     const toggleDark = document.getElementById("toggle-dark");
 
     try {
-      const res = await fetch("http://localhost:3000/me", {
+      const res = await fetch("https://blueon.up.railway.app/me", {
         credentials: "include",
         cache: "no-store",
         headers: { "Cache-Control": "no-cache, no-store, must-revalidate" }
@@ -287,10 +287,11 @@ logoutBtns.forEach(btn => {
   btn.addEventListener("click", async (e) => {
     e.preventDefault();
     try {
-      const res = await fetch("http://localhost:3000/logout", {
-        method: "POST",
-        credentials: "include"
-      });
+      const res = await fetch("https://blueon.up.railway.app/logout", {
+  method: "POST",
+  credentials: "include"
+});
+
       if (res.ok) {
         toast("로그아웃 되었습니다 ✅");
         setTimeout(() => {
