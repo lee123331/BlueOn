@@ -1,5 +1,16 @@
+// =======================
+// 환경 변수 출력 확인
+// =======================
+console.log("SOLAPI_API_KEY =", process.env.SOLAPI_API_KEY);
+console.log("SOLAPI_API_SECRET =", process.env.SOLAPI_API_SECRET);
+console.log("PORT =", process.env.PORT);
+console.log("SENDER_PHONE =", process.env.SENDER_PHONE);
+
+// =======================
+// 필요한 모듈 로드
+// =======================
 import axios from "axios";
-import crypto from "crypto";  // ← crypto는 이 한 줄만 존재해야 함
+import crypto from "crypto";  // crypto는 이 한 줄만 존재해야 함
 import express from "express";
 import mysql from "mysql2/promise";
 import cors from "cors";
@@ -12,17 +23,11 @@ import fs from "fs";
 import http from "http";
 import { Server as SocketIOServer } from "socket.io";
 
-
-console.log("API KEY:", process.env.COOLSMS_API_KEY);
-console.log("API SECRET:", process.env.COOLSMS_API_SECRET);
-console.log("SENDER PHONE:", process.env.SENDER_PHONE);
-
-
 const app = express();
 
-/* ======================================================
-   DB
-====================================================== */
+// =======================
+// DB 연결
+// =======================
 const db = await mysql.createPool({
   host: process.env.DB_HOST,
   port: process.env.DB_PORT,
@@ -30,6 +35,7 @@ const db = await mysql.createPool({
   password: process.env.DB_PASS,
   database: process.env.DB_NAME,
 });
+
 console.log("✅ DB 연결됨");
 
 /* ======================================================
