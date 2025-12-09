@@ -28,7 +28,7 @@ import { Server as SocketIOServer } from "socket.io";
 const app = express();
 
 // =======================
-// DB 연결
+// DB 연결 (Railway 안정화 버전)
 // =======================
 const db = await mysql.createPool({
   host: process.env.DB_HOST,
@@ -36,9 +36,13 @@ const db = await mysql.createPool({
   user: process.env.DB_USER,
   password: process.env.DB_PASS,
   database: process.env.DB_NAME,
+  waitForConnections: true,
+  connectionLimit: 10,   // 연결 과부하 방지
+  queueLimit: 0          // 무제한 대기 허용 → 오류 방지
 });
 
-console.log("✅ DB 연결됨");
+console.log("✅ DB 연결됨 (Pool 안정화 적용)");
+
 
 /* ======================================================
    미들웨어
