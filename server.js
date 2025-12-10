@@ -12,7 +12,7 @@ const PORT = process.env.PORT || 3000;
 // 필요한 모듈 로드
 // =======================
 import axios from "axios";
-import crypto from "crypto";  // crypto는 이 한 줄만 존재해야 함
+import crypto from "crypto";
 import express from "express";
 import mysql from "mysql2/promise";
 import cors from "cors";
@@ -27,22 +27,48 @@ import { Server as SocketIOServer } from "socket.io";
 
 const app = express();
 
-// =======================
-// DB 연결 (Railway 안정화 버전)
-// =======================
+/* ======================================================
+   공통: DB_URL 파싱 함수 (1회 선언)
+====================================================== */
+function parseDbUrl(url) {
+  try {
+    const cleaned = url.replace("mysql://", "");
+    const [auth, hostPart] = cleaned.split("@");
+    const [user, password] = auth.split(":");
+    const [hostWithPort, database] = hostPart.split("/");
+    const [host, port] = hostWithPort.split(":");
+
+    return { host, port, user, password, database };
+  } catch (e) {
+    console.error("❌ DB_URL 파싱 실패:", url, e);
+    return null;
+  }
+}
+
+/* ======================================================
+   DB 연결 (Railway)
+====================================================== */
+const dbConf = parseDbUrl(process.env.DB_URL);
+
+if (!dbConf) {
+  console.error("❌ DB_URL이 올바르지 않습니다. Railway Variables 확인 필요.");
+  process.exit(1);
+}
+
+console.log("🔗 DB 설정:", dbConf);
+
 const db = await mysql.createPool({
-  host: process.env.DB_HOST,
-  port: process.env.DB_PORT,
-  user: process.env.DB_USER,
-  password: process.env.DB_PASS,
-  database: process.env.DB_NAME,
+  host: dbConf.host,
+  port: dbConf.port,
+  user: dbConf.user,
+  password: dbConf.password,
+  database: dbConf.database,
   waitForConnections: true,
-  connectionLimit: 10,   // 연결 과부하 방지
-  queueLimit: 0          // 무제한 대기 허용 → 오류 방지
+  connectionLimit: 10,
+  queueLimit: 0,
 });
 
-console.log("✅ DB 연결됨 (Pool 안정화 적용)");
-
+console.log("✅ DB 연결 성공");
 
 /* ======================================================
    미들웨어
@@ -54,19 +80,19 @@ app.use((req, res, next) => {
   console.log("📨 요청 도착:", req.method, req.url);
   next();
 });
+
 app.use(
   cors({
     origin: [
       "http://localhost:3000",
       "http://localhost:5173",
-      "https://blueon.up.railway.app"   // 🔥 Railway 도메인 추가
+      "https://blueon.up.railway.app"
     ],
     credentials: true,
     allowedHeaders: ["Content-Type"],
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   })
 );
-
 
 /* ======================================================
    정적 파일 경로
@@ -75,16 +101,31 @@ app.use("/uploads", express.static(path.join(process.cwd(), "public/uploads")));
 app.use(express.static(path.join(process.cwd(), "public")));
 
 /* ======================================================
-   세션
+   세션 (Railway + DB_URL)
 ====================================================== */
 const MySQLStore = MySQLStoreImport(session);
-const sessionStore = new MySQLStore({
-  host: process.env.DB_HOST,
-  port: process.env.DB_PORT,
-  user: process.env.DB_USER,
-  password: process.env.DB_PASS,
-  database: process.env.DB_NAME,
-});
+
+const sessionStore = new MySQLStore(
+  {
+    expiration: 24 * 60 * 60 * 1000,
+    createDatabaseTable: true,
+    schema: {
+      tableName: "sessions",
+      columnNames: {
+        session_id: "session_id",
+        expires: "expires",
+        data: "data"
+      }
+    }
+  },
+  {
+    host: dbConf.host,
+    port: dbConf.port,
+    user: dbConf.user,
+    password: dbConf.password,
+    database: dbConf.database
+  }
+);
 
 app.use(
   session({
@@ -97,10 +138,13 @@ app.use(
       httpOnly: true,
       secure: false,
       sameSite: "lax",
-      maxAge: 86400000,
-    },
+      maxAge: 1000 * 60 * 60 * 24
+    }
   })
 );
+
+console.log("✅ 세션 스토어 적용 완료");
+
 function getTaskKey(main, sub) {
   if (!main && !sub) return null;
 
