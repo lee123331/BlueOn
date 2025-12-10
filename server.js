@@ -345,14 +345,14 @@ app.post("/signup", async (req, res) => {
     // 3) 비밀번호 해시
     const hashedPw = await bcrypt.hash(password, 10);
 
-    // 4) id 직접 생성 (AUTO_INCREMENT 대체)
-    const newId = Math.floor(Math.random() * 1000000000); // 0~9억 랜덤 INT
+    // 4) id 직접 생성 (AUTO_INCREMENT 불가 환경 대비)
+    const newId = Math.floor(Math.random() * 1000000000);
 
-    // 5) 저장
+    // 5) 저장 (created_at 강제 입력 필요)
     await db.execute(
       `
-      INSERT INTO users (id, provider, provider_id, email, password, phone)
-      VALUES (?, 'local', ?, ?, ?, ?)
+      INSERT INTO users (id, provider, provider_id, email, password, phone, created_at)
+      VALUES (?, 'local', ?, ?, ?, ?, NOW())
       `,
       [newId, email, email, hashedPw, phone]
     );
