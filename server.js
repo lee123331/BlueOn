@@ -922,39 +922,61 @@ app.get("/expert/my-services", async (req, res) => {
     });
   }
 });
+// 🔵 로그인한 유저 + 전문가 여부 반환
 app.get("/auth/me", async (req, res) => {
-  if (!req.session.user) {
-    return res.json({ success: false, user: null });
-  }
-
-  const userId = req.session.user.id;
-
-  // DB에서 최신 정보 가져오기 (is_expert 포함)
-  const [rows] = await db.query(
-    "SELECT id, email, nickname, intro, avatar_url, is_expert FROM users WHERE id = ?",
-    [userId]
-  );
-
-  if (rows.length === 0) {
-    return res.json({ success: false, user: null });
-  }
-
-  const user = rows[0];
-
-  // 세션도 최신 상태로 동기화
-  req.session.user.is_expert = user.is_expert;
-
-  return res.json({
-    success: true,
-    user: {
-      id: user.id,
-      email: user.email,
-      nickname: user.nickname,
-      intro: user.intro,
-      avatar_url: user.avatar_url,
-      isExpert: user.is_expert === 1   // 프론트에서 사용하는 이름
+  try {
+    if (!req.session.user) {
+      return res.json({ success: false, user: null });
     }
-  });
+
+    const userId = req.session.user.id;
+
+    // ✅ users + expert_profiles 조인해서 "전문가 여부" 계산
+    const [[row]] = await db.query(
+      `
+      SELECT 
+        u.id,
+        u.email,
+        u.nickname,
+        u.intro,
+        u.avatar_url,
+        CASE WHEN ep.id IS NOT NULL THEN 1 ELSE 0 END AS is_expert
+      FROM users u
+      LEFT JOIN expert_profiles ep
+        ON ep.user_id = u.id
+      WHERE u.id = ?
+      LIMIT 1
+      `,
+      [userId]
+    );
+
+    if (!row) {
+      return res.json({ success: false, user: null });
+    }
+
+    // 세션 최신화
+    req.session.user.nickname  = row.nickname;
+    req.session.user.intro     = row.intro;
+    req.session.user.avatar_url = row.avatar_url;
+    req.session.user.isExpert   = row.is_expert === 1;
+
+    return res.json({
+      success: true,
+      user: {
+        id: row.id,
+        email: row.email,
+        nickname: row.nickname,
+        intro: row.intro,
+        avatar_url: row.avatar_url,
+        // 🔥 프론트에서 쓰는 필드명: isExpert (boolean)
+        isExpert: row.is_expert === 1,
+      },
+    });
+
+  } catch (err) {
+    console.error("/auth/me error:", err);
+    return res.json({ success: false, user: null });
+  }
 });
 
 /* ------------------ 서비스 상세 불러오기 ------------------ */
