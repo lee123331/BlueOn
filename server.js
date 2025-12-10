@@ -103,38 +103,28 @@ app.use(express.static(path.join(process.cwd(), "public")));
 /* ======================================================
    세션 (Railway + DB_URL)
 ====================================================== */
-
 const MySQLStore = MySQLStoreImport(session);
 
-/* 
-  세션 스토어는 express-mysql-session이 알아서 sessions 테이블을 생성하므로
-  users.id 문제와는 무관하게 그대로 작동합니다.
-*/
+const sessionStore = new MySQLStore({
+  // 🔹 DB 연결 정보
+  host: dbConf.host,
+  port: dbConf.port,
+  user: dbConf.user,
+  password: dbConf.password,
+  database: dbConf.database,
 
-const sessionStore = new MySQLStore(
-  {
-    expiration: 24 * 60 * 60 * 1000, // 1일 유지
-    createDatabaseTable: true,       // sessions 테이블 자동 생성
-    schema: {
-      tableName: "sessions",
-      columnNames: {
-        session_id: "session_id",
-        expires: "expires",
-        data: "data",
-      },
+  // 🔹 세션 옵션
+  expiration: 24 * 60 * 60 * 1000, // 1일
+  createDatabaseTable: true,
+  schema: {
+    tableName: "sessions",
+    columnNames: {
+      session_id: "session_id",
+      expires: "expires",
+      data: "data",
     },
   },
-  {
-    host: dbConf.host,
-    port: dbConf.port,
-    user: dbConf.user,
-    password: dbConf.password,
-    database: dbConf.database,
-    // Railway 환경에서 안정성을 위해 reconnectTimeout 추가 가능
-    clearExpired: true,
-    checkExpirationInterval: 30 * 60 * 1000, // 30분마다 만료 세션 정리
-  }
-);
+});
 
 app.use(
   session({
@@ -145,14 +135,15 @@ app.use(
     store: sessionStore,
     cookie: {
       httpOnly: true,
-      secure: false, // Railway HTTPS 프론트 연결 시 true 가능
+      secure: false,
       sameSite: "lax",
       maxAge: 1000 * 60 * 60 * 24, // 1일
     },
   })
 );
 
-console.log("✅ 세션 스토어 적용 완료 (Railway + DB_URL)");
+console.log("✅ 세션 스토어 적용 완료");
+
 
 function getTaskKey(main, sub) {
   if (!main && !sub) return null;
