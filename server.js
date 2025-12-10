@@ -449,33 +449,6 @@ app.get("/services/list", async (req, res) => {
   }
 });
 
-/* ------------------ /me ------------------ */
-app.get("/me", async (req, res) => {
-  try {
-    if (!req.session.user) return res.json({ success: false });
-
-    const [rows] = await db.query(
-      "SELECT id, email, name, nickname, intro, avatar_url FROM users WHERE id=?",
-      [req.session.user.id]
-    );
-
-    const [expertRows] = await db.query(
-      "SELECT id FROM expert_profiles WHERE user_id=?",
-      [req.session.user.id]
-    );
-
-    res.json({
-      success: true,
-      user: {
-        ...rows[0],
-        avatar_url: req.session.user.avatar_url,
-        isExpert: expertRows.length > 0,
-      },
-    });
-  } catch {
-    res.status(500).json({ success: false });
-  }
-});
 
 /* ------------------ 프로필 업데이트 ------------------ */
 app.post(
