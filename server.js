@@ -103,27 +103,36 @@ app.use(express.static(path.join(process.cwd(), "public")));
 /* ======================================================
    세션 (Railway + DB_URL)
 ====================================================== */
+
 const MySQLStore = MySQLStoreImport(session);
+
+/* 
+  세션 스토어는 express-mysql-session이 알아서 sessions 테이블을 생성하므로
+  users.id 문제와는 무관하게 그대로 작동합니다.
+*/
 
 const sessionStore = new MySQLStore(
   {
-    expiration: 24 * 60 * 60 * 1000,
-    createDatabaseTable: true,
+    expiration: 24 * 60 * 60 * 1000, // 1일 유지
+    createDatabaseTable: true,       // sessions 테이블 자동 생성
     schema: {
       tableName: "sessions",
       columnNames: {
         session_id: "session_id",
         expires: "expires",
-        data: "data"
-      }
-    }
+        data: "data",
+      },
+    },
   },
   {
     host: dbConf.host,
     port: dbConf.port,
     user: dbConf.user,
     password: dbConf.password,
-    database: dbConf.database
+    database: dbConf.database,
+    // Railway 환경에서 안정성을 위해 reconnectTimeout 추가 가능
+    clearExpired: true,
+    checkExpirationInterval: 30 * 60 * 1000, // 30분마다 만료 세션 정리
   }
 );
 
@@ -136,14 +145,14 @@ app.use(
     store: sessionStore,
     cookie: {
       httpOnly: true,
-      secure: false,
+      secure: false, // Railway HTTPS 프론트 연결 시 true 가능
       sameSite: "lax",
-      maxAge: 1000 * 60 * 60 * 24
-    }
+      maxAge: 1000 * 60 * 60 * 24, // 1일
+    },
   })
 );
 
-console.log("✅ 세션 스토어 적용 완료");
+console.log("✅ 세션 스토어 적용 완료 (Railway + DB_URL)");
 
 function getTaskKey(main, sub) {
   if (!main && !sub) return null;
@@ -325,7 +334,7 @@ app.post("/signup", async (req, res) => {
         .json({ success: false, message: "이미 가입된 이메일입니다." });
     }
 
-    // 2) 전화번호 형식 검사(백엔드 단에서도 필수)
+    // 2) 전화번호 형식 검사
     if (!/^01[0-9]{8,9}$/.test(phone)) {
       return res.status(400).json({
         success: false,
@@ -336,13 +345,16 @@ app.post("/signup", async (req, res) => {
     // 3) 비밀번호 해시
     const hashedPw = await bcrypt.hash(password, 10);
 
-    // 4) 저장
+    // 4) id 직접 생성 (AUTO_INCREMENT 대체)
+    const newId = Math.floor(Math.random() * 1000000000); // 0~9억 랜덤 INT
+
+    // 5) 저장
     await db.execute(
       `
-      INSERT INTO users (provider, provider_id, email, password, phone) 
-      VALUES ('local', ?, ?, ?, ?)
+      INSERT INTO users (id, provider, provider_id, email, password, phone)
+      VALUES (?, 'local', ?, ?, ?, ?)
       `,
-      [email, email, hashedPw, phone]
+      [newId, email, email, hashedPw, phone]
     );
 
     return res.json({ success: true });
