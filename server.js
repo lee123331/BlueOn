@@ -93,6 +93,14 @@ app.use(
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   })
 );
+/* ======================================================
+   업로드 디렉토리 생성 (Railway Volume 용)
+====================================================== */
+const uploadBase = path.join(process.cwd(), "public/uploads");
+if (!fs.existsSync(uploadBase)) {
+  fs.mkdirSync(uploadBase, { recursive: true });
+  console.log("📁 uploads 폴더 자동 생성됨");
+}
 
 /* ======================================================
    정적 파일 경로
@@ -698,7 +706,6 @@ app.get("/expert/profile/:id", async (req, res) => {
 });
 
 /* ------------------ 전문가 최종 등록 ------------------ */
-/* ------------------ 전문가 최종 등록 ------------------ */
 app.post("/expert/submit", async (req, res) => {
   try {
     if (!req.session.user) {
@@ -739,7 +746,6 @@ app.post("/expert/submit", async (req, res) => {
     const story_brand = step4?.brand || "";
     const story_goal = step4?.goal || "";
 
-    // 추가 컬럼 4개
     const solutions = step4?.solutions || "";
     const skills_text = step4?.skills || "";
     const projects = step4?.projects || [];
@@ -862,47 +868,21 @@ app.post("/expert/submit", async (req, res) => {
       );
     }
 
+    /* ==========================================================
+       🔥 핵심 추가 1) users.is_expert = 1 업데이트
+    ========================================================== */
+    await db.query("UPDATE users SET is_expert = 1 WHERE id=?", [userId]);
+
+    /* ==========================================================
+       🔥 핵심 추가 2) 세션 값 갱신하여 즉시 전문가로 인식
+    ========================================================== */
+    req.session.user.is_expert = 1;
+
     return res.json({ success: true });
 
   } catch (err) {
     console.error("/expert/submit error:", err);
     return res.status(500).json({ success: false });
-  }
-});
-
-
-// 닉네임 중복 체크
-app.get("/expert/check-nickname", async (req, res) => {
-  const { nickname } = req.query;
-  const userId = req.session?.user?.id; // 현재 로그인 사용자 ID
-
-  if (!nickname) {
-    return res.json({ success: false, available: false });
-  }
-
-  try {
-    // users 테이블 중복 체크 (본인은 제외)
-    const [uRows] = await db.query(
-      "SELECT id FROM users WHERE nickname = ? AND id <> ?",
-      [nickname, userId || 0]
-    );
-
-    // expert_profiles 테이블 중복 체크 (본인은 제외)
-    const [eRows] = await db.query(
-      "SELECT id FROM expert_profiles WHERE nickname = ? AND user_id <> ?",
-      [nickname, userId || 0]
-    );
-
-    const isUsed = uRows.length > 0 || eRows.length > 0;
-
-    return res.json({
-      success: true,
-      available: !isUsed
-    });
-
-  } catch (err) {
-    console.error("닉네임 체크 오류:", err);
-    return res.json({ success: false, available: false });
   }
 });
 
