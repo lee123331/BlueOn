@@ -5,6 +5,10 @@ console.log("SOLAPI_API_KEY =", process.env.SOLAPI_API_KEY);
 console.log("SOLAPI_API_SECRET =", process.env.SOLAPI_API_SECRET);
 console.log("PORT =", process.env.PORT);
 console.log("SENDER_PHONE =", process.env.SENDER_PHONE);
+console.log("🔍 MySQL Host:", process.env.DB_HOST);
+console.log("🔍 MySQL User:", process.env.DB_USER);
+console.log("🔍 MySQL Database:", process.env.DB_NAME);
+
 
 const PORT = process.env.PORT || 3000;
 
@@ -2239,7 +2243,10 @@ app.get("/chat/rooms", async (req, res) => {
     return res.json({ success: false });
   }
 });
-
+app.get("/test/expert", async (req, res) => {
+  const [rows] = await db.query("SELECT * FROM expert_profiles");
+  res.json(rows);
+});
 httpServer.listen(PORT, () => {
   console.log(`🔥 서버 실행됨: PORT = ${PORT}`);
 });
