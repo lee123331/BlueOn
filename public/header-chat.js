@@ -1,11 +1,18 @@
+/*******************************************************
+ 🔵 HEADER CHAT JS — SAFE FINAL VERSION
+    (중복 선언/중복 실행/충돌 모두 해결된 버전)
+*******************************************************/
+
 console.log("🔵 header-chat.js loaded");
 
 /* ======================================================
-   🔥 API URL 선언 (필수)
+   🔥 API URL 선언 (전역에서 1번만 선언)
 ====================================================== */
-const API = "https://blueon.up.railway.app";
+if (typeof window.API === "undefined") {
+  window.API = "https://blueon.up.railway.app";
+}
 
-// 로그인 사용자 정보
+/* 로그인 사용자 정보 */
 let CURRENT_USER = null;
 
 /* ======================================================
@@ -23,26 +30,33 @@ async function loadHeaderUser() {
       CURRENT_USER = data.user;
       console.log("🟢 로그인된 사용자:", CURRENT_USER);
     } else {
+      CURRENT_USER = null;
       console.log("🔴 비로그인 상태 — 채팅 알림 비활성화");
     }
+
   } catch (err) {
     console.error("❌ 사용자 정보 로드 실패:", err);
   }
 }
 
 /* ======================================================
-   2) 초기화 — 유저정보 로드 후 소켓 연결
+   2) 소켓 연결 초기화
 ====================================================== */
 async function initHeaderChat() {
   await loadHeaderUser();
 
-  // 로그인 안 되어 있으면 소켓 연결 불필요
-  if (!CURRENT_USER) return;
+  // 로그인 안 된 경우 소켓 연결 X
+  if (!CURRENT_USER) {
+    console.log("⛔ 로그인되지 않아 소켓 연결 안 함");
+    return;
+  }
 
   console.log("⚡ 소켓 접속 준비:", CURRENT_USER.id);
 
-  // 🔥 사용자 ID 포함해서 소켓 연결
-  const headerSocket = io("https://blueon.up.railway.app", {
+  /* --------------------------------------------------
+     소켓 연결 (인증 포함)
+  -------------------------------------------------- */
+  const headerSocket = io(API, {
     withCredentials: true,
     auth: { userId: CURRENT_USER.id }
   });
@@ -56,22 +70,20 @@ async function initHeaderChat() {
   });
 
   /* ======================================================
-     3) 알림(chat:notify) 수신
+     3) "새 메시지 알림(chat:notify)" 수신
   ======================================================= */
   const chatBadge = document.getElementById("chatBadge");
 
   headerSocket.on("chat:notify", (data) => {
     console.log("📩 chat:notify 도착:", data);
 
-    const { targetId } = data;
-
-    if (targetId !== CURRENT_USER.id) {
+    if (!data || data.targetId !== CURRENT_USER.id) {
       console.log("➡️ 내 알림이 아님 (무시)");
       return;
     }
 
-    console.log("🔥 새 메시지 알림 감지 → 배지 표시");
-    chatBadge.style.display = "block";
+    console.log("🔥 새 메시지 알림 → 배지 표시");
+    if (chatBadge) chatBadge.style.display = "block";
   });
 
   /* ======================================================
@@ -80,10 +92,15 @@ async function initHeaderChat() {
   const openChatBtn = document.getElementById("openChat");
   if (openChatBtn) {
     openChatBtn.addEventListener("click", () => {
-      chatBadge.style.display = "none";
+      if (chatBadge) chatBadge.style.display = "none";
     });
   }
 }
 
-// 초기 실행
-initHeaderChat();
+/* ======================================================
+   5) 중복 실행 방지 후 초기 실행
+====================================================== */
+if (!window._headerChatInitialized) {
+  window._headerChatInitialized = true;
+  initHeaderChat();
+}
