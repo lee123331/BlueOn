@@ -903,13 +903,14 @@ app.get("/expert/my-services", async (req, res) => {
 // 🔵 로그인한 유저 + 전문가 여부 반환
 app.get("/auth/me", async (req, res) => {
   try {
+    // 로그인 안 함
     if (!req.session.user) {
       return res.json({ success: false, user: null });
     }
 
     const userId = req.session.user.id;
 
-    // ✅ users + expert_profiles 조인해서 "전문가 여부" 계산
+    // 🔍 users + expert_profiles 조인
     const [[row]] = await db.query(
       `
       SELECT 
@@ -928,34 +929,42 @@ app.get("/auth/me", async (req, res) => {
       [userId]
     );
 
+    // 유저 없음
     if (!row) {
       return res.json({ success: false, user: null });
     }
 
-    // 세션 최신화
-    req.session.user.nickname  = row.nickname;
-    req.session.user.intro     = row.intro;
+    // ================================
+    // 세션 동기화 (프론트 메뉴가 즉시 반영되도록)
+    // ================================
+    req.session.user.nickname   = row.nickname;
+    req.session.user.intro      = row.intro;
     req.session.user.avatar_url = row.avatar_url;
     req.session.user.isExpert   = row.is_expert === 1;
 
+    // ================================
+    // 응답 (프론트는 이 값만 사용함)
+    // ================================
     return res.json({
       success: true,
       user: {
-        id: row.id,
-        email: row.email,
-        nickname: row.nickname,
-        intro: row.intro,
-        avatar_url: row.avatar_url,
-        // 🔥 프론트에서 쓰는 필드명: isExpert (boolean)
-        isExpert: row.is_expert === 1,
+        id        : row.id,
+        email     : row.email,
+        nickname  : row.nickname || null,
+        intro     : row.intro || null,
+        avatar_url: row.avatar_url || null,
+
+        // 🔥 반드시 넣어야 하는 필드
+        isExpert  : row.is_expert === 1,
       },
     });
 
   } catch (err) {
-    console.error("/auth/me error:", err);
+    console.error("❌ /auth/me error:", err);
     return res.json({ success: false, user: null });
   }
 });
+
 
 /* ------------------ 서비스 상세 불러오기 ------------------ */
 app.get("/services/:id", async (req, res) => {
