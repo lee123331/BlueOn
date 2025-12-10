@@ -1,5 +1,10 @@
 console.log("🔵 header-chat.js loaded");
 
+/* ======================================================
+   🔥 API URL 선언 (필수)
+====================================================== */
+const API = "https://blueon.up.railway.app";
+
 // 로그인 사용자 정보
 let CURRENT_USER = null;
 
@@ -9,8 +14,8 @@ let CURRENT_USER = null;
 async function loadHeaderUser() {
   try {
     const res = await fetch(`${API}/auth/me`, {
-  credentials: "include"
-});
+      credentials: "include"
+    });
 
     const data = await res.json();
 
@@ -25,7 +30,6 @@ async function loadHeaderUser() {
   }
 }
 
-
 /* ======================================================
    2) 초기화 — 유저정보 로드 후 소켓 연결
 ====================================================== */
@@ -37,8 +41,8 @@ async function initHeaderChat() {
 
   console.log("⚡ 소켓 접속 준비:", CURRENT_USER.id);
 
-  // 🔥 사용자 ID 포함해서 소켓 연결 (중요!)
-  const headerSocket = io("http://blueon.up.railway.app", {
+  // 🔥 사용자 ID 포함해서 소켓 연결
+  const headerSocket = io("https://blueon.up.railway.app", {
     withCredentials: true,
     auth: { userId: CURRENT_USER.id }
   });
