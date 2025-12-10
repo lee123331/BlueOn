@@ -881,7 +881,8 @@ app.post("/expert/submit", async (req, res) => {
     await db.query("UPDATE users SET is_expert = 1 WHERE id=?", [userId]);
 
     // 2) 세션 즉시 반영 → 새로고침 없이도 전문가 메뉴 표시됨
-    req.session.user.is_expert = 1;
+    req.session.user.isExpert = true;
+
 
     return res.json({ success: true });
 
