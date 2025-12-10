@@ -715,6 +715,7 @@ app.post("/expert/submit", async (req, res) => {
     const userId = req.session.user.id;
     const { step1, step2, step3, step4 } = req.body;
 
+    /* ------------------ Step1 체크 ------------------ */
     if (!step1 || !step1.nickname) {
       return res.json({
         success: false,
@@ -722,48 +723,48 @@ app.post("/expert/submit", async (req, res) => {
       });
     }
 
-    // Step 1
+    /* ------------------ Step1 데이터 ------------------ */
     const nickname = step1.nickname || null;
     const intro = step1.intro || null;
     const avatar_url = step1.avatarUrl || req.session.user.avatar_url || null;
     const main_category = step1.topCategory || null;
     const sub_category = step1.subCategory || null;
 
-    // Step 2
+    /* ------------------ Step2 데이터 ------------------ */
     const total_experience = step2?.total_experience || 0;
     const careers_json = step2?.careers || [];
 
-    // Step 3
+    /* ------------------ Step3 데이터 ------------------ */
     const skills_json = step3?.selectedSkills || [];
     const tools_json = step3?.toolSkills || [];
     const certificates_json = step3?.certificates || [];
     const styles_json = step3?.styles || [];
     const strength = step3?.strength || "";
 
-    // Step 4
+    /* ------------------ Step4 데이터 ------------------ */
     const story_work = step4?.work || "";
     const story_care = step4?.care || "";
     const story_brand = step4?.brand || "";
     const story_goal = step4?.goal || "";
-
     const solutions = step4?.solutions || "";
     const skills_text = step4?.skills || "";
     const projects = step4?.projects || [];
     const brand_story = step4?.brandStory || "";
 
-    // 은행 정보
+    /* ------------------ 은행 정보 ------------------ */
     const bankName = req.body.bankName || null;
     const accountHolder = req.body.accountHolder || null;
     const accountNumber = req.body.accountNumber || null;
 
+    /* ------------------ 기존 전문가 프로필 여부 체크 ------------------ */
     const [exist] = await db.query(
       "SELECT id FROM expert_profiles WHERE user_id=?",
       [userId]
     );
 
-    /* ================================
-       신규 INSERT
-    ================================= */
+    /* =============================================================
+       INSERT (신규 전문가 등록)
+    ============================================================= */
     if (exist.length === 0) {
       await db.query(
         `INSERT INTO expert_profiles
@@ -808,9 +809,9 @@ app.post("/expert/submit", async (req, res) => {
       );
     }
 
-    /* ================================
-       UPDATE
-    ================================= */
+    /* =============================================================
+       UPDATE (기존 전문가 정보 수정)
+    ============================================================= */
     else {
       await db.query(
         `UPDATE expert_profiles SET
@@ -868,14 +869,14 @@ app.post("/expert/submit", async (req, res) => {
       );
     }
 
-    /* ==========================================================
-       🔥 핵심 추가 1) users.is_expert = 1 업데이트
-    ========================================================== */
+    /* =============================================================
+       🔥 전문가 등록 인증 처리 — 핵심 2개
+    ============================================================= */
+
+    // 1) DB 업데이트
     await db.query("UPDATE users SET is_expert = 1 WHERE id=?", [userId]);
 
-    /* ==========================================================
-       🔥 핵심 추가 2) 세션 값 갱신하여 즉시 전문가로 인식
-    ========================================================== */
+    // 2) 세션 즉시 반영 → 새로고침 없이도 전문가 메뉴 표시됨
     req.session.user.is_expert = 1;
 
     return res.json({ success: true });
@@ -921,11 +922,39 @@ app.get("/expert/my-services", async (req, res) => {
     });
   }
 });
-app.get("/auth/me", (req, res) => {
+app.get("/auth/me", async (req, res) => {
   if (!req.session.user) {
     return res.json({ success: false, user: null });
   }
-  return res.json({ success: true, user: req.session.user });
+
+  const userId = req.session.user.id;
+
+  // DB에서 최신 정보 가져오기 (is_expert 포함)
+  const [rows] = await db.query(
+    "SELECT id, email, nickname, intro, avatar_url, is_expert FROM users WHERE id = ?",
+    [userId]
+  );
+
+  if (rows.length === 0) {
+    return res.json({ success: false, user: null });
+  }
+
+  const user = rows[0];
+
+  // 세션도 최신 상태로 동기화
+  req.session.user.is_expert = user.is_expert;
+
+  return res.json({
+    success: true,
+    user: {
+      id: user.id,
+      email: user.email,
+      nickname: user.nickname,
+      intro: user.intro,
+      avatar_url: user.avatar_url,
+      isExpert: user.is_expert === 1   // 프론트에서 사용하는 이름
+    }
+  });
 });
 
 /* ------------------ 서비스 상세 불러오기 ------------------ */
