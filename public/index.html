@@ -795,17 +795,19 @@ async function loadUserState() {
     profileIcon.src = finalAvatar;
 
     // 메뉴 렌더링
-    const isExpert = !!me.user.isExpert;
-    dropdown.innerHTML = isExpert
-      ? `
-        <a href="expert-register-step1.html">프로필 관리</a>
-        <a href="service-register.html">서비스 등록</a>
-        <a href="mypage.html">마이페이지</a>
-        <a href="#" id="logout-link">로그아웃</a>`
-      : `
-        <a href="expert-register-step1.html">전문가 등록</a>
-        <a href="profile-edit.html">프로필 관리</a>
-        <a href="#" id="logout-link">로그아웃</a>`;
+const isExpert = Number(me.user.is_expert) === 1;
+
+dropdown.innerHTML = isExpert
+  ? `
+    <a href="expert-register-step1.html">프로필 관리</a>
+    <a href="service-register.html">서비스 등록</a>
+    <a href="mypage.html">마이페이지</a>
+    <a href="#" id="logout-link">로그아웃</a>`
+  : `
+    <a href="expert-register-step1.html">전문가 등록</a>
+    <a href="profile-edit.html">프로필 관리</a>
+    <a href="#" id="logout-link">로그아웃</a>`;
+
 
     activateDropdownFeatures();
 
