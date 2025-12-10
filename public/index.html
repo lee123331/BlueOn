@@ -757,9 +757,6 @@ function showToast(message) {
   }, 1800);
 }
 
-/* ================================================================
-   로그인 상태 로드
-================================================================ */
 async function loadUserState() {
   const authButtons = document.getElementById("auth-buttons");
   const userMenu = document.getElementById("user-menu");
@@ -776,38 +773,45 @@ async function loadUserState() {
       return;
     }
 
-    // 로그인 상태 UI
     authButtons.style.display = "none";
     userMenu.style.display = "flex";
 
     let finalAvatar = me.user.avatar_url || "assets/default_profile.png";
+    let finalNickname = me.user.nickname;
+    let finalIntro = me.user.intro;
 
-    // 전문가 프로필 이미지 확인
+    // 🔥 전문가 프로필에서 avatar / nickname / intro 모두 가져오기
     try {
       const expertRes = await fetch(`${API_URL}/expert/profile/${me.user.id}`);
       const expertData = await expertRes.json();
 
-      if (expertData.success && expertData.profile?.avatar_url) {
-        finalAvatar = expertData.profile.avatar_url;
+      if (expertData.success && expertData.profile) {
+        if (expertData.profile.avatar_url)
+          finalAvatar = expertData.profile.avatar_url;
+
+        if (expertData.profile.nickname)
+          finalNickname = expertData.profile.nickname;
+
+        if (expertData.profile.intro)
+          finalIntro = expertData.profile.intro;
       }
     } catch {}
 
     profileIcon.src = finalAvatar;
 
-    // 메뉴 렌더링
-const isExpert = Number(me.user.is_expert) === 1;
-
-dropdown.innerHTML = isExpert
-  ? `
-    <a href="expert-register-step1.html">프로필 관리</a>
-    <a href="service-register.html">서비스 등록</a>
-    <a href="mypage.html">마이페이지</a>
-    <a href="#" id="logout-link">로그아웃</a>`
-  : `
-    <a href="expert-register-step1.html">전문가 등록</a>
-    <a href="profile-edit.html">프로필 관리</a>
-    <a href="#" id="logout-link">로그아웃</a>`;
-
+    // 🔵 전문가 여부에 따라 드롭다운 출력
+    dropdown.innerHTML = me.user.isExpert
+      ? `
+        <a href="expert-register-step1.html">프로필 관리</a>
+        <a href="service-register.html">서비스 등록</a>
+        <a href="mypage.html">마이페이지</a>
+        <a href="#" id="logout-link">로그아웃</a>
+      `
+      : `
+        <a href="expert-register-step1.html">전문가 등록</a>
+        <a href="profile-edit.html">프로필 관리</a>
+        <a href="#" id="logout-link">로그아웃</a>
+      `;
 
     activateDropdownFeatures();
 
