@@ -230,7 +230,7 @@ section h2{
   display: flex;
   width: 100%;
   gap: 20px;
-  align-items: stretch; /* 두 박스 높이 자동 동일화 */
+  align-items: stretch;
 }
 
 
@@ -239,9 +239,8 @@ section h2{
   border: 1px solid var(--line);
   border-radius: 10px;
   background: #fafafa;
-  overflow-y: auto; /* 스크롤은 유지 */
-  height: 100%;     /* 전체 높이 자동 맞춤 */
-  min-height: 330px; /* 최소 높이만 제한 */
+  overflow-y: auto;
+  height: 350px; /* 통일 */
 }
 
 
@@ -270,7 +269,8 @@ section h2{
   border-radius: 10px;
   background: #fff;
   padding: 18px 20px;
-  min-height: 330px;
+  overflow-y: auto;
+  height: 350px; /* 통일 */
 }
 
 .subcat-item {
@@ -532,6 +532,16 @@ function renderSubCategories() {
   });
 }
 
+function syncCategoryHeight() {
+  const left = document.querySelector(".category-left");
+  const right = document.querySelector(".category-right");
+
+  right.style.height = left.offsetHeight + "px";
+}
+
+window.addEventListener("load", syncCategoryHeight);
+window.addEventListener("resize", syncCategoryHeight);
+
 /* ================================
    닉네임 중복 체크
 ================================ */
@@ -570,10 +580,12 @@ introDetail.addEventListener("input", saveStep1);
    초기 실행
 ================================ */
 window.addEventListener("DOMContentLoaded", () => {
-  renderTopCategories();
-  renderSubCategories();
-  loadStep1();
+  loadStep1();            
+  renderTopCategories();  
+  renderSubCategories();  
+  syncCategoryHeight();   
 });
+
 
 
 
