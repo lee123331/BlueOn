@@ -506,9 +506,26 @@ app.post(
       const userId = req.session.user.id;
       const b = req.body;
 
-      // 🔥🔥🔥 여기서 taskKey 계산 (필수)
+      /* ==========================================================
+         🔥 0) 신규 서비스 ID 생성 (AUTO_INCREMENT 없으므로 필수)
+      ========================================================== */
+      const [row] = await db.query(
+        "SELECT IFNULL(MAX(id), 0) + 1 AS newId FROM services"
+      );
+      const newId = row[0].newId;
+
+
+
+      /* ==========================================================
+         🔥 1) taskKey 계산
+      ========================================================== */
       const taskKey = getTaskKey(b.mainCategory, b.subCategory);
 
+
+
+      /* ==========================================================
+         🔥 2) 이미지 경로 목록 생성
+      ========================================================== */
       const mainImgs = (req.files["mainImages"] || []).map(
         (f) => `/uploads/services/${userId}/${f.filename}`
       );
@@ -516,6 +533,11 @@ app.post(
         (f) => `/uploads/services/${userId}/${f.filename}`
       );
 
+
+
+      /* ==========================================================
+         🔥 3) 가격/기간/제공 항목 처리 (단일 or 패키지 BASIC)
+      ========================================================== */
       let priceBasicValue = b.priceBasic || null;
       let durationValue = b.duration || null;
       let revisionValue = b.revisionCount || null;
@@ -528,13 +550,21 @@ app.post(
           durationValue = pkg.BASIC.duration || null;
           revisionValue = pkg.BASIC.revision || null;
           offerItemsValue = pkg.BASIC.desc || null;
-        } catch {}
+        } catch (err) {
+          console.log("❗ 패키지 JSON 파싱 실패:", err);
+        }
       }
 
-      // 🔥 INSERT 문 — task_key 추가 완료
+
+
+      /* ==========================================================
+         🔥 4) INSERT — id 추가함
+      ========================================================== */
       await db.query(
-        `INSERT INTO services
+        `
+        INSERT INTO services
         (
+          id,
           user_id, title, main_category, sub_category, keywords,
           price_basic, duration, description, process, customer_request,
           main_images, detail_images, created_at, updated_at,
@@ -542,9 +572,10 @@ app.post(
           is_package_mode, package_json,
           task_key
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW(), ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW(), ?, ?, ?, ?, ?, ?)
         `,
         [
+          newId,                    // ⭐ 직접 생성한 ID
           userId,
           b.title,
           b.mainCategory,
@@ -562,13 +593,17 @@ app.post(
           offerItemsValue,
           b.isPackageMode || 0,
           b.packageJson || null,
-
-          // ⭐ 마지막에 추가된 taskKey
           taskKey,
         ]
       );
 
-      res.json({ success: true });
+
+
+      /* ==========================================================
+         🔥 5) 응답
+      ========================================================== */
+      res.json({ success: true, serviceId: newId });
+
     } catch (e) {
       console.error("service create error:", e);
       res.status(500).json({ success: false });
