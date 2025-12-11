@@ -223,25 +223,73 @@ section h2{
   border-color:var(--primary);
 }
 
-/* 셀렉트 박스 (상/하위 카테고리) */
-.select-box{
-  width:100%;
-  padding:16px;
-  font-size:15px;
-  border:1px solid var(--line);
-  border-radius:10px;
-  background:#f5f5f5;
-  outline:none;
-  cursor:pointer;
+/* ================================
+   2단 카테고리 선택 UI
+================================ */
+.category-wrapper {
+  display: flex;
+  width: 100%;
+  gap: 20px;
 }
 
-.select-box:focus{
-  border-color:var(--primary);
-  background:#e4e2e2;
+.category-left {
+  width: 260px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #fafafa;
+  overflow-y: auto;
+  max-height: 330px;
 }
-.form-section {
-  padding-bottom: 200px; /* 충분한 공간 확보 */
+
+.category-left-item {
+  padding: 14px 16px;
+  border-bottom: 1px solid #eee;
+  cursor: pointer;
+  transition: 0.15s;
+  font-size: 15px;
+  font-weight: 500;
 }
+
+.category-left-item:hover {
+  background: #eef3ff;
+}
+
+.category-left-item.active {
+  background: var(--primary);
+  color: #fff;
+  font-weight: 700;
+}
+
+.category-right {
+  flex: 1;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #fff;
+  padding: 18px 20px;
+  min-height: 330px;
+}
+
+.subcat-item {
+  padding: 12px 14px;
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
+  margin-bottom: 10px;
+  cursor: pointer;
+  transition: 0.2s;
+}
+
+.subcat-item:hover {
+  background: #f5f7ff;
+  border-color: #c7d6ff;
+}
+
+.subcat-item.active {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #fff;
+  font-weight: 700;
+}
+
 
 /* 버튼 */
 .next-button{
@@ -316,26 +364,23 @@ section h2{
       <label for="introDetail">상세 자기소개</label>
       <textarea id="introDetail" rows="7" placeholder="전문가님의 경험, 작업 스타일, 고객과의 협업 방식 등을 자유롭게 작성해주세요."></textarea>
     </div>
+<!-- 2단 카테고리 UI -->
+<div class="form-group">
+  <label>서비스 카테고리</label>
 
-    <!-- 상위 카테고리 -->
-    <div class="form-group">
-      <label for="topCategory">상위 카테고리</label>
-      <select id="topCategory" class="select-box">
-        <option value="">상위 카테고리를 선택하세요</option>
-        <option value="shop">쇼핑몰 제작·구축</option>
-        <option value="detail">상세페이지 기획·디자인</option>
-        <option value="brand">브랜드 디자인</option>
-        <option value="ux">전환율 개선 · UX/UI 최적화</option>
-      </select>
+  <div class="category-wrapper">
+    
+    <!-- 왼쪽: 상위 카테고리 -->
+    <div id="topCategoryBox" class="category-left"></div>
+
+    <!-- 오른쪽: 하위 카테고리 -->
+    <div id="subCategoryBox" class="category-right">
+      <p style="color:var(--text-gray);">상위 카테고리를 먼저 선택하세요.</p>
     </div>
 
-    <!-- 하위 카테고리 -->
-    <div class="form-group">
-      <label for="subCategory">하위 카테고리</label>
-      <select id="subCategory" class="select-box">
-        <option value="">하위 카테고리를 선택하세요</option>
-      </select>
-    </div>
+  </div>
+</div>
+
 
     <button class="next-button" type="button" onclick="goNextStep()">
   다음 단계로 이동
@@ -354,12 +399,16 @@ section h2{
 const nicknameInput = document.getElementById("nicknameInput");
 const nicknameStatus = document.getElementById("nicknameStatus");
 const introDetail = document.getElementById("introDetail");
-const topCategory = document.getElementById("topCategory");
-const subCategory = document.getElementById("subCategory");
 const avatarInput = document.getElementById("expertAvatar");
 const avatarPreview = document.getElementById("expertPreview");
 
-/* 하위 카테고리 목록 */
+/* === 새 UI DOM 요소 === */
+const topBox = document.getElementById("topCategoryBox");
+const subBox = document.getElementById("subCategoryBox");
+
+/* ================================
+   2단 카테고리 데이터
+================================ */
 const categoryMap = {
   shop: [
     "쇼핑몰 구축(카페24)", "쇼핑몰 구축(스마트스토어)", "쇼핑몰 구축(자사몰)",
@@ -376,130 +425,122 @@ const categoryMap = {
   ]
 };
 
-/* ==========================================================
+const topCategoryTitles = {
+  shop: "쇼핑몰 제작·구축",
+  detail: "상세페이지 기획·디자인",
+  brand: "브랜드 디자인",
+  ux: "전환율 개선 · UX/UI 최적화"
+};
+
+let selectedTop = "";
+let selectedSub = "";
+
+/* ================================
    STEP1 저장 함수
-========================================================== */
+================================ */
 function saveStep1() {
   const data = {
     nickname: nicknameInput.value || "",
     intro: introDetail.value || "",
-    topCategory: topCategory.value || "",
-    subCategory: subCategory.value || "",
+    topCategory: selectedTop || "",
+    subCategory: selectedSub || "",
     avatarUrl: avatarPreview.dataset.url || ""
   };
 
   localStorage.setItem("expert_step1", JSON.stringify(data));
 }
 
-/* ==========================================================
+/* ================================
    STEP1 불러오기
-========================================================== */
+================================ */
 function loadStep1() {
   const saved = localStorage.getItem("expert_step1");
-  if (!saved) {
-    // 저장된 값이 없으면 기본 이미지 설정
-    avatarPreview.src = "/assets/default_profile.png";
-    avatarPreview.dataset.url = "";
-    return;
-  }
+  if (!saved) return;
 
   const data = JSON.parse(saved);
 
-  /* 기본 필드 복원 */
   nicknameInput.value = data.nickname || "";
   introDetail.value = data.intro || "";
-  topCategory.value = data.topCategory || "";
 
-  /* 상위 선택 후 하위 카테고리 활성화 */
-  if (data.topCategory) {
-    renderSubCategories(data.topCategory);
-    subCategory.value = data.subCategory || "";
-  }
+  selectedTop = data.topCategory || "";
+  selectedSub = data.subCategory || "";
 
-  /* 아바타 복원 */
-  if (data.avatarUrl && data.avatarUrl.trim() !== "") {
+  renderTopCategories();
+  renderSubCategories();
+
+  if (data.avatarUrl) {
     avatarPreview.src = data.avatarUrl;
     avatarPreview.dataset.url = data.avatarUrl;
-  } else {
-    avatarPreview.src = "/assets/default_profile.png";
-    avatarPreview.dataset.url = "";
   }
 }
 
+/* ================================
+   상위 카테고리 렌더링
+================================ */
+function renderTopCategories() {
+  topBox.innerHTML = "";
 
-/* ==========================================================
+  Object.keys(topCategoryTitles).forEach(key => {
+    const div = document.createElement("div");
+    div.className = "category-left-item";
+    div.textContent = topCategoryTitles[key];
+    div.dataset.key = key;
+
+    if (selectedTop === key) div.classList.add("active");
+
+    div.onclick = () => {
+      selectedTop = key;
+      selectedSub = "";
+      renderTopCategories();
+      renderSubCategories();
+      saveStep1();
+    };
+
+    topBox.appendChild(div);
+  });
+}
+
+/* ================================
    하위 카테고리 렌더링
-========================================================== */
-function renderSubCategories(topKey) {
-  subCategory.innerHTML = `<option value="">하위 카테고리를 선택하세요</option>`;
-  if (!categoryMap[topKey]) return;
+================================ */
+function renderSubCategories() {
+  subBox.innerHTML = "";
 
-  categoryMap[topKey].forEach(text => {
-    const opt = document.createElement("option");
-    opt.value = text;
-    opt.textContent = text;
-    subCategory.appendChild(opt);
-  });
-}
-
-/* ==========================================================
-   상위 카테고리 변경
-========================================================== */
-topCategory.addEventListener("change", () => {
-  renderSubCategories(topCategory.value);
-  saveStep1();
-});
-
-/* 하위 카테고리 변경 시 */
-subCategory.addEventListener("change", saveStep1);
-
-/* ==========================================================
-   아바타 업로드
-========================================================== */
-async function uploadAvatarToServer(file) {
-  const fd = new FormData();
-  fd.append("avatar", file);
-
-  const res = await fetch("https://blueon.up.railway.app/expert/upload-avatar", {
-    method: "POST",
-    body: fd,
-    credentials: "include"
-  });
-
-  const data = await res.json();
-  return data.url;   // 예: "/uploads/파일명.png"
-}
-
-/* 파일 선택 이벤트 */
-avatarInput.addEventListener("change", async (e) => {
-  const file = e.target.files[0];
-  if (!file) return;
-
-  const url = await uploadAvatarToServer(file);
-  if (!url) {
-    alert("이미지 업로드 실패");
+  if (!selectedTop) {
+    subBox.innerHTML = "<p style='color:#6b7280;'>상위 카테고리를 선택하세요.</p>";
     return;
   }
 
-  avatarPreview.src = url;
-  avatarPreview.dataset.url = url;
+  categoryMap[selectedTop].forEach(name => {
+    const div = document.createElement("div");
+    div.className = "subcat-item";
+    div.textContent = name;
 
-  saveStep1();
-});
+    if (selectedSub === name) div.classList.add("active");
 
-/* ==========================================================
+    div.onclick = () => {
+      selectedSub = name;
+      renderSubCategories();
+      saveStep1();
+    };
+
+    subBox.appendChild(div);
+  });
+}
+
+/* ================================
    닉네임 중복 체크
-========================================================== */
+================================ */
 nicknameInput.addEventListener("blur", async () => {
   const nickname = nicknameInput.value.trim();
   if (!nickname) return;
 
   const res = await fetch(
-    "https://blueon.up.railway.app/expert/check-nickname?nickname=" + encodeURIComponent(nickname)
+    "https://blueon.up.railway.app/expert/check-nickname?nickname=" +
+      encodeURIComponent(nickname)
   );
-  const data = await res.json();
 
-  console.log("닉네임 중복 체크 결과:", data);
+  const data = await res.json();
 
   nicknameStatus.textContent = "";
   nicknameStatus.className = "status-msg";
@@ -515,37 +556,23 @@ nicknameInput.addEventListener("blur", async () => {
   saveStep1();
 });
 
-
-/* ==========================================================
+/* ================================
    입력 자동 저장
-========================================================== */
+================================ */
 nicknameInput.addEventListener("input", saveStep1);
 introDetail.addEventListener("input", saveStep1);
 
-/* ==========================================================
-   step 이동
-========================================================== */
-function goStep(step) {
-  const map = {
-    intro: "expert-register-step1.html",
-    career: "expert-register-step2.html",
-    skill: "expert-register-step3.html",
-    brand: "expert-register-step4.html"
-  };
-  location.href = map[step];
-}
-
-function goNextStep() {
-  saveStep1();
-  location.href = "expert-register-step2.html";
-}
-
-/* ==========================================================
+/* ================================
    초기 실행
-========================================================== */
+================================ */
 window.addEventListener("DOMContentLoaded", () => {
+  renderTopCategories();
+  renderSubCategories();
   loadStep1();
 });
+
+
+
 </script>
 
 
