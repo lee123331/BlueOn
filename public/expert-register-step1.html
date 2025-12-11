@@ -230,16 +230,20 @@ section h2{
   display: flex;
   width: 100%;
   gap: 20px;
+  align-items: stretch; /* 두 박스 높이 자동 동일화 */
 }
+
 
 .category-left {
   width: 260px;
   border: 1px solid var(--line);
   border-radius: 10px;
   background: #fafafa;
-  overflow-y: auto;
-  max-height: 330px;
+  overflow-y: auto; /* 스크롤은 유지 */
+  height: 100%;     /* 전체 높이 자동 맞춤 */
+  min-height: 330px; /* 최소 높이만 제한 */
 }
+
 
 .category-left-item {
   padding: 14px 16px;
