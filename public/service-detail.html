@@ -510,282 +510,7 @@
       transform: translateY(0);
       pointer-events: auto;
     }
-    .chat-popup {
-  position: fixed;
-  bottom: 20px;
-  right: 20px;
-  width: 360px;
-  height: 520px;
-  background: #fff;
-  border-radius: 16px;
-  box-shadow: 0 6px 22px rgba(0,0,0,0.12);
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  z-index: 99999;
-}
 
-.chat-popup.hidden {
-  display: none;
-}
-
-/* HEADER */
-.chat-header {
-  height: 62px;
-  background: #f8faff;
-  border-bottom: 1px solid #e5e7eb;
-  display: flex;
-  align-items: center;
-  padding: 0 16px;
-  gap: 10px;
-}
-
-.chat-avatar {
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  object-fit: cover;
-}
-
-.chat-info {
-  flex: 1;
-}
-
-.chat-name {
-  font-weight: 700;
-  font-size: 15px;
-}
-
-.chat-status {
-  font-size: 12px;
-  color: #6b7280;
-}
-
-.chat-close {
-  border: none;
-  background: transparent;
-  font-size: 20px;
-  cursor: pointer;
-}
-
-/* MESSAGE AREA */
-.chat-messages {
-  flex: 1;
-  overflow-y: auto;
-  padding: 16px;
-  background: #f9fafb;
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-}
-
-/* 내 메시지 */
-.chat-msg.me {
-  align-self: flex-end;
-  background: #0056ff;
-  color: #fff;
-  padding: 10px 14px;
-  border-radius: 14px 14px 4px 14px;
-  max-width: 70%;
-  word-break: break-word;
-}
-
-/* 상대 메시지 */
-.chat-msg.other {
-  align-self: flex-start;
-  background: #fff;
-  border: 1px solid #e5e7eb;
-  padding: 10px 14px;
-  border-radius: 14px 14px 14px 4px;
-  max-width: 70%;
-  word-break: break-word;
-}
-
-/* 이미지 메시지 */
-.chat-img {
-  max-width: 160px;
-  border-radius: 12px;
-  box-shadow: 0 3px 6px rgba(0,0,0,0.1);
-}
-
-/* 입력 영역 */
-.chat-input-area {
-  display: flex;
-  align-items: center;
-  padding: 10px;
-  border-top: 1px solid #e5e7eb;
-  background: #fff;
-}
-
-.chat-image-btn {
-  font-size: 20px;
-  padding: 6px;
-  cursor: pointer;
-}
-
-.chat-input {
-  flex: 1;
-  border: 1px solid #e5e7eb;
-  border-radius: 12px;
-  padding: 10px;
-  margin: 0 8px;
-  font-size: 14px;
-}
-
-.chat-send {
-  padding: 10px 14px;
-  background: #0056ff;
-  border: none;
-  border-radius: 10px;
-  color: white;
-  font-weight: 700;
-  cursor: pointer;
-}
-.portfolio-btn {
-  margin-top: 14px;
-  padding: 12px;
-  width: 100%;
-  border-radius: 12px;
-  border: none;
-  background: #0056ff;
-  color: white;
-  font-size: 14px;
-  font-weight: 700;
-  cursor: pointer;
-}
-.expert-box {
-  background: #fff;
-  border: 1px solid var(--line);
-  border-radius: 16px;
-  padding: 28px;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.05);
-}
-
-.expert-row {
-  display: flex;
-  align-items: flex-start;
-  gap: 22px;
-}
-
-.expert-avatar {
-  width: 86px;
-  height: 86px;
-  border-radius: 50%;
-  object-fit: cover;
-}
-
-.expert-info-area {
-  flex: 1;
-}
-
-/* 이름과 버튼 줄 */
-.expert-header-line {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 12px;
-}
-
-/* 왼쪽 정보 블럭 */
-.expert-info-left {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.expert-name {
-  font-size: 20px;
-  font-weight: 800;
-}
-
-.expert-meta {
-  font-size: 12px;
-  color: #6b7280;
-}
-
-/* 🔵 작은 & 깔끔한 버튼 */
-.portfolio-btn-small {
-  padding: 7px 14px;
-  font-size: 13px;
-  font-weight: 700;
-  background: var(--primary);
-  border: none;
-  border-radius: 8px;
-  color: #fff;
-  cursor: pointer;
-  white-space: nowrap;
-  transition: .2s;
-}
-
-.portfolio-btn-small:hover {
-  background: var(--primary-dark);
-}
-
-/* 소개 */
-.expert-intro-full {
-  font-size: 14px;
-  line-height: 1.7;
-  color: #333;
-  max-height: 90px;
-  overflow: hidden;
-  transition: .3s;
-  white-space: pre-line;
-}
-
-.expert-toggle-btn {
-  margin-top: 6px;
-  font-size: 13px;
-  font-weight: 700;
-  color: var(--primary);
-  cursor: pointer;
-}
-
-/* 모바일 */
-@media (max-width: 700px) {
-  .expert-row {
-    flex-direction: column;
-    align-items: center;
-    text-align: center;
-  }
-
-  .expert-header-line {
-    flex-direction: column;
-    gap: 10px;
-  }
-
-  .portfolio-btn-small {
-    align-self: center;
-  }
-}
-#sec-expert {
-  margin-top: 40px !important;
-}
-#sec-price {
-  margin-bottom: 40px;
-}
-.system-message {
-  align-self: center;
-  background: #eef4ff;
-  border: 1px solid #d8e4ff;
-  color: #0037c2;
-  padding: 14px 18px;
-  border-radius: 14px;
-  max-width: 80%;
-  font-size: 14px;
-  line-height: 1.5;
-  text-align: center;
-  margin: 8px 0;
-  box-shadow: 0 4px 10px rgba(0, 86, 255, 0.08);
-}
-
-.system-message::before {
-  content: "🔵 BlueOn 시스템 알림";
-  display: block;
-  font-size: 12px;
-  font-weight: 700;
-  color: #0056ff;
-  margin-bottom: 6px;
-}
 
   </style>
 </head>
@@ -1004,43 +729,14 @@
 
     </div>
   </div>
-<!-- 🔵 채팅 창 팝업 -->
-<div id="chatPopup" class="chat-popup hidden">
-
-  <!-- 헤더 -->
-  <div class="chat-header">
-    <img id="chatExpertAvatar" class="chat-avatar" />
-    <div class="chat-info">
-      <div id="chatExpertName" class="chat-name"></div>
-      <div class="chat-status">온라인 · 실시간 상담</div>
-    </div>
-    <button id="chatCloseBtn" class="chat-close">×</button>
-  </div>
-
-  <!-- 메시지 영역 -->
-  <div id="chatMessages" class="chat-messages"></div>
-
-  <!-- 하단 입력 -->
-  <div class="chat-input-area">
-    <label class="chat-image-btn">
-      📷
-      <input type="file" id="chatImageInput" accept="image/*" hidden />
-    </label>
-    <input type="text" id="chatInput" class="chat-input" placeholder="메시지를 입력하세요..." />
-    <button id="chatSendBtn" class="chat-send">전송</button>
-  </div>
 
 </div>
 
 </div>
 
-<script src="/socket.io/socket.io.js"></script>
-<script>
-const socket = io({
-  withCredentials: true
-});
 
-  
+
+  <script>
 const API = "https://blueon.up.railway.app";
 const serviceId = new URLSearchParams(location.search).get("id");
 let slideImgs = [];
@@ -1257,7 +953,7 @@ function initBuyButtons() {
   console.log("🧷 구매 버튼 개수:", buttons.length);
 
   buttons.forEach((btn) => {
-    btn.onclick = () => {
+    btn.onclick = async () => {
       console.log("🖱 구매 버튼 클릭됨!");
 
       /* ----------------------------------------------------
@@ -1272,28 +968,28 @@ function initBuyButtons() {
       let phase = null;
 
       /* ----------------------------------------------------
-         ⭐ 2) 신규 서비스: 서버에서 내려온 task_key 사용
+         2) 신규 서비스: 서버에서 내려온 task_key 사용
       ---------------------------------------------------- */
       if (window.serviceTaskKey) {
         finalTaskKey = window.serviceTaskKey;
         console.log("🎯 신규 serviceTaskKey 사용:", finalTaskKey);
 
-        if (finalTaskKey.startsWith("task_logo") ||
-            finalTaskKey.startsWith("task_color") ||
-            finalTaskKey.startsWith("task_story") ||
-            finalTaskKey.startsWith("task_programming")) {
+        if (
+          finalTaskKey.startsWith("task_logo") ||
+          finalTaskKey.startsWith("task_color") ||
+          finalTaskKey.startsWith("task_story") ||
+          finalTaskKey.startsWith("task_programming")
+        ) {
           phase = "design";
-        }
-        else if (finalTaskKey.startsWith("task_spread")) {
+        } else if (finalTaskKey.startsWith("task_spread")) {
           phase = "spread";
-        }
-        else if (finalTaskKey.startsWith("task_expand")) {
+        } else if (finalTaskKey.startsWith("task_expand")) {
           phase = "expand";
         }
       }
 
       /* ----------------------------------------------------
-         ⭐ 3) 예전 서비스: 카테고리 기반 자동 매핑 (백업 로직)
+         3) 예전 서비스: 카테고리 기반 자동 매핑 (백업)
       ---------------------------------------------------- */
       if (!finalTaskKey) {
         console.log("⚠ 신규 task_key 없음 → 예전 매핑 방식 사용");
@@ -1306,12 +1002,10 @@ function initBuyButtons() {
         if (groupKey && DESIGN_KEY_MAP[groupKey]) {
           finalTaskKey = DESIGN_KEY_MAP[groupKey];
           phase = "design";
-        }
-        else if (groupKey && SPREAD_KEY_MAP[groupKey]) {
+        } else if (groupKey && SPREAD_KEY_MAP[groupKey]) {
           finalTaskKey = SPREAD_KEY_MAP[groupKey];
           phase = "spread";
-        }
-        else if (groupKey && EXPAND_KEY_MAP[groupKey]) {
+        } else if (groupKey && EXPAND_KEY_MAP[groupKey]) {
           finalTaskKey = EXPAND_KEY_MAP[groupKey];
           phase = "expand";
         }
@@ -1320,7 +1014,7 @@ function initBuyButtons() {
       console.log("🎯 최종 taskKey:", finalTaskKey, "/ phase:", phase);
 
       /* ----------------------------------------------------
-         4) 로컬 로드맵 업데이트
+         4) 로컬 로드맵 업데이트 (UX용)
       ---------------------------------------------------- */
       if (finalTaskKey) {
         if (localStorage.getItem(finalTaskKey) !== "done") {
@@ -1337,26 +1031,56 @@ function initBuyButtons() {
         } else {
           console.log("⚠ 이미 완료된 단계:", finalTaskKey);
         }
-      } else {
-        console.log("⚠ 매칭된 단계 없음 → 구매 카운트만 증가");
       }
 
       /* ----------------------------------------------------
-         5) 구매 카운트 증가
+         5) 🔥 실제 주문 생성 (무통장, 핵심)
       ---------------------------------------------------- */
-      fetch(`${API}/services/${serviceId}/buy-count`, {
-        method: "POST",
-        credentials: "include",
-      })
-        .then(res => res.json())
-        .then(data => {
-          if (data.success) {
-            console.log(`🧾 구매 카운트 증가 완료 → ${data.buy_count}회`);
-          } else {
-            console.warn("⚠ buy-count 실패:", data);
-          }
+      try {
+        const res = await fetch(`${API}/orders/create`, {
+
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({
+            serviceId: serviceId,
+          }),
+        });
+
+        const data = await res.json();
+
+        if (!data.success) {
+          alert("주문 생성에 실패했습니다.");
+          return;
+        }
+
+        const orderId = data.orderId;
+        console.log("🧾 주문 생성 완료:", orderId);
+
+        /* ----------------------------------------------------
+           6) 구매 카운트 증가 (통계용)
+        ---------------------------------------------------- */
+        fetch(`${API}/services/${serviceId}/buy-count`, {
+          method: "POST",
+          credentials: "include",
         })
-        .catch(err => console.error("❌ buy_count fetch 에러:", err));
+          .then(res => res.json())
+          .then(data => {
+            if (data.success) {
+              console.log(`📊 구매 카운트 증가 → ${data.buy_count}회`);
+            }
+          })
+          .catch(err => console.warn("⚠ buy-count 실패:", err));
+
+        /* ----------------------------------------------------
+           7) 입금 페이지로 이동
+        ---------------------------------------------------- */
+        location.href = `/order-pay.html?orderId=${orderId}`;
+
+      } catch (err) {
+        console.error("❌ 주문 생성 오류:", err);
+        alert("서버 오류가 발생했습니다.");
+      }
     };
   });
 }
@@ -1693,52 +1417,12 @@ function initTabs() {
     };
   });
 }
-async function startChatRoom() {
-  const expertId = window.expertId;
-  const res = await fetch(`${API}/chat/start`, {
-  method: "POST",
-  headers: {
-    "Content-Type": "application/json",
-  },
-  credentials: "include",   // 채팅은 세션 필수
-  body: JSON.stringify({
-    targetId: someUserId
-  })
-});
 
 
-  const data = await res.json();
-  if (!data.success) {
-    console.warn("❌ 채팅방 생성 실패:", data);
-    return null;
-  }
 
-  console.log("🟦 채팅방 생성 성공:", data);
-  return data.roomId;
-}
-function openChatPopup() {
-  const popup = document.getElementById("chatPopup");
-  popup.classList.remove("hidden");
 
-  document.getElementById("chatExpertAvatar").src =
-    document.getElementById("expertAvatar").src;
 
-  document.getElementById("chatExpertName").textContent =
-    document.getElementById("expertName").textContent;
-}
 
-document.addEventListener("DOMContentLoaded", () => {
-  const btn = document.getElementById("goExpertBtn");
-  if (!btn) return;
-
-  btn.addEventListener("click", () => {
-    const target = document.getElementById("sec-expert");
-    if (!target) return;
-
-    const top = target.getBoundingClientRect().top + window.scrollY - 90;
-    window.scrollTo({ top, behavior: "smooth" });
-  });
-});
 
 /* =======================================================
    페이지 초기화
@@ -1782,111 +1466,9 @@ function openChat() {
   });
 }
 
-document.getElementById("chatSendBtn").onclick = () => {
-  const text = document.getElementById("chatInput").value.trim();
-  if (!text) return;
 
-  const msg = {
-    roomId: window.currentRoom,
-    sender: "me",
-    text,
-    time: Date.now()
-  };
 
-  socket.emit("chat:message", msg);
 
-  addMessage("me", text);
-  document.getElementById("chatInput").value = "";
-};
-function addMessage(sender, text) {
-  const box = document.getElementById("chatMessages");
-
-  const div = document.createElement("div");
-  div.className = sender === "me" ? "chat-msg me" : "chat-msg other";
-  div.textContent = text;
-
-  box.appendChild(div);
-  box.scrollTop = box.scrollHeight;
-}
-async function loadOldMessages() {
-  const res = await fetch(`${API}/chat/messages?room=${window.currentRoom}`, {
-    credentials: "include"
-  });
-
-  const data = await res.json();
-  data.messages.forEach(m => {
-    addMessage(m.sender_id === window.expertId ? "other" : "me", m.message);
-  });
-}
-// 🔵 엔터키로 메시지 전송
-document.getElementById("chatInput").addEventListener("keydown", (e) => {
-  if (e.key === "Enter") {
-    e.preventDefault();
-    sendChatMessage();
-  }
-});
-function sendChatMessage() {
-  const input = document.getElementById("chatInput");
-  const text = input.value.trim();
-  if (!text || !window.currentRoom) return;
-
-  // 내 메시지 화면에 표시
-  addMessage("me", text);
-
-  // 서버로 전송
-  socket.emit("chat:message", {
-    roomId: window.currentRoom,
-    text,
-    sender: "me",
-    time: Date.now()
-  });
-
-  input.value = "";
-}
-document.getElementById("chatSendBtn").onclick = sendChatMessage;
-document.getElementById("chatImageInput").addEventListener("change", async (e) => {
-  const file = e.target.files[0];
-  if (!file || !window.currentRoom) return;
-
-  const reader = new FileReader();
-  reader.onload = () => {
-    const base64 = reader.result;
-    
-    // 화면에 이미지 표시
-    addImageMessage("me", base64);
-
-    // 서버 전송
-    socket.emit("chat:message", {
-      roomId: window.currentRoom,
-      image: base64,
-      sender: "me",
-      time: Date.now()
-    });
-  };
-  reader.readAsDataURL(file);
-});
-function addImageMessage(sender, base64) {
-  const box = document.getElementById("chatMessages");
-  const div = document.createElement("div");
-  div.className = sender === "me" ? "chat-msg me" : "chat-msg other";
-
-  const img = document.createElement("img");
-  img.className = "chat-img";
-  img.src = base64;
-
-  div.appendChild(img);
-  box.appendChild(div);
-  box.scrollTop = box.scrollHeight;
-}
-socket.on("chat:message", (msg) => {
-  if (msg.sender === "me") return;
-
-  if (msg.image) {
-    addImageMessage("other", msg.image);
-  } else {
-    addMessage("other", msg.text);
-  }
-});
 document.addEventListener("DOMContentLoaded", () => {
 
   const refundBtn      = document.getElementById("openRefundPolicy");
@@ -1945,7 +1527,7 @@ document.addEventListener("DOMContentLoaded", () => {
 <!-- 환불 정책 모달 -->
 <div id="refundModal" style="
   position:fixed;
-  inset:0;
+  inset:0;  
   background:rgba(0,0,0,0.55);
   display:none;
   place-items:center;
@@ -2093,6 +1675,6 @@ document.addEventListener("DOMContentLoaded", () => {
   </div>
 </div>
 
-
+<script src="/js/service-detail.js"></script>
 </body>
 </html>
