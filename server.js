@@ -315,10 +315,15 @@ const httpServer = http.createServer(app);
 
 const io = new SocketIOServer(httpServer, {
   cors: {
-    origin: ["http://localhost:3000", "http://localhost:5173"],
+    origin: [
+      "http://localhost:3000",
+      "http://localhost:5173",
+      "https://blueon.up.railway.app"
+    ],
     credentials: true,
   },
 });
+
 
 /* ------------------ 회원가입 ------------------ */
 app.post("/signup", async (req, res) => {
@@ -349,17 +354,22 @@ app.post("/signup", async (req, res) => {
     const hashedPw = await bcrypt.hash(password, 10);
 
     // 4) id 직접 생성
-    const newId = Math.floor(Math.random() * 1000000000);
+    const [[row]] = await db.query(
+  "SELECT IFNULL(MAX(id), 0) + 1 AS newId FROM users"
+);
+const newId = row.newId;
+
 
     // 5) 저장 (created_at + updated_at 모두 포함)
-    await db.execute(
-      `
-      INSERT INTO users 
-      (id, provider, provider_id, email, password, phone, created_at, updated_at)
-      VALUES (?, 'local', ?, ?, ?, ?, NOW(), NOW())
-      `,
-      [newId, email, email, hashedPw, phone]
-    );
+await db.execute(
+  `
+  INSERT INTO users 
+  (id, provider, provider_id, email, password, phone, created_at, updated_at)
+  VALUES (?, 'local', ?, ?, ?, ?, NOW(), NOW())
+  `,
+  [newId, email, email, hashedPw, phone]
+);
+
 
     return res.json({ success: true });
 
@@ -2205,9 +2215,71 @@ app.get("/expert/mypage", async (req, res) => {
 });
 
 
-/* ======================================================
-   🔵 채팅방 목록 (프로필 이미지 포함)
-====================================================== */
+
+/* ============================
+   주문 생성 (무통장 입금)
+============================ */
+app.post("/orders/create", async (req, res) => {
+  try {
+    // 1️⃣ 로그인 체크
+    if (!req.session.user) {
+      return res.status(401).json({
+        success: false,
+        message: "로그인이 필요합니다.",
+      });
+    }
+
+    const userId = req.session.user.id;
+    const { serviceId, expertId, price } = req.body;
+
+    if (!serviceId || !expertId || !price) {
+      return res.status(400).json({
+        success: false,
+        message: "필수 값 누락",
+      });
+    }
+
+    // 2️⃣ 주문 ID 생성 (UUID 대용)
+    const orderId = crypto.randomUUID();
+
+    // 3️⃣ 현재 시간 (문자열로 저장)
+    const createdAt = new Date()
+      .toISOString()
+      .slice(0, 19)
+      .replace("T", " ");
+
+    // 4️⃣ 주문 저장
+    await db.query(
+      `
+      INSERT INTO orders (
+        id, user_id, expert_id, service_id, price, status, created_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?)
+      `,
+      [
+        orderId,
+        userId,
+        expertId,
+        serviceId,
+        price,
+        "pending", // 입금 대기
+        createdAt,
+      ]
+    );
+
+    // 5️⃣ 응답
+    res.json({
+      success: true,
+      orderId,
+    });
+  } catch (err) {
+    console.error("❌ 주문 생성 오류:", err);
+    res.status(500).json({
+      success: false,
+      message: "주문 생성 실패",
+    });
+  }
+});
+
 /* ======================================================
    🔵 채팅방 목록 (프로필 이미지 완전 보정)
 ====================================================== */
