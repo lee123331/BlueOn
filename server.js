@@ -1354,11 +1354,22 @@ app.get("/users/profile/:id", async (req, res) => {
 io.on("connection", (socket) => {
   console.log("🟢 Socket connected:", socket.id);
 
-  // 📌 유저별 개인 room 등록 → 개인 알림 가능
+  /* ===============================
+     1️⃣ 유저 개인 room
+  =============================== */
   const userId = socket.handshake.auth?.userId;
   if (userId) {
     socket.join(`user:${userId}`);
     console.log(`➡ user:${userId} 방에 입장`);
+  }
+
+  /* ===============================
+     2️⃣ 관리자 room
+  =============================== */
+  const isAdmin = socket.handshake.auth?.isAdmin;
+  if (isAdmin) {
+    socket.join("admin");
+    console.log("👑 admin 소켓 연결");
   }
 
   /* ------------------ 방 입장 ------------------ */
@@ -1378,10 +1389,9 @@ io.on("connection", (socket) => {
   });
 
   /* ------------------ 읽음 표시 ------------------ */
-socket.on("chat:read", ({ roomId, userId }) => {
-  socket.to(String(roomId)).emit("chat:read", { roomId, userId });
-});
-
+  socket.on("chat:read", ({ roomId, userId }) => {
+    socket.to(String(roomId)).emit("chat:read", { roomId, userId });
+  });
 
   /* ------------------ 메시지 삭제 ------------------ */
   socket.on("chat:delete", ({ roomId, messageId }) => {
@@ -2221,63 +2231,193 @@ app.get("/expert/mypage", async (req, res) => {
 ============================ */
 app.post("/orders/create", async (req, res) => {
   try {
-    // 1️⃣ 로그인 체크
     if (!req.session.user) {
-      return res.status(401).json({
-        success: false,
-        message: "로그인이 필요합니다.",
-      });
+      return res.status(401).json({ success: false });
     }
 
     const userId = req.session.user.id;
-    const { serviceId, expertId, price } = req.body;
-
-    if (!serviceId || !expertId || !price) {
-      return res.status(400).json({
-        success: false,
-        message: "필수 값 누락",
-      });
+    const { serviceId } = req.body;
+    if (!serviceId) {
+      return res.status(400).json({ success: false, message: "serviceId 누락" });
     }
 
-    // 2️⃣ 주문 ID 생성 (UUID 대용)
+    // 🔥 서비스 정보 조회 (가격 + 전문가)
+    const [[svc]] = await db.query(
+      "SELECT user_id AS expert_id, price_basic FROM services WHERE id=?",
+      [serviceId]
+    );
+
+    if (!svc) {
+      return res.json({ success: false, message: "서비스 없음" });
+    }
+
     const orderId = crypto.randomUUID();
+    const createdAt = new Date().toISOString().slice(0, 19).replace("T", " ");
 
-    // 3️⃣ 현재 시간 (문자열로 저장)
-    const createdAt = new Date()
-      .toISOString()
-      .slice(0, 19)
-      .replace("T", " ");
-
-    // 4️⃣ 주문 저장
     await db.query(
-      `
-      INSERT INTO orders (
-        id, user_id, expert_id, service_id, price, status, created_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?)
-      `,
+      `INSERT INTO orders
+       (id, user_id, expert_id, service_id, price, status, created_at)
+       VALUES (?, ?, ?, ?, ?, 'pending', ?)`,
       [
         orderId,
         userId,
-        expertId,
+        svc.expert_id,
         serviceId,
-        price,
-        "pending", // 입금 대기
-        createdAt,
+        svc.price_basic,
+        createdAt
       ]
     );
 
-    // 5️⃣ 응답
-    res.json({
-      success: true,
-      orderId,
-    });
+    res.json({ success: true, orderId });
+
   } catch (err) {
-    console.error("❌ 주문 생성 오류:", err);
-    res.status(500).json({
-      success: false,
-      message: "주문 생성 실패",
-    });
+    console.error("❌ orders/create error:", err);
+    res.status(500).json({ success: false });
   }
+});
+
+/* ======================================================
+   🔵 주문 입금 확인 (관리자)
+   - 무통장 입금 확인
+   - work 채팅방 생성
+   - orders.room_id 연결
+====================================================== */
+app.post("/orders/confirm-payment", async (req, res) => {
+  try {
+    // 🔐 로그인 체크 (초기엔 본인 계정만 관리자처럼 사용)
+    if (!req.session.user) {
+      return res.status(401).json({ success: false, message: "로그인 필요" });
+    }
+
+    const { orderId } = req.body;
+    if (!orderId) {
+      return res.json({ success: false, message: "orderId 누락" });
+    }
+
+    /* ======================================================
+       1️⃣ 주문 조회
+    ====================================================== */
+    const [[order]] = await db.query(
+      `SELECT id, user_id, expert_id, room_id, status
+       FROM orders
+       WHERE id = ?`,
+      [orderId]
+    );
+
+    if (!order) {
+      return res.json({ success: false, message: "주문 없음" });
+    }
+
+    // 이미 처리된 주문이면 그대로 반환
+    if (order.status === "paid" && order.room_id) {
+      return res.json({
+        success: true,
+        roomId: order.room_id,
+        message: "이미 처리된 주문",
+      });
+    }
+
+    let roomId = order.room_id;
+
+    /* ======================================================
+       2️⃣ 채팅방 없으면 생성 (work 전용)
+    ====================================================== */
+    if (!roomId) {
+      const [result] = await db.query(
+        `
+        INSERT INTO chat_rooms (order_id, user1_id, user2_id, room_type)
+        VALUES (?, ?, ?, 'work')
+        `,
+        [orderId, order.user_id, order.expert_id]
+      );
+
+      roomId = result.insertId;
+
+      // 주문에 room_id 연결
+      await db.query(
+        "UPDATE orders SET room_id = ? WHERE id = ?",
+        [roomId, orderId]
+      );
+    }
+
+    /* ======================================================
+       3️⃣ 주문 상태 paid 처리
+    ====================================================== */
+    await db.query(
+      "UPDATE orders SET status = 'paid' WHERE id = ?",
+      [orderId]
+    );
+
+    return res.json({
+      success: true,
+      roomId,
+    });
+
+  } catch (err) {
+    console.error("❌ confirm-payment error:", err);
+    return res.status(500).json({ success: false });
+  }
+});
+
+/* ======================================================
+   🔵 관리자 주문 목록 조회
+====================================================== */
+app.get("/admin/orders", async (req, res) => {
+  try {
+    if (!req.session.user) {
+      return res.status(401).json({ success: false });
+    }
+
+    const [rows] = await db.query(`
+      SELECT 
+        o.id,
+        o.price,
+        o.status,
+        o.created_at,
+        u.nickname AS user_name,
+        s.title AS service_title
+      FROM orders o
+      JOIN users u ON u.id = o.user_id
+      JOIN services s ON s.id = o.service_id
+      ORDER BY o.created_at DESC
+    `);
+
+    return res.json({ success: true, orders: rows });
+
+  } catch (err) {
+    console.error("❌ admin/orders error:", err);
+    return res.json({ success: false });
+  }
+});
+app.get("/orders/status", async (req, res) => {
+  const { orderId } = req.query;
+
+  const [[row]] = await db.query(
+    "SELECT status FROM orders WHERE id=?",
+    [orderId]
+  );
+
+  if (!row) {
+    return res.json({ success: false });
+  }
+
+  res.json({ success: true, status: row.status });
+});
+app.get("/orders/:id", async (req, res) => {
+  const [rows] = await db.query(
+    "SELECT * FROM orders WHERE id=?",
+    [req.params.id]
+  );
+  if (!rows.length) return res.json({ success:false });
+  res.json({ success:true, order: rows[0] });
+});
+app.post("/orders/notify-deposit", async (req, res) => {
+  const { orderId } = req.body;
+
+  // 관리자 알림만 (socket or DB)
+  io.to("admin").emit("admin:deposit-notify", { orderId });
+
+  res.json({ success:true });
 });
 
 /* ======================================================
