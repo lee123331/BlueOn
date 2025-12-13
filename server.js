@@ -2370,9 +2370,12 @@ app.post("/orders/create", async (req, res) => {
 ====================================================== */
 app.post("/orders/confirm-payment", async (req, res) => {
   try {
-    // 🔐 로그인 체크 (초기엔 본인 계정만 관리자처럼 사용)
-    if (!req.session.user) {
-      return res.status(401).json({ success: false, message: "로그인 필요" });
+    // 🔐 관리자 체크 (현재는 본인 계정)
+    if (!isAdmin(req)) {
+      return res.status(403).json({
+        success: false,
+        message: "관리자 권한 필요"
+      });
     }
 
     const { orderId } = req.body;
@@ -2384,9 +2387,11 @@ app.post("/orders/confirm-payment", async (req, res) => {
        1️⃣ 주문 조회
     ====================================================== */
     const [[order]] = await db.query(
-      `SELECT id, user_id, expert_id, room_id, status
-       FROM orders
-       WHERE id = ?`,
+      `
+      SELECT id, user_id, expert_id, room_id, status
+      FROM orders
+      WHERE id = ?
+      `,
       [orderId]
     );
 
@@ -2394,34 +2399,42 @@ app.post("/orders/confirm-payment", async (req, res) => {
       return res.json({ success: false, message: "주문 없음" });
     }
 
-    // 이미 처리된 주문이면 그대로 반환
+    // 이미 처리된 주문
     if (order.status === "paid" && order.room_id) {
       return res.json({
         success: true,
         roomId: order.room_id,
-        message: "이미 처리된 주문",
+        message: "이미 처리된 주문"
       });
     }
 
     let roomId = order.room_id;
 
     /* ======================================================
-       2️⃣ 채팅방 없으면 생성 (work 전용)
+       2️⃣ 채팅방 없으면 생성 (work)
     ====================================================== */
     if (!roomId) {
+      const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+
       const [result] = await db.query(
         `
-        INSERT INTO chat_rooms (order_id, user1_id, user2_id, room_type)
-        VALUES (?, ?, ?, 'work')
+        INSERT INTO chat_rooms
+        (order_id, user1_id, user2_id, room_type, created_at)
+        VALUES (?, ?, ?, 'work', ?)
         `,
-        [orderId, order.user_id, order.expert_id]
+        [
+          orderId,
+          order.user_id,
+          order.expert_id,
+          today
+        ]
       );
 
       roomId = result.insertId;
 
       // 주문에 room_id 연결
       await db.query(
-        "UPDATE orders SET room_id = ? WHERE id = ?",
+        `UPDATE orders SET room_id = ? WHERE id = ?`,
         [roomId, orderId]
       );
     }
@@ -2430,13 +2443,13 @@ app.post("/orders/confirm-payment", async (req, res) => {
        3️⃣ 주문 상태 paid 처리
     ====================================================== */
     await db.query(
-      "UPDATE orders SET status = 'paid' WHERE id = ?",
+      `UPDATE orders SET status = 'paid' WHERE id = ?`,
       [orderId]
     );
 
     return res.json({
       success: true,
-      roomId,
+      roomId
     });
 
   } catch (err) {
@@ -2445,8 +2458,9 @@ app.post("/orders/confirm-payment", async (req, res) => {
   }
 });
 
+
 /* ======================================================
-   🔵 관리자 주문 목록 조회 (관리자 전용)
+   🔵 관리자 주문 목록 조회
 ====================================================== */
 app.get("/admin/orders", async (req, res) => {
   try {
@@ -2481,24 +2495,19 @@ app.get("/admin/orders", async (req, res) => {
 
 
 /* ======================================================
-   🔵 주문 상태 조회 (유저/프론트용)
+   🔵 주문 상태 조회 (프론트)
 ====================================================== */
 app.get("/orders/status", async (req, res) => {
   try {
     const { orderId } = req.query;
-
-    if (!orderId) {
-      return res.json({ success: false });
-    }
+    if (!orderId) return res.json({ success: false });
 
     const [[row]] = await db.query(
-      "SELECT status FROM orders WHERE id=?",
+      `SELECT status FROM orders WHERE id = ?`,
       [orderId]
     );
 
-    if (!row) {
-      return res.json({ success: false });
-    }
+    if (!row) return res.json({ success: false });
 
     res.json({ success: true, status: row.status });
 
@@ -2517,7 +2526,7 @@ app.get("/orders/:id", async (req, res) => {
     const orderId = req.params.id;
 
     const [rows] = await db.query(
-      "SELECT * FROM orders WHERE id=?",
+      `SELECT * FROM orders WHERE id = ?`,
       [orderId]
     );
 
