@@ -78,4 +78,42 @@ async function initHeaderChat() {
   });
 }
 
+async function refreshBadge() {
+  try {
+    const res = await fetch(`${API}/chat/unread-count`, { credentials: "include" });
+    const data = await res.json();
+    if (!chatBadge) return;
+    chatBadge.style.display = (data.success && data.total > 0) ? "block" : "none";
+  } catch (e) {
+    // 네트워크 튕겨도 UI는 유지
+  }
+}
+
+async function initHeaderChat() {
+  await loadHeaderUserLight();
+  if (!CURRENT_USER) return;
+
+  // ✅ 페이지 로드 즉시 1번 동기화
+  refreshBadge();
+
+  // ✅ 5초마다 동기화 (소켓 불안정해도 배지 정확)
+  setInterval(refreshBadge, 5000);
+
+  const socket = io(API, {
+    withCredentials: true,
+    transports: ["polling"],
+    upgrade: false
+  });
+
+  socket.on("connect", () => console.log("🟦 header socket 연결:", socket.id));
+  socket.on("disconnect", () => console.log("🔻 header socket 끊김"));
+
+  socket.on("chat:notify", (data) => {
+    if (!data || Number(data.targetId) !== Number(CURRENT_USER.id)) return;
+    console.log("📩 헤더 알림 수신");
+    refreshBadge(); // ✅ 실시간 이벤트 오면 즉시 동기화
+  });
+}
+
 initHeaderChat();
+
