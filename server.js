@@ -1,4 +1,23 @@
 // =======================
+// 필요한 모듈 로드
+// =======================
+import axios from "axios";
+import crypto from "crypto";
+import express from "express";
+import mysql from "mysql2/promise";
+import cors from "cors";
+import bcrypt from "bcrypt";
+import session from "express-session";
+import MySQLStoreImport from "express-mysql-session";
+
+import multer from "multer";
+import path from "path";
+import fs from "fs";
+import http from "http";
+import { Server as SocketIOServer } from "socket.io";
+
+const app = express();
+// =======================
 // 환경 변수 출력 확인
 // =======================
 console.log("SOLAPI_API_KEY =", process.env.SOLAPI_API_KEY);
@@ -17,24 +36,8 @@ function isAdmin(req) {
   return String(req.session.user.id) === String(process.env.ADMIN_USER_ID);
 }
 
-// =======================
-// 필요한 모듈 로드
-// =======================
-import axios from "axios";
-import crypto from "crypto";
-import express from "express";
-import mysql from "mysql2/promise";
-import cors from "cors";
-import bcrypt from "bcrypt";
-import session from "express-session";
-import MySQLStore from "express-mysql-session";
-import multer from "multer";
-import path from "path";
-import fs from "fs";
-import http from "http";
-import { Server as SocketIOServer } from "socket.io";
 
-const app = express();
+
 
 /* ======================================================
    공통: DB_URL 파싱 함수 (1회 선언)
@@ -1138,7 +1141,8 @@ app.post("/notice/portfolio-request", async (req, res) => {
       });
     }
 
-    const userName = req.session.user.nickname || req.session.user.name || "유저";
+    const userName = req.session.user.nickname || "유저";
+
 
     const message = `${userName}님이 '${serviceTitle}' 서비스에서 포트폴리오를 요청했습니다.`;
 
