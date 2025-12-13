@@ -1,8 +1,5 @@
 console.log("🔵 header-chat.js loaded");
 
-/* ======================================================
-   🔥 API URL 선언
-====================================================== */
 const API = "https://blueon.up.railway.app";
 
 /* 🔔 알림 배지 강제 초기화 */
@@ -11,12 +8,11 @@ if (chatBadge) {
   chatBadge.style.display = "none";
 }
 
-/* 로그인된 사용자 정보 */
 let CURRENT_USER = null;
 
-/* ======================================================
-   1) 최소 정보만 로드 (세션 기반)
-====================================================== */
+/* ============================
+   사용자 최소 정보 로드
+============================ */
 async function loadHeaderUserLight() {
   try {
     const res = await fetch(`${API}/auth/me`, { credentials: "include" });
@@ -25,47 +21,39 @@ async function loadHeaderUserLight() {
     if (data.success) {
       CURRENT_USER = data.user;
       console.log("🟢 로그인된 사용자:", CURRENT_USER);
-    } else {
-      CURRENT_USER = null;
     }
   } catch (err) {
     console.error("❌ 사용자 정보 로드 실패:", err);
   }
 }
 
-/* ======================================================
-   2) 소켓 초기화 (모든 페이지)
-====================================================== */
+/* ============================
+   🔥 헤더 전용 소켓 (polling only)
+============================ */
 async function initHeaderChat() {
   await loadHeaderUserLight();
 
-  if (!CURRENT_USER) {
-    console.log("🔴 로그인 안 된 상태 → 소켓 미연결");
-    return;
-  }
+  if (!CURRENT_USER) return;
 
-  const headerSocket = io(API, {
+  const socket = io(API, {
     withCredentials: true,
-    auth: { userId: CURRENT_USER.id }
+    transports: ["polling"],   // ⭐ 핵심
+    upgrade: false              // ⭐ 핵심
   });
 
-  headerSocket.on("connect", () => {
-    console.log("🟦 header 소켓 연결됨:", headerSocket.id);
+  socket.on("connect", () => {
+    console.log("🟦 header polling socket 연결됨:", socket.id);
   });
 
-  headerSocket.on("disconnect", () => {
-    console.log("🔻 header 소켓 끊김");
+  socket.on("disconnect", () => {
+    console.log("🔻 header polling socket 끊김");
   });
 
-  /* 🔔 알림 이벤트 */
-  headerSocket.on("chat:notify", (data) => {
+  socket.on("chat:notify", (data) => {
     if (!data || data.targetId !== CURRENT_USER.id) return;
-    console.log("📩 새 알림 → 배지 표시");
+    console.log("📩 헤더 알림 수신");
     if (chatBadge) chatBadge.style.display = "block";
   });
 }
 
-/* ======================================================
-   🚀 항상 실행 (정답)
-====================================================== */
 initHeaderChat();
