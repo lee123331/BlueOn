@@ -25,15 +25,8 @@ function safeParse(v) {
   try { return JSON.parse(v); } catch { return null; }
 }
 
-function normalize(str) {
-  return String(str || "")
-    .replace(/[\u200B-\u200D\uFEFF]/g, "")
-    .replace(/\s+/g, "")
-    .trim();
-}
-
 /* ======================================================
-   구매 버튼 (🔥 핵심 / alert 완전 제거)
+   구매 버튼 (🔥 최종 안정화)
 ====================================================== */
 function initBuyButtons() {
   const buttons = document.querySelectorAll(".btn-buy, .price-buy-btn");
@@ -54,6 +47,7 @@ function initBuyButtons() {
           body: JSON.stringify({ serviceId })
         });
 
+        // ❌ 서버 통신 자체 실패
         if (!res.ok) {
           showToast("서버 통신 오류가 발생했습니다.");
           return;
@@ -61,25 +55,26 @@ function initBuyButtons() {
 
         const data = await res.json();
 
-        // ✅ 중복 입금 대기 주문
-        if (!data.success && data.code === "DUPLICATE_PENDING") {
-          showToast("이미 입금 대기 중인 주문이 있습니다.");
+        /* ======================================================
+           ✅ 핵심 규칙
+           - orderId가 있으면 무조건 주문 성공
+           - success / 알림 실패 여부는 UX에 노출 ❌
+        ====================================================== */
 
-          setTimeout(() => {
-            location.href = `/order-pay.html?orderId=${data.orderId}`;
-          }, 1200);
+        if (data.orderId) {
+          // 중복 입금 대기 주문 안내는 UX만 제공
+          if (data.code === "DUPLICATE_PENDING") {
+            showToast("이미 입금 대기 중인 주문이 있습니다.");
+          }
 
+          // 🔥 무조건 주문 페이지로 이동
+          location.href = `/order-pay.html?orderId=${data.orderId}`;
           return;
         }
 
-        // ❌ 기타 실패
-        if (!data.success) {
-          showToast(data.message || "주문 생성에 실패했습니다.");
-          return;
-        }
-
-        // ✅ 정상 주문
-        location.href = `/order-pay.html?orderId=${data.orderId}`;
+        // ❌ 진짜 실패 (orderId 없음)
+        console.warn("주문 생성 실패 응답:", data);
+        showToast(data.message || "주문 생성에 실패했습니다.");
 
       } catch (err) {
         console.error("❌ 주문 생성 오류:", err);
@@ -137,14 +132,12 @@ async function loadService() {
     const svc = data.service;
     const expert = data.expert || {};
 
-    // task_key 저장
     window.serviceTaskKey = svc.task_key || null;
 
     document.getElementById("heroTitle").textContent = svc.title;
     document.getElementById("heroMainCat").textContent = svc.main_category;
     document.getElementById("heroSubCat").textContent = svc.sub_category;
 
-    // 키워드
     const wrap = document.getElementById("keywordWrap");
     wrap.innerHTML = "";
     (svc.keywords || "").split(",").forEach(k => {
@@ -155,7 +148,6 @@ async function loadService() {
       wrap.appendChild(chip);
     });
 
-    // 이미지
     slideImgs = safeParse(svc.main_images) || [];
     const main = document.getElementById("mainSlideImg");
     main.src = slideImgs[0] || "/assets/default_service.png";
@@ -175,7 +167,6 @@ async function loadService() {
       thumb.appendChild(t);
     });
 
-    // 설명
     document.getElementById("descText").innerHTML =
       (svc.description || "").replace(/\n/g, "<br>");
     document.getElementById("brandText").innerHTML =
@@ -183,11 +174,9 @@ async function loadService() {
     document.getElementById("processText").innerHTML =
       (svc.process || "").replace(/\n/g, "<br>");
 
-    // 전문가
     initExpertBox(expert);
     window.expertId = expert.user_id;
 
-    // 가격
     renderSinglePrice(svc);
 
   } catch (err) {
