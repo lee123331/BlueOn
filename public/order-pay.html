@@ -209,9 +209,10 @@
     <button class="sub-btn" onclick="goMyOrders()">내 작업 현황 보기</button>
 
     <div class="status-box" id="statusBox">
-      현재 상태: <b>입금 대기</b><br>
-      관리자가 입금을 확인하면 자동으로 작업이 시작됩니다.
-    </div>
+  현재 상태: <b id="paymentStatus">입금 대기</b><br>
+  관리자가 입금을 확인하면 자동으로 작업이 시작됩니다.
+</div>
+
 
   </div>
 </div>
@@ -253,6 +254,36 @@ async function loadOrder() {
     alert("서버 오류가 발생했습니다.");
   }
 }
+/* --------------------------------------------------
+   주문 상태 조회 (pending / paid)
+-------------------------------------------------- */
+async function loadOrderStatus() {
+  try {
+    const res = await fetch(
+      `${API}/orders/status?orderId=${orderId}`,
+      { credentials: "include" }
+    );
+    const data = await res.json();
+
+    if (!data.success) return;
+
+    const statusEl = document.getElementById("paymentStatus");
+    const statusBox = document.getElementById("statusBox");
+
+    if (data.status === "paid") {
+      statusEl.textContent = "입금 확인";
+      statusBox.innerHTML = `
+        현재 상태: <b style="color:#0056ff">입금 확인</b><br>
+        입금이 확인되어 전문가가 작업을 시작합니다.
+      `;
+    } else {
+      statusEl.textContent = "입금 대기";
+    }
+
+  } catch (e) {
+    console.error("status load error:", e);
+  }
+}
 
 /* --------------------------------------------------
    이체 완료 알림 (상태는 그대로 pending)
@@ -291,6 +322,11 @@ function showToast() {
 }
 
 loadOrder();
+loadOrderStatus();
+
+// 10초마다 상태 재확인 (선택이지만 강력 추천)
+setInterval(loadOrderStatus, 10000);
+
 </script>
 
 </body>
