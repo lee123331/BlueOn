@@ -2534,47 +2534,82 @@ app.get("/orders/:id", async (req, res) => {
 app.post("/orders/notify-deposit", async (req, res) => {
   try {
     if (!req.session.user) {
-      return res.json({ success: false });
+      return res.json({ success: false, message: "로그인 필요" });
     }
 
     const { orderId } = req.body;
+    if (!orderId) {
+      return res.json({ success: false, message: "orderId 누락" });
+    }
 
-    // 주문 정보 조회
+    /* --------------------------------
+       주문 + 유저 정보 조회
+    -------------------------------- */
     const [[order]] = await db.query(
-      `SELECT o.id, u.nickname 
-       FROM orders o
-       JOIN users u ON u.id = o.user_id
-       WHERE o.id = ?`,
+      `
+      SELECT 
+        o.id,
+        o.price,
+        u.nickname
+      FROM orders o
+      JOIN users u ON u.id = o.user_id
+      WHERE o.id = ?
+      `,
       [orderId]
     );
 
     if (!order) {
-      return res.json({ success: false });
+      return res.json({ success: false, message: "주문 없음" });
     }
 
-    const message = `입금 요청: ${order.nickname} (주문 ${order.id})`;
+    /* --------------------------------
+       관리자 알림 메시지
+    -------------------------------- */
+    const smsText =
+`[BlueOn 입금 알림]
+주문번호: ${order.id}
+유저: ${order.nickname || "알 수 없음"}
+금액: ${Number(order.price).toLocaleString()}원
 
-    // 🔔 관리자 알림 저장
-    await db.query(
-      `INSERT INTO notices (user_id, message, type)
-       VALUES (?, ?, 'admin')`,
-      [process.env.ADMIN_USER_ID, message]
+관리자 페이지에서 입금 확인하세요.`;
+
+    /* --------------------------------
+       📱 관리자 SMS 발송 (핵심)
+    -------------------------------- */
+    await sendSMS(
+      process.env.ADMIN_PHONE,
+      smsText
     );
 
-    // 🔥 실시간 관리자 알림
+    /* --------------------------------
+       (선택) 관리자 알림 DB 저장
+    -------------------------------- */
+    await db.query(
+      `
+      INSERT INTO notices (user_id, message, type)
+      VALUES (?, ?, 'admin')
+      `,
+      [
+        process.env.ADMIN_USER_ID,
+        `입금 요청: ${order.nickname} (주문 ${order.id})`
+      ]
+    );
+
+    /* --------------------------------
+       (선택) 관리자 소켓 알림
+    -------------------------------- */
     io.to("admin").emit("admin:deposit-notify", {
-      orderId,
-      message
+      orderId: order.id,
+      message: smsText
     });
 
-    res.json({ success: true });
+    return res.json({ success: true });
 
   } catch (err) {
-    console.error("notify-deposit error:", err);
-    res.json({ success: false });
+    console.error("❌ notify-deposit SMS error:", err);
+    return res.json({ success: false });
   }
 });
-
 
 /* ======================================================
    🔵 채팅방 목록 (프로필 이미지 완전 보정)
