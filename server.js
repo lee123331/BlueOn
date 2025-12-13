@@ -1358,42 +1358,51 @@ app.get("/users/profile/:id", async (req, res) => {
 ====================================================== */
 io.on("connection", (socket) => {
   try {
+    console.log("🟢 Socket connected:", socket.id);
+
     const session = socket.request.session;
     const user = session?.user;
 
-    console.log("🟢 Socket connected:", socket.id);
-
-    /* ===============================
-       0️⃣ 로그인 안 된 소켓 차단
-    =============================== */
+    /* ======================================================
+       0️⃣ 비로그인 소켓도 허용 (헤더 알림용)
+       - ❌ 여기서 disconnect 하면 안 됨
+    ====================================================== */
     if (!user) {
-      console.warn("⛔ 비로그인 소켓 차단:", socket.id);
-      socket.disconnect();
-      return;
+      console.log("ℹ️ 비로그인/헤더 소켓 허용:", socket.id);
+
+      socket.on("disconnect", () => {
+        console.log("🔴 Header socket disconnected:", socket.id);
+      });
+
+      return; // ⚠️ 여기서 종료 (채팅/관리자 기능은 안 붙임)
     }
 
-    /* ===============================
-       1️⃣ 유저 개인 room
-    =============================== */
+    /* ======================================================
+       1️⃣ 로그인 유저 개인 room
+    ====================================================== */
     socket.join(`user:${user.id}`);
     console.log(`➡ user:${user.id} 방 입장`);
 
-    /* ===============================
-       2️⃣ 관리자 room (🔥 서버 세션 기준)
-    =============================== */
+    /* ======================================================
+       2️⃣ 관리자 room (서버 세션 기준)
+    ====================================================== */
     if (user.is_admin === true) {
       socket.join("admin");
       console.log("👑 admin 소켓 연결");
     }
 
-    /* ------------------ 채팅방 입장 ------------------ */
+    /* ======================================================
+       3️⃣ 채팅 관련 이벤트 (로그인 유저만)
+    ====================================================== */
+
+    /* 채팅방 입장 */
     socket.on("chat:join", (roomId) => {
       if (!roomId) return;
       socket.join(String(roomId));
       console.log(`📌 chat:join → room ${roomId}`);
     });
 
-    /* ------------------ typing 표시 ------------------ */
+    /* typing 표시 */
     socket.on("chat:typing", ({ roomId, userId, isTyping }) => {
       socket.to(String(roomId)).emit("chat:typing", {
         roomId,
@@ -1402,19 +1411,21 @@ io.on("connection", (socket) => {
       });
     });
 
-    /* ------------------ 읽음 표시 ------------------ */
+    /* 읽음 표시 */
     socket.on("chat:read", ({ roomId, userId }) => {
       socket.to(String(roomId)).emit("chat:read", { roomId, userId });
     });
 
-    /* ------------------ 메시지 삭제 ------------------ */
+    /* 메시지 삭제 */
     socket.on("chat:delete", ({ roomId, messageId }) => {
       socket.to(String(roomId)).emit("chat:delete", { messageId });
     });
 
-    /* ------------------ 연결 종료 ------------------ */
+    /* ======================================================
+       4️⃣ 연결 종료
+    ====================================================== */
     socket.on("disconnect", () => {
-      console.log("🔴 Socket disconnected:", socket.id);
+      console.log("🔴 User socket disconnected:", socket.id);
     });
 
   } catch (err) {
