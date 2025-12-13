@@ -65,4 +65,11 @@ async function initHeaderChat() {
   });
 }
 
-initHeaderChat();
+/* ======================================================
+   ✅ 채팅 관련 페이지에서만 실행
+====================================================== */
+if (location.pathname.includes("chat")) {
+  initHeaderChat();
+} else {
+  console.log("ℹ️ 채팅 페이지 아님 → header 소켓 미연결");
+}
