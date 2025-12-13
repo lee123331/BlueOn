@@ -2339,21 +2339,32 @@ app.post("/orders/create", async (req, res) => {
       .slice(0, 19)
       .replace("T", " ");
 
-    await db.query(
-      `
-      INSERT INTO orders
-      (id, user_id, expert_id, service_id, price, status, created_at)
-      VALUES (?, ?, ?, ?, ?, 'pending', ?)
-      `,
-      [
-        orderId,
-        userId,
-        svc.expert_id,
-        serviceId,
-        svc.price_basic,
-        createdAt
-      ]
-    );
+   await db.query(
+  `
+  INSERT INTO orders
+  (
+    id,
+    user_id,
+    expert_id,
+    service_id,
+    price,
+    status,
+    alarm_status,
+    alarm_error,
+    created_at
+  )
+  VALUES (?, ?, ?, ?, ?, 'pending', 'none', '', ?)
+  `,
+  [
+    orderId,
+    userId,
+    svc.expert_id,
+    serviceId,
+    svc.price_basic,
+    createdAt
+  ]
+);
+
 
     /* -------------------------------------------------
        6️⃣ 🔔 알림은 "항상 다시 시도" (실패해도 OK)
