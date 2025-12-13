@@ -489,27 +489,41 @@
 
     /* TOAST */
     .toast {
-      position: fixed;
-      bottom: 40px;
-      right: 40px;
-      background: #111;
-      color: #fff;
-      padding: 14px 20px;
-      border-radius: 10px;
-      font-size: 14px;
-      font-weight: 600;
-      opacity: 0;
-      pointer-events: none;
-      transform: translateY(20px);
-      transition: all .35s ease;
-      z-index: 9999;
-    }
+  position: fixed;
+  bottom: 36px;
+  right: 36px;
+  min-width: 260px;
+  max-width: 340px;
+  background: #111827;
+  color: #fff;
+  padding: 16px 18px;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 700;
+  box-shadow: 0 10px 30px rgba(0,0,0,.25);
+  opacity: 0;
+  transform: translateY(20px);
+  transition: .3s;
+  z-index: 9999;
+}
 
-    .toast.show {
-      opacity: 1;
-      transform: translateY(0);
-      pointer-events: auto;
-    }
+.toast.show {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.toast button {
+  margin-top: 10px;
+  width: 100%;
+  padding: 10px 0;
+  border-radius: 10px;
+  border: none;
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+  background: #0056ff;
+  color: #fff;
+}
 
 
   </style>
@@ -1676,5 +1690,7 @@ document.addEventListener("DOMContentLoaded", () => {
 </div>
 
 <script src="/js/service-detail.js"></script>
+<div id="toast" class="toast"></div>
+
 </body>
 </html>
