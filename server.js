@@ -1354,59 +1354,73 @@ app.get("/users/profile/:id", async (req, res) => {
   }
 });
 /* ======================================================
-   🔵 Socket.io (정상 구조)
+   🔵 Socket.io (보안 강화 + 정상 구조)
 ====================================================== */
 io.on("connection", (socket) => {
-  console.log("🟢 Socket connected:", socket.id);
+  try {
+    const session = socket.request.session;
+    const user = session?.user;
 
-  /* ===============================
-     1️⃣ 유저 개인 room
-  =============================== */
-  const userId = socket.handshake.auth?.userId;
-  if (userId) {
-    socket.join(`user:${userId}`);
-    console.log(`➡ user:${userId} 방에 입장`);
-  }
+    console.log("🟢 Socket connected:", socket.id);
 
-  /* ===============================
-     2️⃣ 관리자 room
-  =============================== */
-  const isAdmin = socket.handshake.auth?.isAdmin;
-  if (isAdmin) {
-    socket.join("admin");
-    console.log("👑 admin 소켓 연결");
-  }
+    /* ===============================
+       0️⃣ 로그인 안 된 소켓 차단
+    =============================== */
+    if (!user) {
+      console.warn("⛔ 비로그인 소켓 차단:", socket.id);
+      socket.disconnect();
+      return;
+    }
 
-  /* ------------------ 방 입장 ------------------ */
-  socket.on("chat:join", (roomId) => {
-    if (!roomId) return;
-    socket.join(String(roomId));
-    console.log(`📌 chat:join → room ${roomId}`);
-  });
+    /* ===============================
+       1️⃣ 유저 개인 room
+    =============================== */
+    socket.join(`user:${user.id}`);
+    console.log(`➡ user:${user.id} 방 입장`);
 
-  /* ------------------ typing 표시 ------------------ */
-  socket.on("chat:typing", ({ roomId, userId, isTyping }) => {
-    socket.to(String(roomId)).emit("chat:typing", {
-      roomId,
-      userId,
-      isTyping,
+    /* ===============================
+       2️⃣ 관리자 room (🔥 서버 세션 기준)
+    =============================== */
+    if (user.is_admin === true) {
+      socket.join("admin");
+      console.log("👑 admin 소켓 연결");
+    }
+
+    /* ------------------ 채팅방 입장 ------------------ */
+    socket.on("chat:join", (roomId) => {
+      if (!roomId) return;
+      socket.join(String(roomId));
+      console.log(`📌 chat:join → room ${roomId}`);
     });
-  });
 
-  /* ------------------ 읽음 표시 ------------------ */
-  socket.on("chat:read", ({ roomId, userId }) => {
-    socket.to(String(roomId)).emit("chat:read", { roomId, userId });
-  });
+    /* ------------------ typing 표시 ------------------ */
+    socket.on("chat:typing", ({ roomId, userId, isTyping }) => {
+      socket.to(String(roomId)).emit("chat:typing", {
+        roomId,
+        userId,
+        isTyping,
+      });
+    });
 
-  /* ------------------ 메시지 삭제 ------------------ */
-  socket.on("chat:delete", ({ roomId, messageId }) => {
-    socket.to(String(roomId)).emit("chat:delete", { messageId });
-  });
+    /* ------------------ 읽음 표시 ------------------ */
+    socket.on("chat:read", ({ roomId, userId }) => {
+      socket.to(String(roomId)).emit("chat:read", { roomId, userId });
+    });
 
-  /* ------------------ 연결 종료 ------------------ */
-  socket.on("disconnect", () => {
-    console.log("🔴 Socket disconnected:", socket.id);
-  });
+    /* ------------------ 메시지 삭제 ------------------ */
+    socket.on("chat:delete", ({ roomId, messageId }) => {
+      socket.to(String(roomId)).emit("chat:delete", { messageId });
+    });
+
+    /* ------------------ 연결 종료 ------------------ */
+    socket.on("disconnect", () => {
+      console.log("🔴 Socket disconnected:", socket.id);
+    });
+
+  } catch (err) {
+    console.error("❌ Socket connection error:", err);
+    socket.disconnect();
+  }
 });
 
 /* ======================================================
@@ -2564,18 +2578,25 @@ app.get("/orders/:id", async (req, res) => {
    - 관리자 socket 실시간 알림
    - 🔥 동일 주문 중복 알림 완전 차단
 ====================================================== */
+/* ======================================================
+   🔔 유저 → 관리자 입금 완료 알림
+   - status 변경 ❌
+   - 관리자 알림 DB 저장
+   - 관리자 socket 실시간 알림
+   - 🔥 동일 주문 중복 알림 완전 차단 (orders.alarm_status 기준)
+====================================================== */
 app.post("/orders/notify-deposit", async (req, res) => {
   try {
     /* ---------------------------
        1️⃣ 로그인 체크
     --------------------------- */
     if (!req.session.user) {
-      return res.json({ success: false, message: "로그인 필요" });
+      return res.json({ success: false });
     }
 
     const { orderId } = req.body;
     if (!orderId) {
-      return res.json({ success: false, message: "orderId 누락" });
+      return res.json({ success: false });
     }
 
     /* ---------------------------
@@ -2586,6 +2607,7 @@ app.post("/orders/notify-deposit", async (req, res) => {
       SELECT 
         o.id,
         o.price,
+        o.alarm_status,
         u.nickname
       FROM orders o
       JOIN users u ON u.id = o.user_id
@@ -2595,35 +2617,21 @@ app.post("/orders/notify-deposit", async (req, res) => {
     );
 
     if (!order) {
-      return res.json({ success: false, message: "주문 없음" });
+      return res.json({ success: false });
     }
 
     /* ---------------------------
-       3️⃣ 🔥 중복 알림 체크 (핵심)
-       - 이미 관리자 알림이 있으면
-         ▶ SMS ❌
-         ▶ DB INSERT ❌
+       3️⃣ 🔕 이미 알림 보낸 주문 → 즉시 종료
     --------------------------- */
-    const [[exists]] = await db.query(
-      `
-      SELECT id FROM notices
-      WHERE type = 'admin'
-        AND message LIKE ?
-      LIMIT 1
-      `,
-      [`%${orderId}%`]
-    );
-
-    if (exists) {
-      // 🔕 이미 알림 보낸 주문 → 조용히 성공 처리
+    if (order.alarm_status === "sent") {
       return res.json({
         success: true,
-        duplicated: true
+        alreadySent: true
       });
     }
 
     /* ---------------------------
-       4️⃣ 관리자 알림 메시지 (SMS)
+       4️⃣ 관리자 알림 메시지
     --------------------------- */
     const smsText =
 `[BlueOn 입금 알림]
@@ -2634,42 +2642,68 @@ app.post("/orders/notify-deposit", async (req, res) => {
 관리자 페이지에서 입금 확인하세요.`;
 
     /* ---------------------------
-       5️⃣ 📱 관리자 SMS 발송
+       5️⃣ 📱 관리자 SMS 발송 (실패해도 OK)
     --------------------------- */
-    await sendSMS(
-      process.env.ADMIN_PHONE,
-      smsText
-    );
+    try {
+      await sendSMS(
+        process.env.ADMIN_PHONE,
+        smsText
+      );
+    } catch (smsErr) {
+      console.warn("⚠️ 관리자 SMS 발송 실패:", smsErr.message);
+    }
 
     /* ---------------------------
-       6️⃣ 관리자 알림 DB 저장
+       6️⃣ 관리자 알림 DB 저장 (실패해도 OK)
+    --------------------------- */
+    try {
+      await db.query(
+        `
+        INSERT INTO notices (user_id, message, type, created_at)
+        VALUES (?, ?, 'admin', NOW())
+        `,
+        [
+          process.env.ADMIN_USER_ID,
+          `입금 요청: ${order.nickname || "알 수 없음"} (주문 ${order.id})`
+        ]
+      );
+    } catch (dbErr) {
+      console.warn("⚠️ 관리자 알림 DB 저장 실패:", dbErr.message);
+    }
+
+    /* ---------------------------
+       7️⃣ 관리자 socket 실시간 알림 (실패해도 OK)
+    --------------------------- */
+    try {
+      io.to("admin").emit("admin:deposit-notify", {
+        orderId: order.id,
+        message: smsText
+      });
+    } catch (socketErr) {
+      console.warn("⚠️ 관리자 소켓 알림 실패:", socketErr.message);
+    }
+
+    /* ---------------------------
+       8️⃣ 알림 성공 처리 기록 (🔥 핵심)
     --------------------------- */
     await db.query(
-      `
-      INSERT INTO notices (user_id, message, type, created_at)
-      VALUES (?, ?, 'admin', NOW())
-      `,
-      [
-        process.env.ADMIN_USER_ID,
-        `입금 요청: ${order.nickname || "알 수 없음"} (주문 ${order.id})`
-      ]
+      `UPDATE orders SET alarm_status='sent', alarm_error='' WHERE id=?`,
+      [order.id]
     );
 
     /* ---------------------------
-       7️⃣ 관리자 소켓 실시간 알림
+       9️⃣ 항상 성공 응답 (alert 완전 차단)
     --------------------------- */
-    io.to("admin").emit("admin:deposit-notify", {
-      orderId: order.id,
-      message: smsText
-    });
-
     return res.json({ success: true });
 
   } catch (err) {
     console.error("❌ notify-deposit error:", err);
-    return res.json({ success: false });
+
+    // ❗ 어떤 에러가 나도 UX는 실패로 만들지 않는다
+    return res.json({ success: true });
   }
 });
+
 
 /* ======================================================
    🔵 채팅방 목록 (프로필 이미지 완전 보정)
