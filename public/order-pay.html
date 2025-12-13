@@ -264,26 +264,29 @@ async function loadOrderStatus() {
       { credentials: "include" }
     );
     const data = await res.json();
-
     if (!data.success) return;
 
     const statusEl = document.getElementById("paymentStatus");
     const statusBox = document.getElementById("statusBox");
 
+    if (!statusEl || !statusBox) return;
+
     if (data.status === "paid") {
       statusEl.textContent = "입금 확인";
-      statusBox.innerHTML = `
-        현재 상태: <b style="color:#0056ff">입금 확인</b><br>
-        입금이 확인되어 전문가가 작업을 시작합니다.
-      `;
+      statusEl.style.color = "#0056ff";
+
+      statusBox.querySelector("br").nextSibling.textContent =
+        "입금이 확인되어 전문가가 작업을 시작합니다.";
     } else {
       statusEl.textContent = "입금 대기";
+      statusEl.style.color = "";
     }
 
   } catch (e) {
     console.error("status load error:", e);
   }
 }
+
 
 /* --------------------------------------------------
    이체 완료 알림 (상태는 그대로 pending)
