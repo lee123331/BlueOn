@@ -2244,56 +2244,23 @@ app.get("/expert/mypage", async (req, res) => {
 ============================ */
 app.post("/orders/create", async (req, res) => {
   try {
-    /* ------------------
-       1️⃣ 로그인 체크
-    ------------------ */
     if (!req.session.user) {
-      return res.status(401).json({
-        success: false,
-        message: "로그인이 필요합니다."
-      });
+      return res.status(401).json({ success: false });
     }
 
     const userId = req.session.user.id;
     const { serviceId } = req.body;
 
     if (!serviceId) {
-      return res.status(400).json({
-        success: false,
-        message: "serviceId 누락"
-      });
+      return res.status(400).json({ success: false, message: "serviceId 누락" });
     }
 
-    /* ------------------
-       2️⃣ 서비스 정보 조회
-       (전문가 + 가격)
-    ------------------ */
-    const [[svc]] = await db.query(
+    /* ---------------------------------
+       🔥 중복 pending 주문 체크
+    --------------------------------- */
+    const [[dup]] = await db.query(
       `
-      SELECT 
-        user_id   AS expert_id,
-        price_basic
-      FROM services
-      WHERE id = ?
-      `,
-      [serviceId]
-    );
-
-    if (!svc) {
-      return res.json({
-        success: false,
-        message: "서비스가 존재하지 않습니다."
-      });
-    }
-
-    /* ------------------
-       3️⃣ 중복 pending 주문 방지
-       (같은 유저 + 같은 서비스)
-    ------------------ */
-    const [[exist]] = await db.query(
-      `
-      SELECT id
-      FROM orders
+      SELECT id FROM orders
       WHERE user_id = ?
         AND service_id = ?
         AND status = 'pending'
@@ -2302,22 +2269,29 @@ app.post("/orders/create", async (req, res) => {
       [userId, serviceId]
     );
 
-    if (exist) {
+    if (dup) {
       return res.json({
-        success: true,
-        orderId: exist.id,
-        message: "이미 생성된 주문이 있습니다."
+        success: false,
+        code: "DUPLICATE_PENDING",
+        orderId: dup.id,
+        message: "이미 입금 대기 중인 주문이 있습니다."
       });
     }
 
-    /* ------------------
-       4️⃣ 주문 생성
-    ------------------ */
+    /* ---------------------------------
+       서비스 정보 조회
+    --------------------------------- */
+    const [[svc]] = await db.query(
+      "SELECT user_id AS expert_id, price_basic FROM services WHERE id=?",
+      [serviceId]
+    );
+
+    if (!svc) {
+      return res.json({ success: false, message: "서비스 없음" });
+    }
+
     const orderId = crypto.randomUUID();
-    const createdAt = new Date()
-      .toISOString()
-      .slice(0, 19)
-      .replace("T", " ");
+    const createdAt = new Date().toISOString().slice(0, 19).replace("T", " ");
 
     await db.query(
       `
@@ -2335,22 +2309,14 @@ app.post("/orders/create", async (req, res) => {
       ]
     );
 
-    /* ------------------
-       5️⃣ 응답
-    ------------------ */
-    return res.json({
-      success: true,
-      orderId
-    });
+    res.json({ success: true, orderId });
 
   } catch (err) {
     console.error("❌ orders/create error:", err);
-    return res.status(500).json({
-      success: false,
-      message: "서버 오류"
-    });
+    res.status(500).json({ success: false });
   }
 });
+
 
 
 /* ======================================================
@@ -2530,9 +2496,13 @@ app.get("/orders/:id", async (req, res) => {
    - status 변경 ❌
    - 관리자 알림 DB 저장
    - 관리자 socket 실시간 알림
+   - 🔥 동일 주문 중복 알림 완전 차단
 ====================================================== */
 app.post("/orders/notify-deposit", async (req, res) => {
   try {
+    /* ---------------------------
+       1️⃣ 로그인 체크
+    --------------------------- */
     if (!req.session.user) {
       return res.json({ success: false, message: "로그인 필요" });
     }
@@ -2542,9 +2512,9 @@ app.post("/orders/notify-deposit", async (req, res) => {
       return res.json({ success: false, message: "orderId 누락" });
     }
 
-    /* --------------------------------
-       주문 + 유저 정보 조회
-    -------------------------------- */
+    /* ---------------------------
+       2️⃣ 주문 + 유저 정보 조회
+    --------------------------- */
     const [[order]] = await db.query(
       `
       SELECT 
@@ -2562,9 +2532,33 @@ app.post("/orders/notify-deposit", async (req, res) => {
       return res.json({ success: false, message: "주문 없음" });
     }
 
-    /* --------------------------------
-       관리자 알림 메시지
-    -------------------------------- */
+    /* ---------------------------
+       3️⃣ 🔥 중복 알림 체크 (핵심)
+       - 이미 관리자 알림이 있으면
+         ▶ SMS ❌
+         ▶ DB INSERT ❌
+    --------------------------- */
+    const [[exists]] = await db.query(
+      `
+      SELECT id FROM notices
+      WHERE type = 'admin'
+        AND message LIKE ?
+      LIMIT 1
+      `,
+      [`%${orderId}%`]
+    );
+
+    if (exists) {
+      // 🔕 이미 알림 보낸 주문 → 조용히 성공 처리
+      return res.json({
+        success: true,
+        duplicated: true
+      });
+    }
+
+    /* ---------------------------
+       4️⃣ 관리자 알림 메시지 (SMS)
+    --------------------------- */
     const smsText =
 `[BlueOn 입금 알림]
 주문번호: ${order.id}
@@ -2573,32 +2567,31 @@ app.post("/orders/notify-deposit", async (req, res) => {
 
 관리자 페이지에서 입금 확인하세요.`;
 
-    /* --------------------------------
-       📱 관리자 SMS 발송 (핵심)
-    -------------------------------- */
+    /* ---------------------------
+       5️⃣ 📱 관리자 SMS 발송
+    --------------------------- */
     await sendSMS(
       process.env.ADMIN_PHONE,
       smsText
     );
 
-    /* --------------------------------
-       (선택) 관리자 알림 DB 저장
-    -------------------------------- */
+    /* ---------------------------
+       6️⃣ 관리자 알림 DB 저장
+    --------------------------- */
     await db.query(
       `
       INSERT INTO notices (user_id, message, type, created_at)
-VALUES (?, ?, 'admin', NOW())
-
+      VALUES (?, ?, 'admin', NOW())
       `,
       [
         process.env.ADMIN_USER_ID,
-        `입금 요청: ${order.nickname} (주문 ${order.id})`
+        `입금 요청: ${order.nickname || "알 수 없음"} (주문 ${order.id})`
       ]
     );
 
-    /* --------------------------------
-       (선택) 관리자 소켓 알림
-    -------------------------------- */
+    /* ---------------------------
+       7️⃣ 관리자 소켓 실시간 알림
+    --------------------------- */
     io.to("admin").emit("admin:deposit-notify", {
       orderId: order.id,
       message: smsText
@@ -2607,7 +2600,7 @@ VALUES (?, ?, 'admin', NOW())
     return res.json({ success: true });
 
   } catch (err) {
-    console.error("❌ notify-deposit SMS error:", err);
+    console.error("❌ notify-deposit error:", err);
     return res.json({ success: false });
   }
 });
