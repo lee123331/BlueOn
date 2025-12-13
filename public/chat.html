@@ -317,5 +317,24 @@ textarea{
 <script src="/socket.io/socket.io.js"></script>
 <script src="chat.js"></script>
 
+<script>
+  // 헤더 알람 동기화용
+  window.refreshHeaderBadge = async () => {
+    try {
+      const res = await fetch("/chat/unread-count", {
+        credentials: "include"
+      });
+      const data = await res.json();
+
+      const badge = document.getElementById("chatBadge");
+      if (!badge) return;
+
+      badge.style.display =
+        data.success && data.total > 0 ? "block" : "none";
+    } catch (e) {
+      console.warn("header badge sync fail", e);
+    }
+  };
+</script>
 </body>
 </html>
