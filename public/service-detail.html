@@ -975,7 +975,6 @@ function initBuyButtons() {
       ---------------------------------------------------- */
       if (!serviceId) {
         console.warn("❌ URL에 ?id= 가 없습니다.");
-        showToast("잘못된 접근입니다.");
         return;
       }
 
@@ -983,10 +982,11 @@ function initBuyButtons() {
       let phase = null;
 
       /* ----------------------------------------------------
-         2) 신규 서비스: 서버 task_key 우선
+         2) 신규 서비스: 서버에서 내려온 task_key 사용
       ---------------------------------------------------- */
       if (window.serviceTaskKey) {
         finalTaskKey = window.serviceTaskKey;
+        console.log("🎯 신규 serviceTaskKey 사용:", finalTaskKey);
 
         if (
           finalTaskKey.startsWith("task_logo") ||
@@ -1003,12 +1003,15 @@ function initBuyButtons() {
       }
 
       /* ----------------------------------------------------
-         3) 백업: 카테고리 기반 매핑
+         3) 예전 서비스: 카테고리 기반 자동 매핑 (백업)
       ---------------------------------------------------- */
       if (!finalTaskKey) {
-        const rawSub = (document.getElementById("heroSubCat")?.textContent || "").trim();
+        console.log("⚠ 신규 task_key 없음 → 예전 매핑 방식 사용");
+
+        const rawSub = (document.getElementById("heroSubCat").textContent || "").trim();
         const normSub = normalize(rawSub);
         const groupKey = reverseCategoryMap[normSub] || null;
+        console.log("📌 groupKey:", groupKey);
 
         if (groupKey && DESIGN_KEY_MAP[groupKey]) {
           finalTaskKey = DESIGN_KEY_MAP[groupKey];
@@ -1022,61 +1025,46 @@ function initBuyButtons() {
         }
       }
 
+      console.log("🎯 최종 taskKey:", finalTaskKey, "/ phase:", phase);
+
       /* ----------------------------------------------------
          4) 로컬 로드맵 업데이트 (UX용)
-         ⚠️ 서버 상태와 무관 (임시 UX)
       ---------------------------------------------------- */
-      if (finalTaskKey && localStorage.getItem(finalTaskKey) !== "done") {
-        localStorage.setItem(finalTaskKey, "done");
+      if (finalTaskKey) {
+        if (localStorage.getItem(finalTaskKey) !== "done") {
+          localStorage.setItem(finalTaskKey, "done");
+          console.log("🔥 단계 저장됨:", finalTaskKey);
 
-        if (phase === "design") showToast("브랜드 설계 단계가 업데이트되었습니다!");
-        if (phase === "spread") showToast("브랜드 확산 단계가 업데이트되었습니다!");
-        if (phase === "expand") showToast("브랜드 확장 단계가 업데이트되었습니다!");
+          if (phase === "design")  showToast("브랜드 설계 단계가 업데이트되었습니다!");
+          if (phase === "spread")  showToast("브랜드 확산 단계가 업데이트되었습니다!");
+          if (phase === "expand")  showToast("브랜드 확장 단계가 업데이트되었습니다!");
 
-        if (phase === "design"  && typeof updateBrandProgressUI === "function") updateBrandProgressUI();
-        if (phase === "spread"  && typeof updateSpreadProgressUI === "function") updateSpreadProgressUI();
-        if (phase === "expand"  && typeof updateExpandProgressUI === "function") updateExpandProgressUI();
+          if (phase === "design"  && typeof updateBrandProgressUI  === "function") updateBrandProgressUI();
+          if (phase === "spread"  && typeof updateSpreadProgressUI === "function") updateSpreadProgressUI();
+          if (phase === "expand"  && typeof updateExpandProgressUI === "function")  updateExpandProgressUI();
+        } else {
+          console.log("⚠ 이미 완료된 단계:", finalTaskKey);
+        }
       }
 
       /* ----------------------------------------------------
-         5) 🔥 주문 생성 (무통장)
+         5) 🔥 실제 주문 생성 (무통장, 핵심)
       ---------------------------------------------------- */
       try {
         const res = await fetch(`${API}/orders/create`, {
+
           method: "POST",
           headers: { "Content-Type": "application/json" },
           credentials: "include",
-          body: JSON.stringify({ serviceId }),
+          body: JSON.stringify({
+            serviceId: serviceId,
+          }),
         });
-
-        if (!res.ok) {
-          console.error("❌ 서버 응답 오류:", res.status);
-          showToast("서버 통신 오류가 발생했습니다.");
-          return;
-        }
 
         const data = await res.json();
 
-        /* ---------------------------------
-           5-1) 중복 입금 대기 주문
-        --------------------------------- */
-        if (!data.success && data.code === "DUPLICATE_PENDING") {
-          showToast("이미 입금 대기 중인 주문이 있습니다.\n작업 확인 페이지로 이동합니다.");
-
-          setTimeout(() => {
-            // ⚠️ 나중에 my-orders.html로 교체
-            location.href = `/order-pay.html?orderId=${data.orderId}`;
-          }, 1200);
-
-          return;
-        }
-
-        /* ---------------------------------
-           5-2) 기타 실패
-        --------------------------------- */
         if (!data.success) {
-          console.error("❌ 주문 생성 실패:", data);
-          showToast("주문 생성 중 오류가 발생했습니다.");
+          alert("주문 생성에 실패했습니다.");
           return;
         }
 
@@ -1084,26 +1072,32 @@ function initBuyButtons() {
         console.log("🧾 주문 생성 완료:", orderId);
 
         /* ----------------------------------------------------
-           6) 구매 카운트 증가 (통계용, 실패해도 무시)
+           6) 구매 카운트 증가 (통계용)
         ---------------------------------------------------- */
         fetch(`${API}/services/${serviceId}/buy-count`, {
           method: "POST",
           credentials: "include",
-        }).catch(() => {});
+        })
+          .then(res => res.json())
+          .then(data => {
+            if (data.success) {
+              console.log(`📊 구매 카운트 증가 → ${data.buy_count}회`);
+            }
+          })
+          .catch(err => console.warn("⚠ buy-count 실패:", err));
 
         /* ----------------------------------------------------
-           7) 입금 페이지 이동
+           7) 입금 페이지로 이동
         ---------------------------------------------------- */
         location.href = `/order-pay.html?orderId=${orderId}`;
 
       } catch (err) {
-        console.error("❌ 주문 생성 예외:", err);
-        showToast("예상치 못한 오류가 발생했습니다.");
+        console.error("❌ 주문 생성 오류:", err);
+        alert("서버 오류가 발생했습니다.");
       }
     };
   });
 }
-
 
 
 /* =======================================================
