@@ -2242,25 +2242,44 @@ app.get("/expert/mypage", async (req, res) => {
    - status: pending
    - UUID 기반 orderId
 ============================ */
+/* ============================
+   주문 생성 (무통장 입금)
+============================ */
 app.post("/orders/create", async (req, res) => {
   try {
+    /* ---------------------------
+       1️⃣ 로그인 체크
+    --------------------------- */
     if (!req.session.user) {
-      return res.status(401).json({ success: false });
+      return res.status(401).json({
+        success: false,
+        message: "로그인이 필요합니다."
+      });
     }
 
     const userId = req.session.user.id;
     const { serviceId } = req.body;
 
+    /* ---------------------------
+       2️⃣ serviceId 검증
+    --------------------------- */
     if (!serviceId) {
-      return res.status(400).json({ success: false, message: "serviceId 누락" });
+      return res.status(400).json({
+        success: false,
+        message: "serviceId 누락"
+      });
     }
 
-    /* ---------------------------------
-       🔥 중복 pending 주문 체크
-    --------------------------------- */
+    /* ---------------------------
+       3️⃣ 🔥 중복 pending 주문 체크
+       - 같은 서비스
+       - 같은 유저
+       - status = 'pending'
+    --------------------------- */
     const [[dup]] = await db.query(
       `
-      SELECT id FROM orders
+      SELECT id
+      FROM orders
       WHERE user_id = ?
         AND service_id = ?
         AND status = 'pending'
@@ -2278,20 +2297,35 @@ app.post("/orders/create", async (req, res) => {
       });
     }
 
-    /* ---------------------------------
-       서비스 정보 조회
-    --------------------------------- */
+    /* ---------------------------
+       4️⃣ 서비스 정보 조회
+    --------------------------- */
     const [[svc]] = await db.query(
-      "SELECT user_id AS expert_id, price_basic FROM services WHERE id=?",
+      `
+      SELECT 
+        user_id AS expert_id,
+        price_basic
+      FROM services
+      WHERE id = ?
+      `,
       [serviceId]
     );
 
     if (!svc) {
-      return res.json({ success: false, message: "서비스 없음" });
+      return res.json({
+        success: false,
+        message: "서비스 없음"
+      });
     }
 
+    /* ---------------------------
+       5️⃣ 주문 생성
+    --------------------------- */
     const orderId = crypto.randomUUID();
-    const createdAt = new Date().toISOString().slice(0, 19).replace("T", " ");
+    const createdAt = new Date()
+      .toISOString()
+      .slice(0, 19)
+      .replace("T", " ");
 
     await db.query(
       `
@@ -2309,11 +2343,20 @@ app.post("/orders/create", async (req, res) => {
       ]
     );
 
-    res.json({ success: true, orderId });
+    /* ---------------------------
+       6️⃣ 성공 응답
+    --------------------------- */
+    return res.json({
+      success: true,
+      orderId
+    });
 
   } catch (err) {
     console.error("❌ orders/create error:", err);
-    res.status(500).json({ success: false });
+    return res.status(500).json({
+      success: false,
+      message: "서버 오류"
+    });
   }
 });
 
