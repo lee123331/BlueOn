@@ -5,11 +5,17 @@ console.log("🔵 header-chat.js loaded");
 ====================================================== */
 const API = "https://blueon.up.railway.app";
 
+/* 🔔 알림 배지 강제 초기화 */
+const chatBadge = document.getElementById("chatBadge");
+if (chatBadge) {
+  chatBadge.style.display = "none";
+}
+
 /* 로그인된 사용자 정보 */
 let CURRENT_USER = null;
 
 /* ======================================================
-   1) 최소 정보만 로드 (소켓 인증용)
+   1) 최소 정보만 로드 (세션 기반)
 ====================================================== */
 async function loadHeaderUserLight() {
   try {
@@ -28,7 +34,7 @@ async function loadHeaderUserLight() {
 }
 
 /* ======================================================
-   2) 소켓 초기화
+   2) 소켓 초기화 (모든 페이지)
 ====================================================== */
 async function initHeaderChat() {
   await loadHeaderUserLight();
@@ -37,8 +43,6 @@ async function initHeaderChat() {
     console.log("🔴 로그인 안 된 상태 → 소켓 미연결");
     return;
   }
-
-  console.log("⚡ 소켓 접속 준비:", CURRENT_USER.id);
 
   const headerSocket = io(API, {
     withCredentials: true,
@@ -53,23 +57,15 @@ async function initHeaderChat() {
     console.log("🔻 header 소켓 끊김");
   });
 
-  /* ======================================================
-     3) chat:notify 알림
-  ======================================================= */
-  const chatBadge = document.getElementById("chatBadge");
-
+  /* 🔔 알림 이벤트 */
   headerSocket.on("chat:notify", (data) => {
     if (!data || data.targetId !== CURRENT_USER.id) return;
-    console.log("📩 새 메시지 도착 → 배지 표시");
+    console.log("📩 새 알림 → 배지 표시");
     if (chatBadge) chatBadge.style.display = "block";
   });
 }
 
 /* ======================================================
-   ✅ 채팅 관련 페이지에서만 실행
+   🚀 항상 실행 (정답)
 ====================================================== */
-if (location.pathname.includes("chat")) {
-  initHeaderChat();
-} else {
-  console.log("ℹ️ 채팅 페이지 아님 → header 소켓 미연결");
-}
+initHeaderChat();
