@@ -2586,8 +2586,9 @@ app.post("/orders/notify-deposit", async (req, res) => {
     -------------------------------- */
     await db.query(
       `
-      INSERT INTO notices (user_id, message, type)
-      VALUES (?, ?, 'admin')
+      INSERT INTO notices (user_id, message, type, created_at)
+VALUES (?, ?, 'admin', NOW())
+
       `,
       [
         process.env.ADMIN_USER_ID,
