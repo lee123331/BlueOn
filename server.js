@@ -12,6 +12,11 @@ console.log("🔍 MySQL Database:", process.env.DB_NAME);
 
 const PORT = process.env.PORT || 3000;
 
+function isAdmin(req) {
+  if (!req.session.user) return false;
+  return String(req.session.user.id) === String(process.env.ADMIN_USER_ID);
+}
+
 // =======================
 // 필요한 모듈 로드
 // =======================
@@ -2072,6 +2077,9 @@ async function sendSMS(to, text) {
 }
 
 
+
+
+
 /* ==========================================================
    🔵 특정 알림 삭제
 ========================================================== */
@@ -2229,35 +2237,94 @@ app.get("/expert/mypage", async (req, res) => {
 /* ============================
    주문 생성 (무통장 입금)
 ============================ */
+/* ============================
+   🔵 주문 생성 (무통장 입금)
+   - status: pending
+   - UUID 기반 orderId
+============================ */
 app.post("/orders/create", async (req, res) => {
   try {
+    /* ------------------
+       1️⃣ 로그인 체크
+    ------------------ */
     if (!req.session.user) {
-      return res.status(401).json({ success: false });
+      return res.status(401).json({
+        success: false,
+        message: "로그인이 필요합니다."
+      });
     }
 
     const userId = req.session.user.id;
     const { serviceId } = req.body;
+
     if (!serviceId) {
-      return res.status(400).json({ success: false, message: "serviceId 누락" });
+      return res.status(400).json({
+        success: false,
+        message: "serviceId 누락"
+      });
     }
 
-    // 🔥 서비스 정보 조회 (가격 + 전문가)
+    /* ------------------
+       2️⃣ 서비스 정보 조회
+       (전문가 + 가격)
+    ------------------ */
     const [[svc]] = await db.query(
-      "SELECT user_id AS expert_id, price_basic FROM services WHERE id=?",
+      `
+      SELECT 
+        user_id   AS expert_id,
+        price_basic
+      FROM services
+      WHERE id = ?
+      `,
       [serviceId]
     );
 
     if (!svc) {
-      return res.json({ success: false, message: "서비스 없음" });
+      return res.json({
+        success: false,
+        message: "서비스가 존재하지 않습니다."
+      });
     }
 
+    /* ------------------
+       3️⃣ 중복 pending 주문 방지
+       (같은 유저 + 같은 서비스)
+    ------------------ */
+    const [[exist]] = await db.query(
+      `
+      SELECT id
+      FROM orders
+      WHERE user_id = ?
+        AND service_id = ?
+        AND status = 'pending'
+      LIMIT 1
+      `,
+      [userId, serviceId]
+    );
+
+    if (exist) {
+      return res.json({
+        success: true,
+        orderId: exist.id,
+        message: "이미 생성된 주문이 있습니다."
+      });
+    }
+
+    /* ------------------
+       4️⃣ 주문 생성
+    ------------------ */
     const orderId = crypto.randomUUID();
-    const createdAt = new Date().toISOString().slice(0, 19).replace("T", " ");
+    const createdAt = new Date()
+      .toISOString()
+      .slice(0, 19)
+      .replace("T", " ");
 
     await db.query(
-      `INSERT INTO orders
-       (id, user_id, expert_id, service_id, price, status, created_at)
-       VALUES (?, ?, ?, ?, ?, 'pending', ?)`,
+      `
+      INSERT INTO orders
+      (id, user_id, expert_id, service_id, price, status, created_at)
+      VALUES (?, ?, ?, ?, ?, 'pending', ?)
+      `,
       [
         orderId,
         userId,
@@ -2268,13 +2335,23 @@ app.post("/orders/create", async (req, res) => {
       ]
     );
 
-    res.json({ success: true, orderId });
+    /* ------------------
+       5️⃣ 응답
+    ------------------ */
+    return res.json({
+      success: true,
+      orderId
+    });
 
   } catch (err) {
     console.error("❌ orders/create error:", err);
-    res.status(500).json({ success: false });
+    return res.status(500).json({
+      success: false,
+      message: "서버 오류"
+    });
   }
 });
+
 
 /* ======================================================
    🔵 주문 입금 확인 (관리자)
@@ -2360,12 +2437,15 @@ app.post("/orders/confirm-payment", async (req, res) => {
 });
 
 /* ======================================================
-   🔵 관리자 주문 목록 조회
+   🔵 관리자 주문 목록 조회 (관리자 전용)
 ====================================================== */
 app.get("/admin/orders", async (req, res) => {
   try {
-    if (!req.session.user) {
-      return res.status(401).json({ success: false });
+    if (!isAdmin(req)) {
+      return res.status(403).json({
+        success: false,
+        message: "관리자 권한이 필요합니다."
+      });
     }
 
     const [rows] = await db.query(`
@@ -2386,39 +2466,115 @@ app.get("/admin/orders", async (req, res) => {
 
   } catch (err) {
     console.error("❌ admin/orders error:", err);
-    return res.json({ success: false });
+    return res.status(500).json({ success: false });
   }
 });
+
+
+/* ======================================================
+   🔵 주문 상태 조회 (유저/프론트용)
+====================================================== */
 app.get("/orders/status", async (req, res) => {
-  const { orderId } = req.query;
+  try {
+    const { orderId } = req.query;
 
-  const [[row]] = await db.query(
-    "SELECT status FROM orders WHERE id=?",
-    [orderId]
-  );
+    if (!orderId) {
+      return res.json({ success: false });
+    }
 
-  if (!row) {
-    return res.json({ success: false });
+    const [[row]] = await db.query(
+      "SELECT status FROM orders WHERE id=?",
+      [orderId]
+    );
+
+    if (!row) {
+      return res.json({ success: false });
+    }
+
+    res.json({ success: true, status: row.status });
+
+  } catch (err) {
+    console.error("❌ orders/status error:", err);
+    res.json({ success: false });
   }
-
-  res.json({ success: true, status: row.status });
 });
+
+
+/* ======================================================
+   🔵 주문 상세 조회 (무통장 입금 페이지)
+====================================================== */
 app.get("/orders/:id", async (req, res) => {
-  const [rows] = await db.query(
-    "SELECT * FROM orders WHERE id=?",
-    [req.params.id]
-  );
-  if (!rows.length) return res.json({ success:false });
-  res.json({ success:true, order: rows[0] });
+  try {
+    const orderId = req.params.id;
+
+    const [rows] = await db.query(
+      "SELECT * FROM orders WHERE id=?",
+      [orderId]
+    );
+
+    if (!rows.length) {
+      return res.json({ success: false });
+    }
+
+    res.json({ success: true, order: rows[0] });
+
+  } catch (err) {
+    console.error("❌ orders/:id error:", err);
+    res.json({ success: false });
+  }
 });
+
+
+/* ======================================================
+   🔔 유저 → 관리자 입금 완료 알림
+   - status 변경 ❌
+   - 관리자 알림 DB 저장
+   - 관리자 socket 실시간 알림
+====================================================== */
 app.post("/orders/notify-deposit", async (req, res) => {
-  const { orderId } = req.body;
+  try {
+    if (!req.session.user) {
+      return res.json({ success: false });
+    }
 
-  // 관리자 알림만 (socket or DB)
-  io.to("admin").emit("admin:deposit-notify", { orderId });
+    const { orderId } = req.body;
 
-  res.json({ success:true });
+    // 주문 정보 조회
+    const [[order]] = await db.query(
+      `SELECT o.id, u.nickname 
+       FROM orders o
+       JOIN users u ON u.id = o.user_id
+       WHERE o.id = ?`,
+      [orderId]
+    );
+
+    if (!order) {
+      return res.json({ success: false });
+    }
+
+    const message = `입금 요청: ${order.nickname} (주문 ${order.id})`;
+
+    // 🔔 관리자 알림 저장
+    await db.query(
+      `INSERT INTO notices (user_id, message, type)
+       VALUES (?, ?, 'admin')`,
+      [process.env.ADMIN_USER_ID, message]
+    );
+
+    // 🔥 실시간 관리자 알림
+    io.to("admin").emit("admin:deposit-notify", {
+      orderId,
+      message
+    });
+
+    res.json({ success: true });
+
+  } catch (err) {
+    console.error("notify-deposit error:", err);
+    res.json({ success: false });
+  }
 });
+
 
 /* ======================================================
    🔵 채팅방 목록 (프로필 이미지 완전 보정)

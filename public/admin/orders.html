@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <title>관리자 주문 관리 | BlueOn</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;600;800&display=swap" rel="stylesheet">
+
+  <script src="/socket.io/socket.io.js"></script>
+
+  <style>
+    body {
+      margin:0;
+      font-family:"Noto Sans KR",sans-serif;
+      background:#f5f6fa;
+    }
+    header {
+      background:#111827;
+      color:#fff;
+      padding:18px 30px;
+      font-size:20px;
+      font-weight:800;
+    }
+    .wrap {
+      max-width:1100px;
+      margin:30px auto;
+      padding:0 20px;
+    }
+    h2 {
+      margin-bottom:16px;
+    }
+    .notice {
+      display:none;
+      background:#fff3cd;
+      border:1px solid #ffeeba;
+      padding:14px 18px;
+      border-radius:10px;
+      font-weight:700;
+      margin-bottom:20px;
+    }
+    table {
+      width:100%;
+      border-collapse:collapse;
+      background:#fff;
+      border-radius:12px;
+      overflow:hidden;
+      box-shadow:0 6px 18px rgba(0,0,0,.05);
+    }
+    th, td {
+      padding:14px;
+      border-bottom:1px solid #e5e7eb;
+      text-align:left;
+      font-size:14px;
+    }
+    th {
+      background:#f9fafb;
+      font-weight:800;
+    }
+    tr:last-child td {
+      border-bottom:none;
+    }
+    .status {
+      font-weight:800;
+    }
+    .pending { color:#f59e0b; }
+    .paid { color:#2563eb; }
+    .btn {
+      padding:8px 12px;
+      border:none;
+      border-radius:8px;
+      font-weight:700;
+      cursor:pointer;
+    }
+    .btn-confirm {
+      background:#2563eb;
+      color:#fff;
+    }
+    .btn-confirm:hover {
+      background:#1e40af;
+    }
+  </style>
+</head>
+<body>
+
+<header>BlueOn 관리자 주문 관리</header>
+
+<div class="wrap">
+  <h2>주문 목록</h2>
+
+  <div id="adminNotice" class="notice"></div>
+
+  <table>
+    <thead>
+      <tr>
+        <th>주문번호</th>
+        <th>유저</th>
+        <th>서비스</th>
+        <th>금액</th>
+        <th>상태</th>
+        <th>처리</th>
+      </tr>
+    </thead>
+    <tbody id="orderBody"></tbody>
+  </table>
+</div>
+
+<script>
+const API = "https://blueon.up.railway.app";
+const tbody = document.getElementById("orderBody");
+const noticeBox = document.getElementById("adminNotice");
+
+/* ===========================
+   🔔 크롬 알림 권한 요청
+=========================== */
+if ("Notification" in window && Notification.permission === "default") {
+  Notification.requestPermission();
+}
+
+/* ===========================
+   🔌 관리자 Socket 연결
+=========================== */
+const socket = io(API, {
+  auth: { isAdmin: true }
+});
+
+socket.on("admin:deposit-notify", (data) => {
+  noticeBox.textContent = data.message;
+  noticeBox.style.display = "block";
+
+  // 크롬 바탕화면 알림
+  if (Notification.permission === "granted") {
+    new Notification("💰 입금 요청 도착", {
+      body: data.message,
+      icon: "/assets/logo.png"
+    });
+  }
+
+  loadOrders();
+});
+
+/* ===========================
+   📦 주문 목록 불러오기
+=========================== */
+async function loadOrders() {
+  const res = await fetch("/admin/orders", { credentials:"include" });
+  const data = await res.json();
+
+  if (!data.success) {
+    alert("관리자만 접근 가능합니다.");
+    location.href = "/";
+    return;
+  }
+
+  tbody.innerHTML = "";
+
+  data.orders.forEach(o => {
+    const tr = document.createElement("tr");
+
+    tr.innerHTML = `
+      <td>${o.id}</td>
+      <td>${o.user_name}</td>
+      <td>${o.service_title}</td>
+      <td>${Number(o.price).toLocaleString()}원</td>
+      <td class="status ${o.status}">${o.status}</td>
+      <td>
+        ${o.status === "pending"
+          ? `<button class="btn btn-confirm" onclick="confirmPayment('${o.id}')">입금 확인</button>`
+          : "-"}
+      </td>
+    `;
+
+    tbody.appendChild(tr);
+  });
+}
+
+/* ===========================
+   ✅ 입금 확인 처리
+=========================== */
+async function confirmPayment(orderId) {
+  if (!confirm("입금 확인 처리하시겠습니까?")) return;
+
+  const res = await fetch("/orders/confirm-payment", {
+    method:"POST",
+    headers:{ "Content-Type":"application/json" },
+    credentials:"include",
+    body:JSON.stringify({ orderId })
+  });
+
+  const data = await res.json();
+  if (!data.success) {
+    alert("처리 실패");
+    return;
+  }
+
+  alert("입금 확인 완료");
+  loadOrders();
+}
+
+loadOrders();
+</script>
+
+</body>
+</html>
