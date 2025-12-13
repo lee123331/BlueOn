@@ -27,7 +27,7 @@ import mysql from "mysql2/promise";
 import cors from "cors";
 import bcrypt from "bcrypt";
 import session from "express-session";
-import MySQLStoreImport from "express-mysql-session";
+import MySQLStore from "express-mysql-session";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
@@ -143,21 +143,21 @@ const sessionStore = new MySQLStore({
   },
 });
 
-app.use(
-  session({
-    key: "blueon.sid",
-    secret: process.env.SESSION_SECRET || "blueon_secret",
-    resave: false,
-    saveUninitialized: false,
-    store: sessionStore,
-    cookie: {
-      httpOnly: true,
-      secure: false,
-      sameSite: "lax",
-      maxAge: 1000 * 60 * 60 * 24, // 1일
-    },
-  })
-);
+const sessionMiddleware = session({
+  name: "blueon.sid", // key ❌ → name ⭕
+  secret: process.env.SESSION_SECRET || "blueon_secret",
+  resave: false,
+  saveUninitialized: false,
+  store: sessionStore,
+  cookie: {
+    httpOnly: true,
+    secure: false,      // Railway HTTPS면 true로 바꿔도 됨
+    sameSite: "lax",
+    maxAge: 1000 * 60 * 60 * 24,
+  },
+});
+
+app.use(sessionMiddleware);
 
 console.log("✅ 세션 스토어 적용 완료");
 
@@ -327,6 +327,10 @@ const io = new SocketIOServer(httpServer, {
     ],
     credentials: true,
   },
+});
+// 🔥 Express 세션을 Socket.io에 연결 (핵심)
+io.use((socket, next) => {
+  sessionMiddleware(socket.request, {}, next);
 });
 
 
