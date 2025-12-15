@@ -25,7 +25,7 @@ body {
 }
 
 /* ===============================
-   상단 단계 버튼
+   상단 단계 표시 바
 =============================== */
 .step-bar {
   background:var(--white);
@@ -47,9 +47,8 @@ body {
   border:1px solid var(--line);
   text-align:center;
   font-weight:700;
-  cursor:pointer;
-  transition:0.2s;
   background:#f9fafb;
+  color:var(--text-gray);
 }
 
 .step-btn.active {
@@ -67,7 +66,7 @@ body {
 }
 
 /* ===============================
-   작업 리스트 영역
+   공통 컨테이너
 =============================== */
 .container {
   max-width:1200px;
@@ -78,7 +77,7 @@ body {
 .section-title {
   font-size:18px;
   font-weight:800;
-  margin:30px 0 14px;
+  margin:36px 0 14px;
 }
 
 .task-list {
@@ -88,10 +87,12 @@ body {
   overflow:hidden;
 }
 
-/* 🔥 핵심: 카드형 작업 아이템 */
+/* ===============================
+   작업 카드
+=============================== */
 .task-item {
   display:grid;
-  grid-template-columns: 1fr 120px 120px;
+  grid-template-columns:1fr 120px 120px;
   gap:16px;
   padding:16px 20px;
   align-items:center;
@@ -107,7 +108,6 @@ body {
   background:#f5f7ff;
 }
 
-/* 왼쪽 영역 */
 .task-left {
   display:flex;
   align-items:center;
@@ -139,7 +139,6 @@ body {
   color:var(--text-gray);
 }
 
-/* 우측 */
 .task-status {
   font-size:13px;
   font-weight:700;
@@ -163,54 +162,46 @@ body {
 
 <body>
 
-<!-- 🔹 단계 버튼 -->
+<!-- 🔹 현재 단계 표시 -->
 <div class="step-bar">
   <div class="step-buttons">
-    <div class="step-btn active" data-step="start">
+    <div class="step-btn active">
       작업 시작하기
       <span>결제 완료 · 작업 준비</span>
     </div>
-    <div class="step-btn" data-step="draft">
+    <div class="step-btn">
       시안 제출하기
       <span>1차 결과물</span>
     </div>
-    <div class="step-btn" data-step="revise">
+    <div class="step-btn">
       작업 수정하기
       <span>수정 요청 대응</span>
     </div>
-    <div class="step-btn" data-step="final">
+    <div class="step-btn">
       최종 제출
       <span>작업 완료</span>
     </div>
   </div>
 </div>
 
-<!-- 🔹 작업 리스트 -->
 <div class="container">
 
-  <!-- 진행중 -->
-  <div class="section-title">진행중인 작업</div>
-  <div class="task-list" id="taskList">
-    <!-- JS에서 아래 구조로 삽입 -->
-    <!--
-    <div class="task-item">
-      <div class="task-left">
-        <img class="task-thumb" src="메인이미지" />
-        <div class="task-info">
-          <div class="task-title">서비스 제목</div>
-          <div class="task-user">구매자: OOO</div>
-        </div>
-      </div>
-      <div class="task-status">작업중</div>
-      <div class="task-date">2025-12-15</div>
-    </div>
-    -->
+  <!-- 🟡 작업 대기 (결제 완료) -->
+  <div class="section-title">작업 대기중인 주문</div>
+  <div class="task-list" id="pendingTaskList">
+    <!-- JS로 삽입 -->
   </div>
 
-  <!-- 완료 -->
+  <!-- 🔵 진행중 -->
+  <div class="section-title">진행중인 작업</div>
+  <div class="task-list" id="taskList">
+    <!-- JS로 삽입 -->
+  </div>
+
+  <!-- 🟢 완료 -->
   <div class="section-title">완료된 작업</div>
   <div class="task-list" id="doneTaskList">
-    <!-- JS에서 삽입 -->
+    <!-- JS로 삽입 -->
   </div>
 
 </div>

@@ -2861,6 +2861,46 @@ const [[service]] = await db.query(
   }
 });
 
+// 관리자 입금 확인 처리
+app.post("/admin/order/confirm", async (req, res) => {
+  const { orderId } = req.body;
+
+  // 1️⃣ 주문 정보 조회
+  const [order] = await db.query(`
+    SELECT 
+      o.id,
+      o.service_id,
+      o.buyer_id,
+      s.user_id AS expert_id,
+      s.thumbnail
+    FROM orders o
+    JOIN services s ON o.service_id = s.id
+    WHERE o.id = ?
+  `, [orderId]);
+
+  // 2️⃣ task 생성
+  await db.query(`
+    INSERT INTO service_tasks
+    (task_key, service_id, buyer_id, expert_id, status, phase, thumbnail)
+    VALUES (?, ?, ?, ?, 'start', 'ready', ?)
+  `, [
+    `task_${order.service_id}_${order.id}`,
+    order.service_id,
+    order.buyer_id,
+    order.expert_id,
+    order.thumbnail
+  ]);
+
+  // 3️⃣ 알림 생성 (이미 잘 해둔 구조)
+  await createNotice({
+    targetId: order.expert_id,
+    type: "trade",
+    message: `OOO님이 서비스를 구매했습니다. 작업을 시작해 주세요.`,
+    task_key: `task_${order.service_id}_${order.id}`
+  });
+
+  res.json({ success: true });
+});
 
 /* ======================================================
    🔵 채팅방 목록 (프로필 이미지 완전 보정)
