@@ -1017,28 +1017,53 @@ async function loadNotices(type = "trade") {
     const item = document.createElement("div");
     item.classList.add("notice-item-panel");
 
+    item.dataset.noticeId = n.id;
     item.dataset.roomId = n.room_id ? String(n.room_id) : "";
     item.dataset.fromUser = n.from_user ? String(n.from_user) : "";
 
+    /* ================================
+       🔔 알림 UI (room ❌ → notice n ✅)
+    ================================= */
     item.innerHTML = `
-  <div class="chat-left">
-    <img src="${room.other_avatar}" />
-    <span>${room.other_nickname}</span>
-  </div>
+      <div class="notice-left">
+        <img src="${n.from_avatar || "/assets/default_profile.png"}" />
+        <div class="notice-text">
+          <p class="notice-main">
+            ${n.message}
+          </p>
+          <span class="notice-time">
+            ${n.created_at || ""}
+          </span>
+        </div>
+      </div>
 
-  <button class="chat-remove-btn">✕</button>
-`;
+      <button class="notice-remove-btn">✕</button>
+    `;
 
+    /* ❌ 개별 알림 삭제 */
+    item.querySelector(".notice-remove-btn").onclick = async (e) => {
+      e.stopPropagation();
+
+      await fetch(`${API_URL}/notice/delete/${n.id}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+
+      item.remove();
+    };
 
     /* ================================
-       🔥 클릭 → 알림 제거 + 채팅 이동
+       🔥 클릭 → 알림 읽음 + 이동
     ================================= */
     item.onclick = async () => {
       // 패널 닫기
       noticePanel.style.display = "none";
 
-      // 화면에서 즉시 제거
-      item.remove();
+      // 읽음 처리
+      await fetch(`${API_URL}/notice/read/${n.id}`, {
+        method: "POST",
+        credentials: "include",
+      });
 
       const roomId = item.dataset.roomId;
       const fromUser = item.dataset.fromUser;
@@ -1049,7 +1074,7 @@ async function loadNotices(type = "trade") {
         return;
       }
 
-      // 새 채팅 생성
+      // 채팅방 없으면 새로 생성
       if (fromUser) {
         try {
           const res = await fetch(`${API_URL}/chat/start`, {
@@ -1063,7 +1088,6 @@ async function loadNotices(type = "trade") {
 
           if (d.success && d.roomId) {
             location.href = `chat.html?room=${d.roomId}`;
-            return;
           } else {
             alert("채팅방 생성 실패");
           }
