@@ -2646,6 +2646,19 @@ app.post("/orders/notify-deposit", async (req, res) => {
       [orderId]
     );
 
+    // 🔥 구매자 정보
+const [[buyer]] = await db.query(
+  "SELECT nickname FROM users WHERE id = ?",
+  [order.user_id]
+);
+
+// 🔥 서비스 정보
+const [[service]] = await db.query(
+  "SELECT title FROM services WHERE id = (SELECT service_id FROM orders WHERE id = ?)",
+  [orderId]
+);
+
+
     if (!order) {
       return res.json({ success: false });
     }
