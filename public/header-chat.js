@@ -8,10 +8,31 @@ if (chatBadge) chatBadge.style.display = "none";
 let CURRENT_USER = null;
 
 /* ============================
-   🔵 unread 상태 기준으로 배지 갱신
+   사용자 최소 정보 로드
 ============================ */
-async function refreshChatBadge() {
-  if (!chatBadge) return;
+async function loadHeaderUser() {
+  try {
+    const res = await fetch(`${API}/auth/me`, {
+      credentials: "include"
+    });
+    const data = await res.json();
+
+    if (data.success) {
+      CURRENT_USER = data.user;
+      console.log("🟢 로그인된 사용자:", CURRENT_USER);
+      return true;
+    }
+  } catch (err) {
+    console.error("❌ 사용자 정보 로드 실패:", err);
+  }
+  return false;
+}
+
+/* ============================
+   🔔 안 읽은 채팅 배지 갱신
+============================ */
+async function syncChatBadge() {
+  if (!chatBadge || !CURRENT_USER) return;
 
   try {
     const res = await fetch(`${API}/chat/unread-count`, {
@@ -30,32 +51,19 @@ async function refreshChatBadge() {
 }
 
 /* ============================
-   사용자 최소 정보 로드
-============================ */
-async function loadHeaderUserLight() {
-  try {
-    const res = await fetch(`${API}/auth/me`, { credentials: "include" });
-    const data = await res.json();
-
-    if (data.success) {
-      CURRENT_USER = data.user;
-      console.log("🟢 로그인된 사용자:", CURRENT_USER);
-    }
-  } catch (err) {
-    console.error("❌ 사용자 정보 로드 실패:", err);
-  }
-}
-
-/* ============================
-   🔥 헤더 전용 소켓
+   🔥 헤더 전용 소켓 초기화
 ============================ */
 async function initHeaderChat() {
-  await loadHeaderUserLight();
-  if (!CURRENT_USER) return;
+  const ok = await loadHeaderUser();
+  if (!ok) return;
 
-  // 🔥 최초 로드시 unread 기준으로 표시
-  await refreshChatBadge();
+  // ✅ 최초 1회 동기화
+  syncChatBadge();
 
+  // ✅ polling 백업 (소켓 끊겨도 안전)
+  setInterval(syncChatBadge, 5000);
+
+  // ✅ 헤더 전용 소켓
   const socket = io(API, {
     withCredentials: true,
     transports: ["polling"],
@@ -70,50 +78,17 @@ async function initHeaderChat() {
     console.log("🔻 header socket 끊김");
   });
 
-  // 🔔 새 메시지 알림 → DB 기준으로 다시 판단
-  socket.on("chat:notify", async (data) => {
-    if (!data || data.targetId !== CURRENT_USER.id) return;
-    console.log("📩 헤더 알림 수신");
-    await refreshChatBadge();
-  });
-}
-
-async function refreshBadge() {
-  try {
-    const res = await fetch(`${API}/chat/unread-count`, { credentials: "include" });
-    const data = await res.json();
-    if (!chatBadge) return;
-    chatBadge.style.display = (data.success && data.total > 0) ? "block" : "none";
-  } catch (e) {
-    // 네트워크 튕겨도 UI는 유지
-  }
-}
-
-async function initHeaderChat() {
-  await loadHeaderUserLight();
-  if (!CURRENT_USER) return;
-
-  // ✅ 페이지 로드 즉시 1번 동기화
-  refreshBadge();
-
-  // ✅ 5초마다 동기화 (소켓 불안정해도 배지 정확)
-  setInterval(refreshBadge, 5000);
-
-  const socket = io(API, {
-    withCredentials: true,
-    transports: ["polling"],
-    upgrade: false
-  });
-
-  socket.on("connect", () => console.log("🟦 header socket 연결:", socket.id));
-  socket.on("disconnect", () => console.log("🔻 header socket 끊김"));
-
+  // 📩 새 메시지 이벤트
   socket.on("chat:notify", (data) => {
-    if (!data || Number(data.targetId) !== Number(CURRENT_USER.id)) return;
-    console.log("📩 헤더 알림 수신");
-    refreshBadge(); // ✅ 실시간 이벤트 오면 즉시 동기화
+    if (!data) return;
+    if (Number(data.targetId) !== Number(CURRENT_USER.id)) return;
+
+    console.log("📩 채팅 알림 수신");
+    syncChatBadge();
   });
 }
 
+/* ============================
+   실행
+============================ */
 initHeaderChat();
-
