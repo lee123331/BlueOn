@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>BlueOn | 전문가 작업</title>
+
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;600;700;800&display=swap" rel="stylesheet">
+
+<style>
+:root {
+  --primary:#0056ff;
+  --bg:#f4f6fb;
+  --white:#ffffff;
+  --line:#e5e7eb;
+  --text-dark:#111827;
+  --text-gray:#6b7280;
+}
+
+* { box-sizing:border-box; margin:0; padding:0; }
+
+body {
+  font-family:"Noto Sans KR", sans-serif;
+  background:var(--bg);
+}
+
+/* ===============================
+   상단 단계 버튼
+=============================== */
+.step-bar {
+  background:var(--white);
+  padding:20px;
+  border-bottom:1px solid var(--line);
+}
+
+.step-buttons {
+  max-width:1200px;
+  margin:0 auto;
+  display:grid;
+  grid-template-columns:repeat(4,1fr);
+  gap:16px;
+}
+
+.step-btn {
+  padding:16px;
+  border-radius:14px;
+  border:1px solid var(--line);
+  text-align:center;
+  font-weight:700;
+  cursor:pointer;
+  transition:0.2s;
+  background:#f9fafb;
+}
+
+.step-btn.active {
+  background:var(--primary);
+  color:#fff;
+  border-color:var(--primary);
+}
+
+.step-btn span {
+  display:block;
+  font-size:13px;
+  margin-top:6px;
+  font-weight:500;
+  opacity:0.9;
+}
+
+/* ===============================
+   작업 리스트 영역
+=============================== */
+.container {
+  max-width:1200px;
+  margin:30px auto;
+  padding:0 20px;
+}
+
+.section-title {
+  font-size:18px;
+  font-weight:800;
+  margin:30px 0 14px;
+}
+
+.task-list {
+  background:var(--white);
+  border:1px solid var(--line);
+  border-radius:14px;
+  overflow:hidden;
+}
+
+.task-item {
+  display:grid;
+  grid-template-columns:2fr 1fr 1fr 120px;
+  gap:12px;
+  padding:16px 20px;
+  align-items:center;
+  border-bottom:1px solid var(--line);
+  cursor:pointer;
+}
+
+.task-item:last-child {
+  border-bottom:none;
+}
+
+.task-item:hover {
+  background:#f5f7ff;
+}
+
+.task-title {
+  font-weight:700;
+  color:var(--text-dark);
+}
+
+.task-user {
+  font-size:14px;
+  color:var(--text-gray);
+}
+
+.task-status {
+  font-size:13px;
+  font-weight:700;
+  color:var(--primary);
+}
+
+.task-date {
+  font-size:13px;
+  color:var(--text-gray);
+  text-align:right;
+}
+</style>
+</head>
+
+<body>
+
+<!-- 🔹 단계 버튼 -->
+<div class="step-bar">
+  <div class="step-buttons">
+    <div class="step-btn active">
+      작업 시작하기
+      <span>결제 완료 · 작업 준비</span>
+    </div>
+    <div class="step-btn">
+      시안 제출하기
+      <span>1차 결과물</span>
+    </div>
+    <div class="step-btn">
+      작업 수정하기
+      <span>수정 요청 대응</span>
+    </div>
+    <div class="step-btn">
+      최종 제출
+      <span>작업 완료</span>
+    </div>
+  </div>
+</div>
+
+<!-- 🔹 작업 리스트 -->
+<div class="container">
+
+  <div class="section-title">진행중인 작업</div>
+  <div class="task-list">
+
+    <div class="task-item">
+      <div class="task-title">로고 디자인 제작</div>
+      <div class="task-user">구매자: OOO</div>
+      <div class="task-status">작업중</div>
+      <div class="task-date">2025-12-15</div>
+    </div>
+
+    <div class="task-item">
+      <div class="task-title">상세페이지 디자인</div>
+      <div class="task-user">구매자: 김OO</div>
+      <div class="task-status">시안 제출</div>
+      <div class="task-date">2025-12-14</div>
+    </div>
+
+  </div>
+
+  <div class="section-title">완료된 작업</div>
+  <div class="task-list">
+
+    <div class="task-item">
+      <div class="task-title">브랜드 키트 제작</div>
+      <div class="task-user">구매자: 박OO</div>
+      <div class="task-status">완료</div>
+      <div class="task-date">2025-12-10</div>
+    </div>
+
+  </div>
+
+</div>
+
+</body>
+</html>
