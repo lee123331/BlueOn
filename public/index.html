@@ -956,101 +956,185 @@ if (startBtn) {
     if (e.target === supportModal) supportModal.style.display = "none";
   });
 
- 
- 
- 
-  });
+  /* ============================================================
+     🔔 알림 패널
+  ============================================================ */
+  const noticeIcon = document.querySelector(".notice-icon");
+  const noticePanel = document.getElementById("noticePanel");
+  const noticeBadge = document.getElementById("notice-badge");
+  const noticeContent = document.getElementById("noticeContent");
+  const tabs = document.querySelectorAll(".notice-tab");
+  const underline = document.querySelector(".notice-tab-underline");
 
+  let currentTab = "trade";
+  let lastNoticeRequestId = 0;
 
+  async function loadUnreadBadge() {
+    try {
+      const res = await fetch(`${API_URL}/notice/unread-count`, { credentials: "include" });
+      const data = await res.json();
 
-const noticeIcon = document.querySelector(".notice-icon");
-const noticePanel = document.getElementById("noticePanel");
+      if (data.success && data.count > 0) {
+        noticeBadge.textContent = data.count;
+        noticeBadge.style.display = "flex";
+      } else {
+        noticeBadge.style.display = "none";
+      }
+    } catch {}
+  }
 
-if (noticeIcon && noticePanel) {
-  noticeIcon.onclick = async (e) => {
-    e.stopPropagation();
+  function moveUnderline(tab) {
+    const parentRect = tab.parentElement.getBoundingClientRect();
+    const tabRect = tab.getBoundingClientRect();
+    underline.style.left =
+      (tabRect.left - parentRect.left) + (tabRect.width - underline.offsetWidth) / 2 + "px";
+  }
 
-    const isOpen = noticePanel.style.display === "block";
-    noticePanel.style.display = isOpen ? "none" : "block";
-
-    // 🔥 처음 열릴 때만 알림 로드
-    if (!isOpen) {
-      await loadNotices(currentTab || "trade");
-    }
-  };
-
-  // 🔽 바깥 클릭 시 닫기
-  document.addEventListener("click", (e) => {
-    if (!e.target.closest(".header-notice")) {
-      noticePanel.style.display = "none";
-    }
-  });
-}
-
+ /* ================================
+   🔔 알림 목록 불러오기
+================================ */
 async function loadNotices(type = "trade") {
   currentTab = type;
-
-  const noticeContent = document.getElementById("noticeContent");
-  if (!noticeContent) return;
-
   noticeContent.innerHTML = "";
 
-  try {
-    const res = await fetch(`${API_URL}/notice/list?type=${type}`, {
-      credentials: "include",
-    });
-    const data = await res.json();
+  const res = await fetch(`${API_URL}/notice/list?type=${type}`, {
+    credentials: "include",
+  });
+  const data = await res.json();
 
-    if (!data.success || !data.notices || data.notices.length === 0) {
-      noticeContent.innerHTML = `
-        <div class="notice-empty">
-          <div class="notice-empty-icon">🌈</div>
-          <p class="notice-empty-title">놓친 알림 없이<br>모두 확인하셨어요!</p>
-        </div>
-        <p class="notice-footer">
-          최근 30일 동안의 알림만 보관됩니다.
-        </p>
-      `;
-      return;
-    }
-
-    data.notices.forEach((n) => {
-      const item = document.createElement("div");
-      item.className = "notice-item-panel";
-
-      item.innerHTML = `
-        <div class="notice-msg">${n.message}</div>
-        <div class="notice-date">${formatDate(n.created_at)}</div>
-      `;
-
-      // 🔥 클릭 → 작업 페이지 이동
-      item.onclick = async () => {
-        // 읽음 처리
-        await fetch(`${API_URL}/notice/read/${n.id}`, {
-          method: "POST",
-          credentials: "include",
-        });
-
-        if (n.task_key) {
-          location.href = `/expert-tasks.html?task=${n.task_key}`;
-        }
-      };
-
-      noticeContent.appendChild(item);
-    });
-
-  } catch (err) {
-    console.error("❌ 알림 로드 실패:", err);
+  if (!data.success || !data.notices || data.notices.length === 0) {
+    noticeContent.innerHTML = `
+      <div class="notice-empty">
+        <div class="notice-empty-icon">🌈</div>
+        <p class="notice-empty-title">놓친 알림 없이<br>모두 확인하셨어요!</p>
+      </div>
+      <p class="notice-footer">최근 30일 동안의 알림만 보관됩니다.</p>
+    `;
+    return;
   }
+
+  data.notices.forEach((n) => {
+    const item = document.createElement("div");
+    item.classList.add("notice-item-panel");
+
+    item.dataset.roomId = n.room_id ? String(n.room_id) : "";
+    item.dataset.fromUser = n.from_user ? String(n.from_user) : "";
+
+    item.innerHTML = `
+  <div class="chat-left">
+    <img src="${room.other_avatar}" />
+    <span>${room.other_nickname}</span>
+  </div>
+
+  <button class="chat-remove-btn">✕</button>
+`;
+
+
+    /* ================================
+       🔥 클릭 → 알림 제거 + 채팅 이동
+    ================================= */
+    item.onclick = async () => {
+      // 패널 닫기
+      noticePanel.style.display = "none";
+
+      // 화면에서 즉시 제거
+      item.remove();
+
+      const roomId = item.dataset.roomId;
+      const fromUser = item.dataset.fromUser;
+
+      // 기존 채팅방 이동
+      if (roomId && roomId !== "null" && roomId !== "undefined") {
+        location.href = `chat.html?room=${roomId}`;
+        return;
+      }
+
+      // 새 채팅 생성
+      if (fromUser) {
+        try {
+          const res = await fetch(`${API_URL}/chat/start`, {
+            method: "POST",
+            credentials: "include",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ targetId: fromUser }),
+          });
+
+          const d = await res.json();
+
+          if (d.success && d.roomId) {
+            location.href = `chat.html?room=${d.roomId}`;
+            return;
+          } else {
+            alert("채팅방 생성 실패");
+          }
+        } catch (err) {
+          console.error("채팅 생성 오류:", err);
+          alert("서버 오류로 채팅방을 열 수 없습니다.");
+        }
+      }
+    };
+
+    noticeContent.appendChild(item);
+  });
+
+  // 뱃지 숨기기
+  noticeBadge.style.display = "none";
+
+  // 서버에 읽음 처리 요청
+  await fetch(`${API_URL}/notice/read-all`, {
+    method: "POST",
+    credentials: "include",
+  });
 }
-document.querySelectorAll(".notice-tab").forEach(tab => {
+
+/* ================================
+   🔔 알림 패널 토글
+================================ */
+noticeIcon.onclick = () => {
+  const open = noticePanel.style.display === "block";
+  noticePanel.style.display = open ? "none" : "block";
+
+  if (!open) {
+    const active = document.querySelector(".notice-tab.active");
+    requestAnimationFrame(() => moveUnderline(active));
+
+    // ❌ 패널 열 때 매번 알림 재로드하던 코드 제거함
+    // loadNotices(currentTab);  ← 삭제!
+  }
+};
+
+/* ================================
+   🔄 탭 전환 시만 목록 재로드
+================================ */
+tabs.forEach((tab) => {
   tab.onclick = () => {
-    document.querySelectorAll(".notice-tab").forEach(t => t.classList.remove("active"));
+    if (tab.dataset.tab === currentTab) return;
+
+    tabs.forEach((t) => t.classList.remove("active"));
     tab.classList.add("active");
 
-    loadNotices(tab.dataset.tab);
+    currentTab = tab.dataset.tab;
+
+    moveUnderline(tab);
+
+    // 탭을 바꿀 때만 서버에서 새로 불러옴
+    loadNotices(currentTab);
   };
 });
+
+/* ================================
+   🔘 외부 클릭 → 패널 닫기
+================================ */
+document.addEventListener("click", (e) => {
+  if (!noticePanel.contains(e.target) && !noticeIcon.contains(e.target)) {
+    noticePanel.style.display = "none";
+  }
+});
+
+/* ================================
+   🔴 안 읽은 알림 배지 로드
+================================ */
+loadUnreadBadge();
 
 
   /* ============================================================
@@ -1065,7 +1149,7 @@ document.querySelectorAll(".notice-tab").forEach(tab => {
      페이지 로드 시 로그인 상태 체크
   ============================================================ */
   loadUserState();
-
+});
 </script>
 
 
@@ -1196,5 +1280,9 @@ document.querySelectorAll(".notice-tab").forEach(tab => {
 
 </body>
 </html>
+<script src="/socket.io/socket.io.js"></script>
 <script src="/header-chat.js"></script>
+<script>
+document.addEventListener("DOMContentLoaded", loadUserState);
+</script>
 
