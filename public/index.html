@@ -1218,13 +1218,21 @@ noticeIcon.onclick = () => {
   noticePanel.style.display = open ? "none" : "block";
 
   if (!open) {
-    const active = document.querySelector(".notice-tab.active");
-    requestAnimationFrame(() => moveUnderline(active));
+    // ✅ 활성 탭 찾기
+    const activeTab =
+      document.querySelector(".notice-tab.active") ||
+      document.querySelector('.notice-tab[data-tab="trade"]');
 
-    // ❌ 패널 열 때 매번 알림 재로드하던 코드 제거함
-    // loadNotices(currentTab);  ← 삭제!
+    currentTab = activeTab.dataset.tab;
+
+    // ✅ 언더라인 이동
+    requestAnimationFrame(() => moveUnderline(activeTab));
+
+    // ✅ 패널 열릴 때 무조건 목록 로드
+    loadNotices(currentTab);
   }
 };
+
 
 /* ================================
    🔄 탭 전환 시만 목록 재로드
