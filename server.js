@@ -2901,6 +2901,31 @@ app.post("/admin/order/confirm", async (req, res) => {
 
   res.json({ success: true });
 });
+/* ======================================================
+   🔔 알림 단건 읽음 처리
+   POST /notice/read/:id
+====================================================== */
+app.post("/notice/read/:id", async (req, res) => {
+  try {
+    if (!req.session.user) {
+      return res.status(401).json({ success: false });
+    }
+
+    const noticeId = req.params.id;
+    const userId = req.session.user.id;
+
+    await db.query(
+      "UPDATE notices SET is_read = 1 WHERE id = ? AND user_id = ?",
+      [noticeId, userId]
+    );
+
+    return res.json({ success: true });
+
+  } catch (err) {
+    console.error("❌ notice read error:", err);
+    return res.status(500).json({ success: false });
+  }
+});
 
 /* ======================================================
    🔵 채팅방 목록 (프로필 이미지 완전 보정)
