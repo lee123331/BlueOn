@@ -259,6 +259,44 @@ app.post(
     return res.json({ success: true, url });
   }
 );
+/* ======================================================
+   🔵 전문가 닉네임 중복 체크
+   GET /expert/check-nickname?nickname=xxx
+====================================================== */
+app.get("/expert/check-nickname", async (req, res) => {
+  try {
+    const { nickname } = req.query;
+
+    if (!nickname) {
+      return res.json({
+        success: false,
+        message: "nickname 누락"
+      });
+    }
+
+    const [rows] = await db.query(
+      `
+      SELECT id
+      FROM expert_profiles
+      WHERE nickname = ?
+      LIMIT 1
+      `,
+      [nickname]
+    );
+
+    return res.json({
+      success: true,
+      exists: rows.length > 0
+    });
+
+  } catch (err) {
+    console.error("❌ check-nickname error:", err);
+    return res.status(500).json({
+      success: false,
+      message: "서버 오류"
+    });
+  }
+});
 
 /* ======================================================
    JSON/JS 배열 자동 파서 (서비스 이미지용)
@@ -2428,7 +2466,6 @@ app.post("/orders/create", async (req, res) => {
 ====================================================== */
 app.post("/orders/confirm-payment", async (req, res) => {
   try {
-    // 🔐 관리자 체크 (현재는 본인 계정)
     if (!isAdmin(req)) {
       return res.status(403).json({
         success: false,
@@ -2442,7 +2479,7 @@ app.post("/orders/confirm-payment", async (req, res) => {
     }
 
     /* ======================================================
-       1️⃣ 주문 조회
+       1️⃣ 주문 조회 (🔥 반드시 먼저)
     ====================================================== */
     const [[order]] = await db.query(
       `
@@ -2457,8 +2494,10 @@ app.post("/orders/confirm-payment", async (req, res) => {
       return res.json({ success: false, message: "주문 없음" });
     }
 
-    // 이미 처리된 주문
-    if (order.status === "paid" && order.room_id) {
+    /* ======================================================
+       2️⃣ 이미 처리된 주문 방어
+    ====================================================== */
+    if (order.status === "paid") {
       return res.json({
         success: true,
         roomId: order.room_id,
@@ -2466,13 +2505,53 @@ app.post("/orders/confirm-payment", async (req, res) => {
       });
     }
 
-    let roomId = order.room_id;
+    /* ======================================================
+       3️⃣ 구매자 + 서비스 정보
+    ====================================================== */
+    const [[buyer]] = await db.query(
+      "SELECT nickname FROM users WHERE id = ?",
+      [order.user_id]
+    );
+
+    const [[service]] = await db.query(
+      `
+      SELECT title
+      FROM services
+      WHERE id = (
+        SELECT service_id FROM orders WHERE id = ?
+      )
+      `,
+      [orderId]
+    );
 
     /* ======================================================
-       2️⃣ 채팅방 없으면 생성 (work)
+       4️⃣ 🔔 전문가 구매 알림 생성 (1회)
     ====================================================== */
+    const noticeMessage =
+      `${buyer?.nickname || "고객"}님이 ` +
+      `'${service?.title || "서비스"}' 서비스를 구매하였습니다.`;
+
+    await db.query(
+      `
+      INSERT INTO notices (user_id, message, type, is_read, created_at)
+      VALUES (?, ?, 'trade', 0, NOW())
+      `,
+      [order.expert_id, noticeMessage]
+    );
+
+    // 🔴 실시간 소켓 알림
+    io.to(`user:${order.expert_id}`).emit("notice:new", {
+      type: "trade",
+      message: noticeMessage
+    });
+
+    /* ======================================================
+       5️⃣ 채팅방 생성 (work)
+    ====================================================== */
+    let roomId = order.room_id;
+
     if (!roomId) {
-      const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+      const today = new Date().toISOString().slice(0, 10);
 
       const [result] = await db.query(
         `
@@ -2490,7 +2569,6 @@ app.post("/orders/confirm-payment", async (req, res) => {
 
       roomId = result.insertId;
 
-      // 주문에 room_id 연결
       await db.query(
         `UPDATE orders SET room_id = ? WHERE id = ?`,
         [roomId, orderId]
@@ -2498,7 +2576,7 @@ app.post("/orders/confirm-payment", async (req, res) => {
     }
 
     /* ======================================================
-       3️⃣ 주문 상태 paid 처리
+       6️⃣ 주문 상태 paid 처리
     ====================================================== */
     await db.query(
       `UPDATE orders SET status = 'paid' WHERE id = ?`,
