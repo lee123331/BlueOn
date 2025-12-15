@@ -963,7 +963,94 @@ if (startBtn) {
 
 
 
+const noticeIcon = document.querySelector(".notice-icon");
+const noticePanel = document.getElementById("noticePanel");
 
+if (noticeIcon && noticePanel) {
+  noticeIcon.onclick = async (e) => {
+    e.stopPropagation();
+
+    const isOpen = noticePanel.style.display === "block";
+    noticePanel.style.display = isOpen ? "none" : "block";
+
+    // 🔥 처음 열릴 때만 알림 로드
+    if (!isOpen) {
+      await loadNotices(currentTab || "trade");
+    }
+  };
+
+  // 🔽 바깥 클릭 시 닫기
+  document.addEventListener("click", (e) => {
+    if (!e.target.closest(".header-notice")) {
+      noticePanel.style.display = "none";
+    }
+  });
+}
+
+async function loadNotices(type = "trade") {
+  currentTab = type;
+
+  const noticeContent = document.getElementById("noticeContent");
+  if (!noticeContent) return;
+
+  noticeContent.innerHTML = "";
+
+  try {
+    const res = await fetch(`${API_URL}/notice/list?type=${type}`, {
+      credentials: "include",
+    });
+    const data = await res.json();
+
+    if (!data.success || !data.notices || data.notices.length === 0) {
+      noticeContent.innerHTML = `
+        <div class="notice-empty">
+          <div class="notice-empty-icon">🌈</div>
+          <p class="notice-empty-title">놓친 알림 없이<br>모두 확인하셨어요!</p>
+        </div>
+        <p class="notice-footer">
+          최근 30일 동안의 알림만 보관됩니다.
+        </p>
+      `;
+      return;
+    }
+
+    data.notices.forEach((n) => {
+      const item = document.createElement("div");
+      item.className = "notice-item-panel";
+
+      item.innerHTML = `
+        <div class="notice-msg">${n.message}</div>
+        <div class="notice-date">${formatDate(n.created_at)}</div>
+      `;
+
+      // 🔥 클릭 → 작업 페이지 이동
+      item.onclick = async () => {
+        // 읽음 처리
+        await fetch(`${API_URL}/notice/read/${n.id}`, {
+          method: "POST",
+          credentials: "include",
+        });
+
+        if (n.task_key) {
+          location.href = `/expert-tasks.html?task=${n.task_key}`;
+        }
+      };
+
+      noticeContent.appendChild(item);
+    });
+
+  } catch (err) {
+    console.error("❌ 알림 로드 실패:", err);
+  }
+}
+document.querySelectorAll(".notice-tab").forEach(tab => {
+  tab.onclick = () => {
+    document.querySelectorAll(".notice-tab").forEach(t => t.classList.remove("active"));
+    tab.classList.add("active");
+
+    loadNotices(tab.dataset.tab);
+  };
+});
 
 
   /* ============================================================
