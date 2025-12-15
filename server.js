@@ -2678,6 +2678,40 @@ app.get("/orders/:id", async (req, res) => {
   }
 });
 
+// 전문가 작업 목록
+app.get("/expert/tasks", async (req, res) => {
+  try {
+    if (!req.session.user) {
+      return res.status(401).json({ success: false });
+    }
+
+    const expertId = req.session.user.id;
+
+    const [rows] = await db.query(`
+      SELECT
+        t.task_key,
+        t.status,
+        t.created_at,
+        s.title AS service_title,
+        s.thumbnail AS thumbnail,
+        u.nickname AS buyer_name
+      FROM service_tasks t
+      JOIN services s ON t.service_id = s.id
+      JOIN users u ON t.buyer_id = u.id
+      WHERE t.expert_id = ?
+      ORDER BY t.created_at DESC
+    `, [expertId]);
+
+    res.json({
+      success: true,
+      tasks: rows
+    });
+
+  } catch (err) {
+    console.error("❌ /expert/tasks 오류:", err);
+    res.status(500).json({ success: false });
+  }
+});
 
 /* ======================================================
    🔔 유저 → 관리자 입금 완료 알림
