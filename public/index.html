@@ -430,6 +430,91 @@
 .chat-remove-btn:hover {
   color: #ef4444;
 }
+/* ===============================
+   🔔 알림 카드 UI
+================================ */
+.notice-item-panel {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  margin-bottom: 12px;
+  cursor: pointer;
+  position: relative;
+  transition: all 0.18s ease;
+}
+
+.notice-item-panel:hover {
+  background: #f5f8ff;
+  border-color: #c7d6ff;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.06);
+}
+
+/* 왼쪽 영역 */
+.notice-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+}
+
+.notice-left img {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid #e5e7eb;
+}
+
+/* 텍스트 */
+.notice-text {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.notice-main {
+  font-size: 14px;
+  font-weight: 600;
+  color: #111827;
+  line-height: 1.4;
+}
+
+.notice-time {
+  font-size: 12px;
+  color: #6b7280;
+}
+
+/* 삭제 버튼 */
+.notice-remove-btn {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: none;
+  background: #f3f4f6;
+  color: #6b7280;
+  font-size: 14px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.notice-remove-btn:hover {
+  background: #ef4444;
+  color: #fff;
+}
+.notice-item-panel.unread {
+  background: #eef3ff;
+  border-color: #0056ff;
+}
 
   </style>
 </head>
@@ -1025,20 +1110,34 @@ async function loadNotices(type = "trade") {
        🔔 알림 UI (room ❌ → notice n ✅)
     ================================= */
     item.innerHTML = `
-      <div class="notice-left">
-        <img src="${n.from_avatar || "/assets/default_profile.png"}" />
-        <div class="notice-text">
-          <p class="notice-main">
-            ${n.message}
-          </p>
-          <span class="notice-time">
-            ${n.created_at || ""}
-          </span>
-        </div>
-      </div>
+  <div class="notice-left">
+    <img 
+      src="${n.from_avatar || "/assets/default_profile.png"}"
+      alt="프로필"
+      onerror="this.src='/assets/default_profile.png'"
+    />
 
-      <button class="notice-remove-btn">✕</button>
-    `;
+    <div class="notice-text">
+      <p class="notice-main">
+        ${n.message}
+      </p>
+
+      <span class="notice-time">
+        ${n.created_at
+          ? new Date(n.created_at).toLocaleString("ko-KR", {
+              month: "2-digit",
+              day: "2-digit",
+              hour: "2-digit",
+              minute: "2-digit",
+            })
+          : ""}
+      </span>
+    </div>
+  </div>
+
+  <button class="notice-remove-btn" title="알림 삭제">✕</button>
+`;
+
 
     /* ❌ 개별 알림 삭제 */
     item.querySelector(".notice-remove-btn").onclick = async (e) => {
@@ -1132,19 +1231,19 @@ noticeIcon.onclick = () => {
 ================================ */
 tabs.forEach((tab) => {
   tab.onclick = () => {
-    if (tab.dataset.tab === currentTab) return;
-
     tabs.forEach((t) => t.classList.remove("active"));
     tab.classList.add("active");
 
-    currentTab = tab.dataset.tab;
+    const type = tab.dataset.tab;
+    currentTab = type;
 
     moveUnderline(tab);
 
-    // 탭을 바꿀 때만 서버에서 새로 불러옴
-    loadNotices(currentTab);
+    // ✅ 항상 호출 (같은 탭이어도)
+    loadNotices(type);
   };
 });
+
 
 /* ================================
    🔘 외부 클릭 → 패널 닫기
