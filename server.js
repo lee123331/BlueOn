@@ -2688,18 +2688,20 @@ app.get("/expert/tasks", async (req, res) => {
     const expertId = req.session.user.id;
 
     const [rows] = await db.query(`
-      SELECT
-        t.task_key,
-        t.status,
-        t.created_at,
-        s.title AS service_title,
-        s.thumbnail AS thumbnail,
-        u.nickname AS buyer_name
-      FROM service_tasks t
-      JOIN services s ON t.service_id = s.id
-      JOIN users u ON t.buyer_id = u.id
-      WHERE t.expert_id = ?
-      ORDER BY t.created_at DESC
+SELECT
+  t.task_key,
+  t.status,
+  t.phase,
+  t.created_at,
+  t.thumbnail,                -- ✅ 여기
+  s.title AS service_title,
+  u.nickname AS buyer_name
+FROM service_tasks t
+JOIN services s ON t.service_id = s.id
+JOIN users u ON t.buyer_id = u.id
+WHERE t.expert_id = ?
+ORDER BY t.created_at DESC
+
     `, [expertId]);
 
     res.json({
