@@ -88,10 +88,11 @@ body {
   overflow:hidden;
 }
 
+/* 🔥 핵심: 카드형 작업 아이템 */
 .task-item {
   display:grid;
-  grid-template-columns:2fr 1fr 1fr 120px;
-  gap:12px;
+  grid-template-columns: 1fr 120px 120px;
+  gap:16px;
   padding:16px 20px;
   align-items:center;
   border-bottom:1px solid var(--line);
@@ -106,16 +107,39 @@ body {
   background:#f5f7ff;
 }
 
+/* 왼쪽 영역 */
+.task-left {
+  display:flex;
+  align-items:center;
+  gap:14px;
+}
+
+.task-thumb {
+  width:64px;
+  height:64px;
+  border-radius:10px;
+  object-fit:cover;
+  border:1px solid var(--line);
+  background:#eef2ff;
+}
+
+.task-info {
+  display:flex;
+  flex-direction:column;
+}
+
 .task-title {
-  font-weight:700;
+  font-weight:800;
   color:var(--text-dark);
+  margin-bottom:4px;
 }
 
 .task-user {
-  font-size:14px;
+  font-size:13px;
   color:var(--text-gray);
 }
 
+/* 우측 */
 .task-status {
   font-size:13px;
   font-weight:700;
@@ -127,6 +151,13 @@ body {
   color:var(--text-gray);
   text-align:right;
 }
+
+.task-empty {
+  padding:40px;
+  text-align:center;
+  color:var(--text-gray);
+  font-size:14px;
+}
 </style>
 </head>
 
@@ -135,19 +166,19 @@ body {
 <!-- 🔹 단계 버튼 -->
 <div class="step-bar">
   <div class="step-buttons">
-    <div class="step-btn active">
+    <div class="step-btn active" data-step="start">
       작업 시작하기
       <span>결제 완료 · 작업 준비</span>
     </div>
-    <div class="step-btn">
+    <div class="step-btn" data-step="draft">
       시안 제출하기
       <span>1차 결과물</span>
     </div>
-    <div class="step-btn">
+    <div class="step-btn" data-step="revise">
       작업 수정하기
       <span>수정 요청 대응</span>
     </div>
-    <div class="step-btn">
+    <div class="step-btn" data-step="final">
       최종 제출
       <span>작업 완료</span>
     </div>
@@ -157,38 +188,33 @@ body {
 <!-- 🔹 작업 리스트 -->
 <div class="container">
 
+  <!-- 진행중 -->
   <div class="section-title">진행중인 작업</div>
-  <div class="task-list">
-
+  <div class="task-list" id="taskList">
+    <!-- JS에서 아래 구조로 삽입 -->
+    <!--
     <div class="task-item">
-      <div class="task-title">로고 디자인 제작</div>
-      <div class="task-user">구매자: OOO</div>
+      <div class="task-left">
+        <img class="task-thumb" src="메인이미지" />
+        <div class="task-info">
+          <div class="task-title">서비스 제목</div>
+          <div class="task-user">구매자: OOO</div>
+        </div>
+      </div>
       <div class="task-status">작업중</div>
       <div class="task-date">2025-12-15</div>
     </div>
-
-    <div class="task-item">
-      <div class="task-title">상세페이지 디자인</div>
-      <div class="task-user">구매자: 김OO</div>
-      <div class="task-status">시안 제출</div>
-      <div class="task-date">2025-12-14</div>
-    </div>
-
+    -->
   </div>
 
+  <!-- 완료 -->
   <div class="section-title">완료된 작업</div>
-  <div class="task-list">
-
-    <div class="task-item">
-      <div class="task-title">브랜드 키트 제작</div>
-      <div class="task-user">구매자: 박OO</div>
-      <div class="task-status">완료</div>
-      <div class="task-date">2025-12-10</div>
-    </div>
-
+  <div class="task-list" id="doneTaskList">
+    <!-- JS에서 삽입 -->
   </div>
 
 </div>
 
+<script src="/js/expert-tasks.js"></script>
 </body>
 </html>
