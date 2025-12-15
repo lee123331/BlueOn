@@ -10,21 +10,26 @@
 <style>
 :root {
   --primary:#0056ff;
+
   --bg:#ffffff;
   --white:#ffffff;
+
   --text-dark:#111827;
   --text-gray:#6b7280;
   --line:#e5e7eb;
 }
 
 *{margin:0;padding:0;box-sizing:border-box;}
+
 body{
   font-family:"Noto Sans KR",sans-serif;
   background:var(--bg);
   color:var(--text-dark);
 }
 
+/* 전체 레이아웃 */
 .wrapper{
+  background: var(--white);
   max-width:1400px;
   margin:0 auto;
   padding:40px 30px;
@@ -32,103 +37,265 @@ body{
   gap:40px;
 }
 
-/* ASIDE */
+/* ========== ASIDE ========== */
 aside{
   width:260px;
+  background:var(--white);
   border:1px solid var(--line);
   padding:25px 20px;
   border-radius:12px;
+  box-shadow:0 5px 18px rgba(0,0,0,0.04);
 }
+
 .aside-title{
   font-size:18px;
   font-weight:700;
   margin-bottom:20px;
   color:var(--primary);
 }
+
 .menu-item{
-  padding:12px;
+  padding:12px 12px;
   border-radius:8px;
   margin-bottom:8px;
+  font-size:15px;
   cursor:pointer;
+  transition:0.2s;
 }
-.menu-item:hover{background:#eef3ff;}
+
+.menu-item:hover{
+  background:#eef3ff;
+}
+
 .menu-item.active{
   background:var(--primary);
   color:#fff;
+  font-weight:600;
 }
 
-/* CONTENT */
+/* ========== CONTENT ========== */
 section.content{
   flex:1;
+  background:var(--white);
   border:1px solid var(--line);
   border-radius:12px;
-  padding:40px 50px 80px;
+  padding:40px 50px 80px; /* 아래쪽 여백 넉넉하게 */
+  box-shadow:0 6px 18px rgba(0,0,0,0.04);
 }
 
-h2{font-size:24px;font-weight:800;margin-bottom:30px;}
+section h2{
+  font-size:24px;
+  font-weight:800;
+  margin-bottom:30px;
+}
 
-/* PROFILE */
+/* 프로필 + 닉네임 UI */
 .profile-row{
   display:flex;
+  align-items:flex-start;
   gap:40px;
   margin-bottom:26px;
 }
+
 .profile-avatar{
   display:flex;
   flex-direction:column;
   align-items:center;
   gap:12px;
 }
+
 .profile-avatar img{
-  width:110px;height:110px;border-radius:50%;
+  width:110px;
+  height:110px;
+  border-radius:50%;
+  object-fit:cover;
+  border:3px solid #e5e5e5;
+  box-shadow:0 4px 12px rgba(0,0,0,0.08);
 }
+
 .profile-btn{
   padding:7px 14px;
   border-radius:7px;
   background:#f3f4f6;
   border:1px solid var(--line);
   cursor:pointer;
+  font-size:13px;
+  font-weight:600;
+}
+.profile-btn:hover{
+  background:#e9efff;
+  border-color:#c7d6ff;
 }
 
-/* NICKNAME */
-.nickname-row{display:flex;gap:28px;flex:1;}
-.nickname-input-box{flex:1;margin-top:30px;}
+/* 닉네임 라인 */
+.nickname-row{
+  display:flex;
+  align-items:center;
+  gap:28px;
+  flex:1;
+}
+
+/* 왼쪽 라벨 */
+.nickname-label{
+  width:80px;
+  font-size:15px;
+  font-weight:700;
+}
+
+/* 입력 영역 */
+.nickname-input-box{
+  flex:1;
+  display:flex;
+  flex-direction:column;
+  margin-top:30px;
+}
+
+/* 닉네임 입력란 회색 배경 */
 .nickname-input-box input{
   width:100%;
-  padding:12px;
+  padding:12px 14px;
   border-radius:8px;
   border:1px solid var(--line);
+  font-size:15px;
   background:#f5f5f5;
+  outline:none;
 }
-.status-msg{font-size:12px;margin-top:5px;}
+
+/* placeholder 진하게 */
+#nicknameInput::placeholder{
+  color:#6b7280;
+  font-weight:600;
+}
+
+/* 포커스 시 테두리만 파란색 */
+.nickname-input-box input:focus{
+  border-color:var(--primary);
+  background:#e4e2e2;
+}
+
+/* 상태 메시지 */
+.status-msg{
+  margin-top:5px;
+  font-size:12px;
+  min-height:14px;
+}
 .status-msg.ok{color:#16a34a;}
 .status-msg.error{color:#ef4444;}
 
-/* CATEGORY */
-.category-wrapper{display:flex;gap:20px;}
-.category-left{
-  width:260px;
-  border:1px solid var(--line);
-  height:350px;
-  overflow:auto;
+/* TIP */
+.tip-box{
+  background:#f5f7ff;
+  border:1px solid #dbeafe;
+  padding:16px 18px;
+  border-radius:10px;
+  font-size:13px;
+  color:var(--text-gray);
+  margin-bottom:26px;
 }
-.category-right{
-  flex:1;
-  border:1px solid var(--line);
-  height:350px;
-  padding:18px;
-}
-.category-left-item,.subcat-item{
-  padding:12px;
-  cursor:pointer;
-}
-.category-left-item.active,
-.subcat-item.active{
-  background:var(--primary);
-  color:#fff;
+.tip-box li{
+  margin-left:18px;
+  list-style:square;
 }
 
-/* BUTTON */
+/* 폼 공통 */
+.form-group{
+  position:static;
+  overflow:visible;
+  margin-bottom:25px;
+}
+.form-group label{
+  font-weight:700;
+  margin-bottom:8px;
+  display:block;
+}
+
+/* 상세 자기소개 회색 배경 */
+#introDetail{
+  width:100%;
+  padding:14px;
+  border:1px solid var(--line);
+  border-radius:8px;
+  font-size:15px;
+  background:#f5f5f5;
+  outline:none;
+}
+#introDetail:focus{
+  border-color:var(--primary);
+}
+
+/* ================================
+   2단 카테고리 선택 UI
+================================ */
+.category-wrapper {
+  display: flex;
+  width: 100%;
+  gap: 20px;
+  align-items: stretch;
+}
+
+
+.category-left {
+  width: 260px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #fafafa;
+  overflow-y: auto;
+  height: 350px; /* 통일 */
+}
+
+
+.category-left-item {
+  padding: 14px 16px;
+  border-bottom: 1px solid #eee;
+  cursor: pointer;
+  transition: 0.15s;
+  font-size: 15px;
+  font-weight: 500;
+}
+
+.category-left-item:hover {
+  background: #eef3ff;
+}
+
+.category-left-item.active {
+  background: var(--primary);
+  color: #fff;
+  font-weight: 700;
+}
+
+.category-right {
+  flex: 1;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #fff;
+  padding: 18px 20px;
+  overflow-y: auto;
+  height: 350px; /* 통일 */
+}
+
+.subcat-item {
+  padding: 12px 14px;
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
+  margin-bottom: 10px;
+  cursor: pointer;
+  transition: 0.2s;
+}
+
+.subcat-item:hover {
+  background: #f5f7ff;
+  border-color: #c7d6ff;
+}
+
+.subcat-item.active {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #fff;
+  font-weight: 700;
+}
+
+
+/* 버튼 */
 .next-button{
   margin-top:35px;
   padding:14px 36px;
@@ -137,7 +304,14 @@ h2{font-size:24px;font-weight:800;margin-bottom:30px;}
   border:none;
   border-radius:10px;
   font-weight:700;
+  font-size:16px;
   cursor:pointer;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+}
+.next-button:hover{
+  background:#0044cc;
 }
 </style>
 </head>
@@ -146,157 +320,328 @@ h2{font-size:24px;font-weight:800;margin-bottom:30px;}
 
 <div class="wrapper">
 
+  <!-- ASIDE -->
   <aside>
     <div class="aside-title">전문가 등록</div>
+
     <div class="menu-item active" onclick="goStep('intro')">전문가 소개</div>
     <div class="menu-item" onclick="goStep('career')">경력 사항</div>
     <div class="menu-item" onclick="goStep('skill')">전문 역량 & 인증</div>
     <div class="menu-item" onclick="goStep('brand')">브랜드 스토리</div>
   </aside>
 
+  <!-- CONTENT -->
   <section class="content">
+
     <h2>전문가 소개</h2>
 
+    <!-- 프로필 + 닉네임 -->
     <div class="profile-row">
+
       <div class="profile-avatar">
-        <img id="expertPreview" src="/assets/default_profile.png">
-        <input type="file" id="expertAvatar" hidden>
-        <button class="profile-btn" onclick="expertAvatar.click()">프로필 변경</button>
+        <img id="expertPreview" src="/assets/default_profile.png" alt="프로필 이미지">
+        <input type="file" id="expertAvatar" accept="image/*" hidden>
+        <button type="button" class="profile-btn" onclick="document.getElementById('expertAvatar').click()">프로필 변경</button>
       </div>
 
       <div class="nickname-row">
+        <label for="nicknameInput" class="nickname-label">닉네임</label>
         <div class="nickname-input-box">
-          <input id="nicknameInput" placeholder="닉네임 입력">
+          <input id="nicknameInput" type="text" placeholder="닉네임 입력">
           <small id="nicknameStatus" class="status-msg"></small>
         </div>
       </div>
+
     </div>
 
+    <!-- TIP -->
+    <div class="tip-box">
+      <ul>
+        <li>닉네임은 최초 1회만 변경할 수 있습니다.</li>
+        <li>특수문자, 공백, 과도한 광고성 문구는 사용이 제한될 수 있습니다.</li>
+        <li>한글/영문/숫자만 사용할 수 있으며, 이메일 아이디 또는 비밀번호와 동일한 문자열은 사용이 불가능합니다.</li>
+      </ul>
+    </div>
+
+    <!-- 상세 소개 -->
     <div class="form-group">
-      <label>상세 자기소개</label>
-      <textarea id="introDetail" rows="7"></textarea>
+      <label for="introDetail">상세 자기소개</label>
+      <textarea id="introDetail" rows="7" placeholder="전문가님의 경험, 작업 스타일, 고객과의 협업 방식 등을 자유롭게 작성해주세요."></textarea>
+    </div>
+<!-- 2단 카테고리 UI -->
+<div class="form-group">
+  <label>서비스 카테고리</label>
+
+  <div class="category-wrapper">
+    
+    <!-- 왼쪽: 상위 카테고리 -->
+    <div id="topCategoryBox" class="category-left"></div>
+
+    <!-- 오른쪽: 하위 카테고리 -->
+    <div id="subCategoryBox" class="category-right">
+      <p style="color:var(--text-gray);">상위 카테고리를 먼저 선택하세요.</p>
     </div>
 
-    <div class="form-group">
-      <label>서비스 카테고리</label>
-      <div class="category-wrapper">
-        <div id="topCategoryBox" class="category-left"></div>
-        <div id="subCategoryBox" class="category-right"></div>
-      </div>
-    </div>
-
-    <button class="next-button" onclick="goNextStep()">다음 단계로 이동</button>
-  </section>
+  </div>
 </div>
 
+
+    <button class="next-button" type="button" onclick="goNextStep()">
+  다음 단계로 이동
+</button>
+
+  </section>
+
+</div>
 <script>
 const API_URL = "https://blueon.up.railway.app";
 
+/* ===============================
+   DOM 요소
+================================ */
 const nicknameInput = document.getElementById("nicknameInput");
 const nicknameStatus = document.getElementById("nicknameStatus");
 const introDetail = document.getElementById("introDetail");
 const avatarInput = document.getElementById("expertAvatar");
 const avatarPreview = document.getElementById("expertPreview");
+
 const topBox = document.getElementById("topCategoryBox");
 const subBox = document.getElementById("subCategoryBox");
 
+/* ===============================
+   카테고리 데이터
+================================ */
 const categoryMap = {
-  shop:["쇼핑몰 구축","쇼핑몰 리뉴얼"],
-  brand:["로고 디자인","브랜드 스토리"],
-  ux:["UX 개선","전환율 분석"]
+  shop: [
+    "쇼핑몰 구축(카페24)",
+    "쇼핑몰 구축(스마트스토어)",
+    "쇼핑몰 구축(자사몰)",
+    "쇼핑몰 리뉴얼",
+    "쇼핑몰 UI 디자인",
+    "쇼핑몰 기능 개발"
+  ],
+  detail: [
+    "상세페이지 디자인",
+    "상세페이지 기획",
+    "배너 디자인",
+    "상품 촬영 연계"
+  ],
+  brand: [
+    "로고 디자인",
+    "브랜드 키트 제작",
+    "BI·CI 디자인",
+    "브랜드 스토리텔링"
+  ],
+  ux: [
+    "UX 구조 설계",
+    "전환율 분석",
+    "고객 여정 지도(CJM)",
+    "UI 개선"
+  ]
 };
-const titles = {
-  shop:"쇼핑몰",
-  brand:"브랜드",
-  ux:"UX/UI"
+
+const topCategoryTitles = {
+  shop: "쇼핑몰 제작·구축",
+  detail: "상세페이지 기획·디자인",
+  brand: "브랜드 디자인",
+  ux: "전환율 개선 · UX/UI 최적화"
 };
 
-let selectedTop="", selectedSub="";
+let selectedTop = "";
+let selectedSub = "";
 
-/* 저장 */
-function saveStep1(){
-  localStorage.setItem("expert_step1",JSON.stringify({
-    nickname:nicknameInput.value,
-    intro:introDetail.value,
-    top:selectedTop,
-    sub:selectedSub,
-    avatar:avatarPreview.dataset.url||""
-  }));
-}
+/* ===============================
+   STEP1 저장 (로컬 + 서버)
+================================ */
+async function saveStep1({ syncServer = false } = {}) {
+  const data = {
+    nickname: nicknameInput.value || "",
+    intro: introDetail.value || "",
+    topCategory: selectedTop || "",
+    subCategory: selectedSub || "",
+    avatarUrl: avatarPreview.dataset.url || ""
+  };
 
-/* 불러오기 */
-function loadStep1(){
-  const saved=localStorage.getItem("expert_step1");
-  if(!saved) return;
-  const d=JSON.parse(saved);
-  nicknameInput.value=d.nickname||"";
-  introDetail.value=d.intro||"";
-  selectedTop=d.top||"";
-  selectedSub=d.sub||"";
-  if(d.avatar){
-    avatarPreview.src=d.avatar;
-    avatarPreview.dataset.url=d.avatar;
+  // ✅ 로컬 저장
+  localStorage.setItem("expert_step1", JSON.stringify(data));
+
+  // ✅ 필요할 때만 서버 저장
+  if (syncServer) {
+    try {
+      await fetch(`${API_URL}/expert/save-step`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ step: 1, data })
+      });
+    } catch (e) {
+      console.warn("서버 저장 실패", e);
+    }
   }
 }
 
-/* 카테고리 */
-function renderTop(){
-  topBox.innerHTML="";
-  Object.keys(titles).forEach(k=>{
-    const div=document.createElement("div");
-    div.textContent=titles[k];
-    div.className="category-left-item"+(k===selectedTop?" active":"");
-    div.onclick=()=>{selectedTop=k;selectedSub="";renderTop();renderSub();saveStep1();}
+/* ===============================
+   STEP1 불러오기
+================================ */
+function loadStep1() {
+  const saved = localStorage.getItem("expert_step1");
+  if (!saved) return;
+
+  try {
+    const data = JSON.parse(saved);
+    nicknameInput.value = data.nickname || "";
+    introDetail.value = data.intro || "";
+    selectedTop = data.topCategory || "";
+    selectedSub = data.subCategory || "";
+
+    if (data.avatarUrl) {
+      avatarPreview.src = data.avatarUrl;
+      avatarPreview.dataset.url = data.avatarUrl;
+    }
+  } catch {}
+}
+
+/* ===============================
+   카테고리 렌더링
+================================ */
+function renderTopCategories() {
+  topBox.innerHTML = "";
+
+  Object.keys(topCategoryTitles).forEach(key => {
+    const div = document.createElement("div");
+    div.className = "category-left-item";
+    div.textContent = topCategoryTitles[key];
+    if (selectedTop === key) div.classList.add("active");
+
+    div.onclick = () => {
+      selectedTop = key;
+      selectedSub = "";
+      renderTopCategories();
+      renderSubCategories();
+      saveStep1();
+    };
+
     topBox.appendChild(div);
   });
 }
-function renderSub(){
-  subBox.innerHTML="";
-  if(!selectedTop) return;
-  categoryMap[selectedTop].forEach(n=>{
-    const div=document.createElement("div");
-    div.textContent=n;
-    div.className="subcat-item"+(n===selectedSub?" active":"");
-    div.onclick=()=>{selectedSub=n;renderSub();saveStep1();}
+
+function renderSubCategories() {
+  subBox.innerHTML = "";
+
+  if (!selectedTop) {
+    subBox.innerHTML =
+      "<p style='color:#6b7280;'>상위 카테고리를 선택하세요.</p>";
+    return;
+  }
+
+  categoryMap[selectedTop].forEach(name => {
+    const div = document.createElement("div");
+    div.className = "subcat-item";
+    div.textContent = name;
+    if (selectedSub === name) div.classList.add("active");
+
+    div.onclick = () => {
+      selectedSub = name;
+      renderSubCategories();
+      saveStep1();
+    };
+
     subBox.appendChild(div);
   });
 }
 
-/* 닉네임 체크 */
-nicknameInput.addEventListener("blur",async()=>{
-  if(!nicknameInput.value) return;
-  const res=await fetch(`${API_URL}/expert/check-nickname?nickname=${encodeURIComponent(nicknameInput.value)}`);
-  const d=await res.json();
-  nicknameStatus.textContent=d.exists?"이미 사용 중":"사용 가능";
-  nicknameStatus.className="status-msg "+(d.exists?"error":"ok");
-  saveStep1();
+/* ===============================
+   닉네임 중복 체크
+================================ */
+nicknameInput.addEventListener("blur", async () => {
+  const nickname = nicknameInput.value.trim();
+  if (!nickname) return;
+
+  try {
+    const res = await fetch(
+      `${API_URL}/expert/check-nickname?nickname=${encodeURIComponent(nickname)}`,
+      { credentials: "include" }
+    );
+    if (!res.ok) throw new Error();
+
+    const data = await res.json();
+    nicknameStatus.className = "status-msg";
+
+    if (!data.exists) {
+      nicknameStatus.textContent = "사용 가능한 닉네임입니다.";
+      nicknameStatus.classList.add("ok");
+    } else {
+      nicknameStatus.textContent = "이미 사용 중인 닉네임입니다.";
+      nicknameStatus.classList.add("error");
+    }
+  } catch {
+    nicknameStatus.textContent = "닉네임 확인 실패";
+    nicknameStatus.className = "status-msg error";
+  }
 });
 
-/* 이동 */
-function goNextStep(){
-  if(!nicknameInput.value||!selectedTop||!selectedSub){
-    alert("필수 항목을 입력하세요");
+/* ===============================
+   아바타 업로드
+================================ */
+avatarInput.addEventListener("change", async () => {
+  const file = avatarInput.files[0];
+  if (!file) return;
+
+  const formData = new FormData();
+  formData.append("avatar", file);
+
+  try {
+    const res = await fetch(`${API_URL}/expert/upload-avatar`, {
+      method: "POST",
+      credentials: "include",
+      body: formData
+    });
+    const data = await res.json();
+
+    if (data.success) {
+      avatarPreview.src = data.url;
+      avatarPreview.dataset.url = data.url;
+      saveStep1();
+    }
+  } catch {
+    alert("이미지 업로드 실패");
+  }
+});
+
+/* ===============================
+   입력 자동 저장 (로컬만)
+================================ */
+nicknameInput.addEventListener("input", () => saveStep1());
+introDetail.addEventListener("input", () => saveStep1());
+
+/* ===============================
+   다음 단계 이동
+================================ */
+function goNextStep() {
+  if (!nicknameInput.value.trim()) {
+    alert("닉네임을 입력하세요.");
     return;
   }
-  location.href="/expert-register-step2.html";
-}
-function goStep(step){
-  const map={
-    intro:"/expert-register-step1.html",
-    career:"/expert-register-step2.html",
-    skill:"/expert-register-step3.html",
-    brand:"/expert-register-step4.html"
-  };
-  location.href=map[step];
+  if (!selectedTop || !selectedSub) {
+    alert("카테고리를 선택하세요.");
+    return;
+  }
+
+  saveStep1({ syncServer: true });
+  location.href = "/expert-register-step2.html";
 }
 
-/* INIT */
-window.addEventListener("DOMContentLoaded",()=>{
+/* ===============================
+   초기 실행
+================================ */
+window.addEventListener("DOMContentLoaded", () => {
   loadStep1();
-  renderTop();
-  renderSub();
+  renderTopCategories();
+  renderSubCategories();
 });
 </script>
+
+
 
 </body>
 </html>
