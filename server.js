@@ -1209,10 +1209,24 @@ app.get("/notice/list", async (req, res) => {
     }
 
     const userId = req.session.user.id;
-    const type = req.query.type || "trade"; // 기본: 거래 알림
+    const type = req.query.type || "trade";
 
     const [rows] = await db.query(
-      "SELECT id, message, created_at, is_read FROM notices WHERE user_id=? AND type=? ORDER BY id DESC",
+      `
+      SELECT
+        id,
+        message,
+        type,
+        room_id,
+        from_user,
+        task_key,
+        created_at,
+        is_read
+      FROM notices
+      WHERE user_id = ?
+        AND type = ?
+      ORDER BY id DESC
+      `,
       [userId, type]
     );
 
@@ -1222,10 +1236,11 @@ app.get("/notice/list", async (req, res) => {
     });
 
   } catch (err) {
-    console.error("notice list error:", err);
+    console.error("❌ notice list error:", err);
     return res.json({ success: false, notices: [] });
   }
 });
+
 /* =======================================================
    🔢 안 읽은 알림 개수 조회
 ======================================================= */
