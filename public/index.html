@@ -430,6 +430,28 @@
 .chat-remove-btn:hover {
   color: #ef4444;
 }
+.trade-notice-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.trade-badge {
+  font-size: 12px;
+  font-weight: 700;
+  color: #0056ff;
+}
+
+.trade-message {
+  font-size: 15px;
+  font-weight: 600;
+  color: #111827;
+}
+
+.trade-sub {
+  font-size: 13px;
+  color: #6b7280;
+}
 
   </style>
 </head>
@@ -1020,59 +1042,100 @@ async function loadNotices(type = "trade") {
     item.dataset.roomId = n.room_id ? String(n.room_id) : "";
     item.dataset.fromUser = n.from_user ? String(n.from_user) : "";
 
-    item.innerHTML = `
-  <div class="chat-left">
-    <img src="${room.other_avatar}" />
-    <span>${room.other_nickname}</span>
-  </div>
-
-  <button class="chat-remove-btn">✕</button>
-`;
+if (n.type === "trade") {
+  // =========================
+  // 📦 거래 알림 UI
+  // =========================
+  item.innerHTML = `
+    <div class="trade-notice-card">
+      <div class="trade-badge">📦 거래 발생</div>
+      <div class="trade-message">
+        ${n.message || "새로운 거래가 시작되었습니다."}
+      </div>
+      <div class="trade-sub">
+        작업 페이지로 이동하여 확인하세요.
+      </div>
+      <div class="notice-date">
+        ${formatDate(n.created_at)}
+      </div>
+    </div>
+  `;
+} else {
+  // =========================
+  // 🔔 일반 / 채팅 알림 UI
+  // =========================
+  item.innerHTML = `
+    <div class="notice-msg">
+      ${n.message || "새 알림이 도착했습니다."}
+    </div>
+    <div class="notice-date">
+      ${formatDate(n.created_at)}
+    </div>
+  `;
+}
 
 
     /* ================================
        🔥 클릭 → 알림 제거 + 채팅 이동
     ================================= */
-    item.onclick = async () => {
-      // 패널 닫기
-      noticePanel.style.display = "none";
+item.onclick = async () => {
+  noticePanel.style.display = "none";
 
-      // 화면에서 즉시 제거
-      item.remove();
+  const noticeId = item.dataset.noticeId;
+  const roomId = item.dataset.roomId;
+  const fromUser = item.dataset.fromUser;
+  const taskKey = n.task_key;
 
-      const roomId = item.dataset.roomId;
-      const fromUser = item.dataset.fromUser;
+  // 1️⃣ 화면에서 즉시 제거
+  item.remove();
 
-      // 기존 채팅방 이동
-      if (roomId && roomId !== "null" && roomId !== "undefined") {
-        location.href = `chat.html?room=${roomId}`;
-        return;
+  // 2️⃣ 서버에 해당 알림만 읽음 처리
+  if (noticeId) {
+    fetch(`${API_URL}/notice/read/${noticeId}`, {
+      method: "POST",
+      credentials: "include",
+    }).catch(() => {});
+  }
+
+  // 3️⃣ 🔴 뱃지 숫자 즉시 갱신
+  loadUnreadBadge();
+
+  // ============================
+  // 4️⃣ 이동 분기 (우선순위 중요)
+  // ============================
+
+  // 🔥 거래 알림 → 작업 페이지
+  if (n.type === "trade" && taskKey) {
+    location.href = `/expert-tasks.html?task=${encodeURIComponent(taskKey)}`;
+    return;
+  }
+
+  // 💬 기존 채팅방 이동
+  if (roomId && roomId !== "null" && roomId !== "undefined") {
+    location.href = `chat.html?room=${roomId}`;
+    return;
+  }
+
+  // 💬 새 채팅 생성
+  if (fromUser) {
+    try {
+      const res = await fetch(`${API_URL}/chat/start`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ targetId: fromUser }),
+      });
+
+      const d = await res.json();
+      if (d.success && d.roomId) {
+        location.href = `chat.html?room=${d.roomId}`;
       }
+    } catch (err) {
+      console.error("채팅 생성 실패:", err);
+    }
+  }
+};
 
-      // 새 채팅 생성
-      if (fromUser) {
-        try {
-          const res = await fetch(`${API_URL}/chat/start`, {
-            method: "POST",
-            credentials: "include",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ targetId: fromUser }),
-          });
-
-          const d = await res.json();
-
-          if (d.success && d.roomId) {
-            location.href = `chat.html?room=${d.roomId}`;
-            return;
-          } else {
-            alert("채팅방 생성 실패");
-          }
-        } catch (err) {
-          console.error("채팅 생성 오류:", err);
-          alert("서버 오류로 채팅방을 열 수 없습니다.");
-        }
-      }
-    };
 
     noticeContent.appendChild(item);
   });
@@ -1091,15 +1154,20 @@ async function loadNotices(type = "trade") {
    🔔 알림 패널 토글
 ================================ */
 noticeIcon.onclick = () => {
-  const open = noticePanel.style.display === "block";
-  noticePanel.style.display = open ? "none" : "block";
+  const isOpen = noticePanel.style.display === "block";
 
-  if (!open) {
+  // 토글
+  noticePanel.style.display = isOpen ? "none" : "block";
+
+  // 🔥 열릴 때만 실행
+  if (!isOpen) {
     const active = document.querySelector(".notice-tab.active");
-    requestAnimationFrame(() => moveUnderline(active));
+    if (active) {
+      requestAnimationFrame(() => moveUnderline(active));
+    }
 
-    // ❌ 패널 열 때 매번 알림 재로드하던 코드 제거함
-    // loadNotices(currentTab);  ← 삭제!
+    // ✅ 여기서 반드시 호출
+    loadNotices(currentTab);
   }
 };
 
