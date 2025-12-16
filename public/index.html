@@ -145,17 +145,19 @@
     body.dark-mode .dropdown a { color: #d9e2ff; }
     body.dark-mode .dropdown a:hover { background: #2442a8; color: #fff; }
 
-    /* HERO SECTION */
-    .hero {
-      display: flex;
-      justify-content: space-between;
-      align-items: flex-start;
-      max-width: 1200px;
-      margin: 100px auto 60px;
-      padding: 0 40px;
-      gap: 50px;
-    }
-    .hero-left { flex: 1; }
+    /* HERO 레이아웃 강제 정렬 */
+.hero {
+  display: grid;
+  grid-template-columns: 1.1fr 0.9fr; /* 왼쪽(검색) : 오른쪽(배너) */
+  align-items: center;
+  gap: 50px;
+}
+   /* 왼쪽 영역 정렬 안정화 */
+.hero-left {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
 
     .hero-left h2 {
       font-size: 42px;
@@ -201,17 +203,31 @@
 
     /* BANNER */
     .hero-banner {
-      flex: 0.9;
-      background: linear-gradient(160deg, #0056ff 0%, #4f8bff 100%);
-      color: white; border-radius: 22px; padding: 60px 40px;
-      box-shadow: 0 10px 30px rgba(0, 86, 255, 0.3);
-    }
+  align-self: stretch;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
     body.dark-mode .hero-banner {
       background: linear-gradient(160deg, #002b91 0%, #0048ff 100%);
       box-shadow: 0 10px 30px rgba(0, 86, 255, 0.35);
     }
-    .hero-banner h3 { font-size: 24px; font-weight: 700; margin-bottom: 18px; }
-    .hero-banner p { font-size: 15px; line-height: 1.6; opacity: 0.95; margin-bottom: 25px; }
+  .hero-banner h3 {
+  font-size: 26px;
+  font-weight: 800;
+  margin-bottom: 18px;
+  color: #ffffff;
+}
+   .hero-banner p {
+  font-size: 16px;
+  line-height: 1.7;
+  color: #ffffff;          /* 🔥 완전 흰색 */
+  opacity: 1;              /* 🔥 투명도 제거 */
+}
+.hero-banner strong {
+  font-weight: 800;
+}
+
     .hero-banner button {
       background: white; color: var(--primary); border: none; padding: 12px 28px; border-radius: 10px; font-weight: 600; cursor: pointer; transition: 0.3s;
     }
@@ -534,9 +550,10 @@
       </h2>
 
       <p>
-        온라인 비즈니스의 시작은 ‘브랜드 설계’입니다.<br>
-        기획 · 디자인 · 개발 전 과정을 BlueOn이 함께합니다.
-      </p>
+  <strong>단순 전문가 연결이 아닙니다.</strong><br>
+  브랜드 전략 · 디자인 · 개발까지<br>
+  <strong>BlueOn이 전 과정을 함께합니다.</strong>
+</p>
 
       <div class="search-bar">
         <input id="mainSearch" type="text" placeholder="어떤 브랜드를 만들고 싶으신가요?" />
