@@ -543,7 +543,7 @@
   </nav>
   
 </header>
-<script src="/socket.io/socket.io.js"></script>
+
 
 
 
@@ -978,22 +978,32 @@ if (startBtn) {
     if (e.target === supportModal) supportModal.style.display = "none";
   });
 
-  /* ============================================================
-     🔔 알림 패널
-  ============================================================ */
-  const noticeIcon = document.querySelector(".notice-icon");
-  const noticePanel = document.getElementById("noticePanel");
-  const noticeBadge = document.getElementById("notice-badge");
-  const noticeContent = document.getElementById("noticeContent");
-  const tabs = document.querySelectorAll(".notice-tab");
-  const underline = document.querySelector(".notice-tab-underline");
+/* ================================
+     🔔 알림 DOM
+  ================================ */
+  const noticeIcon   = document.querySelector(".notice-icon");
+  const noticePanel  = document.getElementById("noticePanel");
+  const noticeBadge  = document.getElementById("notice-badge");
+  const noticeContent= document.getElementById("noticeContent");
+  const tabs         = document.querySelectorAll(".notice-tab");
+  const underline    = document.querySelector(".notice-tab-underline");
 
   let currentTab = "trade";
-  let lastNoticeRequestId = 0;
 
+  /* ================================
+     날짜 포맷
+  ================================ */
+  function formatDate(dateString) {
+    const d = new Date(dateString);
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+  }
+
+  /* ================================
+     🔴 안 읽은 알림 뱃지
+  ================================ */
   async function loadUnreadBadge() {
     try {
-      const res = await fetch(`${API_URL}/notice/unread-count`, { credentials: "include" });
+      const res = await fetch(`${API_URL}/notice/unread-count`, { credentials:"include" });
       const data = await res.json();
 
       if (data.success && data.count > 0) {
@@ -1005,222 +1015,123 @@ if (startBtn) {
     } catch {}
   }
 
-  function moveUnderline(tab) {
-    const parentRect = tab.parentElement.getBoundingClientRect();
-    const tabRect = tab.getBoundingClientRect();
-    underline.style.left =
-      (tabRect.left - parentRect.left) + (tabRect.width - underline.offsetWidth) / 2 + "px";
-  }
+  /* ================================
+     🔔 알림 목록
+  ================================ */
+  async function loadNotices(type = "trade") {
+    currentTab = type;
+    noticeContent.innerHTML = "";
 
- /* ================================
-   🔔 알림 목록 불러오기
-================================ */
-async function loadNotices(type = "trade") {
-  currentTab = type;
-  noticeContent.innerHTML = "";
-
-  const res = await fetch(`${API_URL}/notice/list?type=${type}`, {
-    credentials: "include",
-  });
-  const data = await res.json();
-
-  if (!data.success || !data.notices || data.notices.length === 0) {
-    noticeContent.innerHTML = `
-      <div class="notice-empty">
-        <div class="notice-empty-icon">🌈</div>
-        <p class="notice-empty-title">놓친 알림 없이<br>모두 확인하셨어요!</p>
-      </div>
-      <p class="notice-footer">최근 30일 동안의 알림만 보관됩니다.</p>
-    `;
-    return;
-  }
-
-  data.notices.forEach((n) => {
-    const item = document.createElement("div");
-    item.classList.add("notice-item-panel");
-    item.dataset.noticeId = n.id;
-    item.dataset.roomId = n.room_id ? String(n.room_id) : "";
-    item.dataset.fromUser = n.from_user ? String(n.from_user) : "";
-
-if (n.type === "trade") {
-  // =========================
-  // 📦 거래 알림 UI
-  // =========================
-  item.innerHTML = `
-    <div class="trade-notice-card">
-      <div class="trade-badge">📦 거래 발생</div>
-      <div class="trade-message">
-        ${n.message || "새로운 거래가 시작되었습니다."}
-      </div>
-      <div class="trade-sub">
-        작업 페이지로 이동하여 확인하세요.
-      </div>
-      <div class="notice-date">
-        ${formatDate(n.created_at)}
-      </div>
-    </div>
-  `;
-} else {
-  // =========================
-  // 🔔 일반 / 채팅 알림 UI
-  // =========================
-item.innerHTML = `
-  <div class="notice-msg">
-    ${n.message ?? "새 알림이 도착했습니다."}
-  </div>
-  <div class="notice-date">
-    ${formatDate(n.created_at)}
-  </div>
-`;
-
-}
-
-
-    /* ================================
-       🔥 클릭 → 알림 제거 + 채팅 이동
-    ================================= */
-item.onclick = async () => {
-  noticePanel.style.display = "none";
-
-  const noticeId = item.dataset.noticeId;
-  const roomId = item.dataset.roomId;
-  const fromUser = item.dataset.fromUser;
-  const taskKey = n.task_key;
-
-  // 1️⃣ 화면에서 즉시 제거
-  item.classList.add("notice-read");
-
-
-  // 2️⃣ 서버에 해당 알림만 읽음 처리
-  if (noticeId) {
-    fetch(`${API_URL}/notice/read/${noticeId}`, {
-      method: "POST",
+    const res = await fetch(`${API_URL}/notice/list?type=${type}`, {
       credentials: "include",
-    }).catch(() => {});
-  }
+    });
+    const data = await res.json();
 
-  // 3️⃣ 🔴 뱃지 숫자 즉시 갱신
-  loadUnreadBadge();
-
-  // ============================
-  // 4️⃣ 이동 분기 (우선순위 중요)
-  // ============================
-
-  // 🔥 거래 알림 → 작업 페이지
-  if (n.type === "trade" && taskKey) {
-    location.href = `/expert-tasks.html?task=${encodeURIComponent(taskKey)}`;
-    return;
-  }
-
-  // 💬 기존 채팅방 이동
-  if (roomId && roomId !== "null" && roomId !== "undefined") {
-    location.href = `chat.html?room=${roomId}`;
-    return;
-  }
-
-  // 💬 새 채팅 생성
-  if (fromUser) {
-    try {
-      const res = await fetch(`${API_URL}/chat/start`, {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ targetId: fromUser }),
-      });
-
-      const d = await res.json();
-      if (d.success && d.roomId) {
-        location.href = `chat.html?room=${d.roomId}`;
-      }
-    } catch (err) {
-      console.error("채팅 생성 실패:", err);
+    if (!data.success || !data.notices || data.notices.length === 0) {
+      noticeContent.innerHTML = `
+        <div class="notice-empty">
+          <div class="notice-empty-icon">🌈</div>
+          <p class="notice-empty-title">놓친 알림 없이<br>모두 확인하셨어요!</p>
+        </div>
+        <p class="notice-footer">최근 30일 동안의 알림만 보관됩니다.</p>
+      `;
+      return;
     }
+
+    data.notices.forEach((n) => {
+      const item = document.createElement("div");
+      item.className = "notice-item-panel";
+      item.dataset.noticeId = n.id || "";
+      item.dataset.roomId   = n.room_id || "";
+      item.dataset.fromUser = n.from_user || "";
+
+      if (n.type === "trade") {
+        item.innerHTML = `
+          <div class="trade-notice-card">
+            <div class="trade-badge">📦 거래 알림</div>
+            <div class="trade-message">${n.message || "새로운 거래가 발생했습니다."}</div>
+            <div class="trade-sub">작업 페이지로 이동하여 확인하세요.</div>
+            <div class="notice-date">${formatDate(n.created_at)}</div>
+          </div>
+        `;
+      } else {
+        item.innerHTML = `
+          <div class="notice-msg">${n.message || "새 알림이 도착했습니다."}</div>
+          <div class="notice-date">${formatDate(n.created_at)}</div>
+        `;
+      }
+
+      item.onclick = async () => {
+        noticePanel.style.display = "none";
+
+        if (n.id) {
+          fetch(`${API_URL}/notice/read/${n.id}`, {
+            method: "POST",
+            credentials: "include",
+          }).catch(() => {});
+        }
+
+        loadUnreadBadge();
+
+        if (n.type === "trade" && n.task_key) {
+          location.href = `/expert-tasks.html?task=${encodeURIComponent(n.task_key)}`;
+          return;
+        }
+
+        if (n.room_id) {
+          location.href = `chat.html?room=${n.room_id}`;
+          return;
+        }
+
+        if (n.from_user) {
+          const res = await fetch(`${API_URL}/chat/start`, {
+            method: "POST",
+            credentials: "include",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ targetId: n.from_user }),
+          });
+          const d = await res.json();
+          if (d.success) location.href = `chat.html?room=${d.roomId}`;
+        }
+      };
+
+      noticeContent.appendChild(item);
+    });
   }
-};
 
+  /* ================================
+     🔔 패널 토글
+  ================================ */
+  noticeIcon.onclick = () => {
+    const open = noticePanel.style.display === "block";
+    noticePanel.style.display = open ? "none" : "block";
+    if (!open) loadNotices(currentTab);
+  };
 
-    noticeContent.appendChild(item);
+  tabs.forEach(tab => {
+    tab.onclick = () => {
+      if (tab.dataset.tab === currentTab) return;
+      tabs.forEach(t => t.classList.remove("active"));
+      tab.classList.add("active");
+      currentTab = tab.dataset.tab;
+      loadNotices(currentTab);
+    };
   });
 
-  // 뱃지 숨기기
-  noticeBadge.style.display = "none";
-
-  // 서버에 읽음 처리 
-}
-
-/* ================================
-   🔔 알림 패널 토글
-================================ */
-noticeIcon.onclick = () => {
-  const isOpen = noticePanel.style.display === "block";
-
-  // 토글
-  noticePanel.style.display = isOpen ? "none" : "block";
-
-  // 🔥 열릴 때만 실행
-  if (!isOpen) {
-    const active = document.querySelector(".notice-tab.active");
-    if (active) {
-      requestAnimationFrame(() => moveUnderline(active));
+  document.addEventListener("click", (e) => {
+    if (!noticePanel.contains(e.target) && !noticeIcon.contains(e.target)) {
+      noticePanel.style.display = "none";
     }
+  });
 
-    // ✅ 여기서 반드시 호출
-    loadNotices(currentTab);
-  }
-};
-
-/* ================================
-   🔄 탭 전환 시만 목록 재로드
-================================ */
-tabs.forEach((tab) => {
-  tab.onclick = () => {
-    if (tab.dataset.tab === currentTab) return;
-
-    tabs.forEach((t) => t.classList.remove("active"));
-    tab.classList.add("active");
-
-    currentTab = tab.dataset.tab;
-
-    moveUnderline(tab);
-
-    // 탭을 바꿀 때만 서버에서 새로 불러옴
-    loadNotices(currentTab);
-  };
-});
-
-/* ================================
-   🔘 외부 클릭 → 패널 닫기
-================================ */
-document.addEventListener("click", (e) => {
-  if (
-    noticePanel.style.display === "block" &&
-    !noticePanel.contains(e.target) &&
-    !noticeIcon.contains(e.target)
-  ) {
-    noticePanel.style.display = "none";
-  }
-});
-
-
-/* ================================
-   🔴 안 읽은 알림 배지 로드
-================================ */
-loadUnreadBadge();
-
-
-  /* ============================================================
-     💬 채팅 버튼
-  ============================================================ */
-  const chatBtn = document.getElementById("openChat");
-  if (chatBtn) {
-    chatBtn.onclick = () => location.href = "/chat.html";
-  }
-
-  /* ============================================================
-     페이지 로드 시 로그인 상태 체크
-  ============================================================ */
+  /* ================================
+     초기 실행
+  ================================ */
+  loadUnreadBadge();
   loadUserState();
+
 });
+
 </script>
 
 
@@ -1349,11 +1260,9 @@ loadUnreadBadge();
 })();
 </script>
 
-</body>
-</html>
 <script src="/socket.io/socket.io.js"></script>
 <script src="/header-chat.js"></script>
-<script>
-document.addEventListener("DOMContentLoaded", loadUserState);
-</script>
+</body>
+</html>
+
 
