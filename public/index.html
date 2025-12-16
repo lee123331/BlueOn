@@ -1038,7 +1038,7 @@ async function loadNotices(type = "trade") {
   data.notices.forEach((n) => {
     const item = document.createElement("div");
     item.classList.add("notice-item-panel");
-
+    item.dataset.noticeId = n.id;
     item.dataset.roomId = n.room_id ? String(n.room_id) : "";
     item.dataset.fromUser = n.from_user ? String(n.from_user) : "";
 
@@ -1064,14 +1064,15 @@ if (n.type === "trade") {
   // =========================
   // 🔔 일반 / 채팅 알림 UI
   // =========================
-  item.innerHTML = `
-    <div class="notice-msg">
-      ${n.message || "새 알림이 도착했습니다."}
-    </div>
-    <div class="notice-date">
-      ${formatDate(n.created_at)}
-    </div>
-  `;
+item.innerHTML = `
+  <div class="notice-msg">
+    ${n.message ?? "새 알림이 도착했습니다."}
+  </div>
+  <div class="notice-date">
+    ${formatDate(n.created_at)}
+  </div>
+`;
+
 }
 
 
@@ -1087,7 +1088,8 @@ item.onclick = async () => {
   const taskKey = n.task_key;
 
   // 1️⃣ 화면에서 즉시 제거
-  item.remove();
+  item.classList.add("notice-read");
+
 
   // 2️⃣ 서버에 해당 알림만 읽음 처리
   if (noticeId) {
@@ -1143,11 +1145,7 @@ item.onclick = async () => {
   // 뱃지 숨기기
   noticeBadge.style.display = "none";
 
-  // 서버에 읽음 처리 요청
-  await fetch(`${API_URL}/notice/read-all`, {
-    method: "POST",
-    credentials: "include",
-  });
+  // 서버에 읽음 처리 
 }
 
 /* ================================
@@ -1194,10 +1192,15 @@ tabs.forEach((tab) => {
    🔘 외부 클릭 → 패널 닫기
 ================================ */
 document.addEventListener("click", (e) => {
-  if (!noticePanel.contains(e.target) && !noticeIcon.contains(e.target)) {
+  if (
+    noticePanel.style.display === "block" &&
+    !noticePanel.contains(e.target) &&
+    !noticeIcon.contains(e.target)
+  ) {
     noticePanel.style.display = "none";
   }
 });
+
 
 /* ================================
    🔴 안 읽은 알림 배지 로드
