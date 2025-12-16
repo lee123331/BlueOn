@@ -154,10 +154,23 @@
 }
    /* 왼쪽 영역 정렬 안정화 */
 .hero-left {
+  flex: 1;
   display: flex;
   flex-direction: column;
-  justify-content: center;
 }
+
+/* 검색 + 텍스트 영역 */
+.hero-main {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* 카테고리는 배너와 상관없이 아래 */
+.category-inline {
+  margin-top: 50px;
+}
+
 
     .hero-left h2 {
       font-size: 42px;
@@ -218,12 +231,11 @@
   margin-bottom: 18px;
   color: #ffffff;
 }
-   .hero-banner p {
-  font-size: 16px;
-  line-height: 1.7;
-  color: #ffffff;          /* 🔥 완전 흰색 */
-  opacity: 1;              /* 🔥 투명도 제거 */
+ .hero-banner p {
+  color: #ffffff;
+  opacity: 1;
 }
+
 .hero-banner strong {
   font-weight: 800;
 }
@@ -543,23 +555,23 @@
 
   <!-- HERO -->
   <section class="hero">
-    <div class="hero-left">
-      <h2>
-        <span>당신의 아이디어를 브랜드로,</span><br>
-        BlueOn이 함께 설계합니다
-      </h2>
+   <div class="hero-left">
+  <div class="hero-main">
+    <h2>
+      <span>당신의 아이디어를 브랜드로,</span><br>
+      BlueOn이 함께 설계합니다
+    </h2>
 
-      <p>
-  <strong>단순 전문가 연결이 아닙니다.</strong><br>
-  브랜드 전략 · 디자인 · 개발까지<br>
-  <strong>BlueOn이 전 과정을 함께합니다.</strong>
-</p>
+    <p>
+      온라인 비즈니스의 시작은 ‘브랜드 설계’입니다.<br>
+      기획 · 디자인 · 개발 전 과정을 BlueOn이 함께합니다.
+    </p>
 
-      <div class="search-bar">
-        <input id="mainSearch" type="text" placeholder="어떤 브랜드를 만들고 싶으신가요?" />
-       <button id="mainSearchBtn">시작하기</button>
-      </div>
-
+    <div class="search-bar">
+      <input id="mainSearch" type="text" placeholder="어떤 브랜드를 만들고 싶으신가요?" />
+      <button id="mainSearchBtn">시작하기</button>
+    </div>
+  </div>
      <div class="category-inline">
   <!-- 브랜드 디자인 -->
   <div class="category" data-category="brand-design">
