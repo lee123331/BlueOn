@@ -299,7 +299,7 @@
   position: relative;
   display: flex;
   gap: 28px;
-  padding-bottom: 10px;
+  padding: 14px 20px 12px;
 }
 
 .notice-tab {
@@ -320,9 +320,9 @@
 /* 🔥 밑줄 */
 .notice-tab-underline {
   position: absolute;
-  bottom: 0;
+  bottom: 0;          /* 🔥 이제 정확히 탭 아래 */
   height: 3px;
-  width: 22px;              /* 글자 폭보다 살짝 짧게 */
+  width: 22px;
   background: #111827;
   border-radius: 999px;
   transition: left 0.25s ease;
@@ -492,9 +492,9 @@
           <div class="notice-tabs">
             <div class="notice-tab active" data-tab="trade">거래 알림</div>
             <div class="notice-tab" data-tab="system">BlueOn 알림</div>
+            <div class="notice-tab-underline"></div>
           </div>
 
-          <div class="notice-tab-underline"></div>
 
           <div class="notice-content" id="noticeContent">
             <div class="notice-empty">
@@ -994,19 +994,13 @@ if (startBtn) {
    🔽 알림 탭 밑줄 위치 계산
 ================================ */
 function moveUnderline(tab) {
-  if (!tab || !underline) return;
-
   const tabsRect = tab.parentElement.getBoundingClientRect();
-  const tabRect  = tab.getBoundingClientRect();
-  const underlineWidth = underline.offsetWidth;
+  const tabRect = tab.getBoundingClientRect();
 
   underline.style.left =
-    tabRect.left
-    - tabsRect.left
-    + (tabRect.width / 2)
-    - (underlineWidth / 2)
-    + "px";
+    tabRect.left - tabsRect.left + tabRect.width / 2 - underline.offsetWidth / 2 + "px";
 }
+
 
   /* ================================
      날짜 포맷
@@ -1066,36 +1060,31 @@ async function loadNotices(type = "trade") {
     /* =========================
        📦 거래 알림
     ========================= */
-    if (type === "trade") {
-      item.innerHTML = `
-        <div class="trade-notice-card">
-          <div class="trade-badge">📦 거래 알림</div>
-          <div class="trade-message">
-            ${n.message || "새로운 거래 알림이 도착했습니다."}
-          </div>
-          <div class="trade-sub">
-            알림을 클릭하여 확인하세요.
-          </div>
-          <div class="notice-date">
-            ${formatDate(n.created_at)}
-          </div>
-        </div>
-      `;
-    }
-
-    /* =========================
-       🔔 일반 / 시스템 알림
-    ========================= */
-    else {
-      item.innerHTML = `
-        <div class="notice-msg">
-          ${n.message || "새 알림이 도착했습니다."}
-        </div>
-        <div class="notice-date">
-          ${formatDate(n.created_at)}
-        </div>
-      `;
-    }
+if (n.type === "trade") {
+  item.innerHTML = `
+    <div class="trade-notice-card">
+      <div class="trade-badge">📦 거래 알림</div>
+      <div class="trade-message">
+        ${n.message || "새로운 거래 알림이 도착했습니다."}
+      </div>
+      <div class="trade-sub">
+        알림을 클릭하여 확인하세요.
+      </div>
+      <div class="notice-date">
+        ${formatDate(n.created_at)}
+      </div>
+    </div>
+  `;
+} else {
+  item.innerHTML = `
+    <div class="notice-msg">
+      ${n.message || "새 알림이 도착했습니다."}
+    </div>
+    <div class="notice-date">
+      ${formatDate(n.created_at)}
+    </div>
+  `;
+}
 
     /* =========================
        🔥 클릭 처리
@@ -1130,27 +1119,29 @@ noticeIcon.onclick = () => {
 
   if (!isOpen) {
     const active = document.querySelector(".notice-tab.active");
-    if (active) {
-      requestAnimationFrame(() => moveUnderline(active));
-    }
+    if (active) requestAnimationFrame(() => moveUnderline(active));
     loadNotices(currentTab);
   }
 };
 
+
 /* ================================
    🔄 탭 전환
 ================================ */
-tabs.forEach((tab) => {
+tabs.forEach(tab => {
   tab.onclick = () => {
     if (tab.dataset.tab === currentTab) return;
 
-    tabs.forEach((t) => t.classList.remove("active"));
+    tabs.forEach(t => t.classList.remove("active"));
     tab.classList.add("active");
 
     currentTab = tab.dataset.tab;
+
+    moveUnderline(tab);      // 🔥 이 줄 필수
     loadNotices(currentTab);
   };
 });
+
 
 /* ================================
    외부 클릭 → 닫기
