@@ -295,36 +295,37 @@
   z-index: 1000;
 }
 
-/* 탭 메뉴 */
 .notice-tabs {
-  display: flex;
-  gap: 40px;                      /* 🔥 탭 간 간격 여기서 조절 */
-  justify-content: center;        /* 🔥 두 메뉴를 패널 중앙 정렬 */
-  padding: 20px 0 0;              
-  font-size: 16px;
-  font-weight: 600;
-  color: #666;
   position: relative;
+  display: flex;
+  gap: 28px;
+  padding-bottom: 10px;
 }
 
 .notice-tab {
+  position: relative;
+  background: none;
+  border: none;
+  font-size: 15px;
+  font-weight: 700;
+  color: #9ca3af;
   cursor: pointer;
-  padding-bottom: 12px;
+  padding: 6px 0;
 }
 
 .notice-tab.active {
-  color: #111;
+  color: #111827;
 }
 
-/* 탭 언더라인 (크몽 스타일) */
+/* 🔥 밑줄 */
 .notice-tab-underline {
-  width: 80px;    /* 밑줄 길이 */
-  height: 3px;
-  background: #111;
   position: absolute;
-  top: 52px;
-  border-radius: 20px;
-  transition: 0.25s ease;
+  bottom: 0;
+  height: 3px;
+  width: 22px;              /* 글자 폭보다 살짝 짧게 */
+  background: #111827;
+  border-radius: 999px;
+  transition: left 0.25s ease;
 }
 
 
@@ -989,6 +990,23 @@ if (startBtn) {
   const underline    = document.querySelector(".notice-tab-underline");
 
   let currentTab = "trade";
+/* ================================
+   🔽 알림 탭 밑줄 위치 계산
+================================ */
+function moveUnderline(tab) {
+  if (!tab || !underline) return;
+
+  const tabsRect = tab.parentElement.getBoundingClientRect();
+  const tabRect  = tab.getBoundingClientRect();
+  const underlineWidth = underline.offsetWidth;
+
+  underline.style.left =
+    tabRect.left
+    - tabsRect.left
+    + (tabRect.width / 2)
+    - (underlineWidth / 2)
+    + "px";
+}
 
   /* ================================
      날짜 포맷
@@ -1015,114 +1033,137 @@ if (startBtn) {
     } catch {}
   }
 
-  /* ================================
-     🔔 알림 목록
-  ================================ */
-  async function loadNotices(type = "trade") {
-    currentTab = type;
-    noticeContent.innerHTML = "";
+/* ================================
+   🔔 알림 목록
+================================ */
+async function loadNotices(type = "trade") {
+  currentTab = type;
+  noticeContent.innerHTML = "";
 
-    const res = await fetch(`${API_URL}/notice/list?type=${type}`, {
-      credentials: "include",
-    });
-    const data = await res.json();
+  const res = await fetch(`${API_URL}/notice/list?type=${type}`, {
+    credentials: "include",
+  });
+  const data = await res.json();
 
-    if (!data.success || !data.notices || data.notices.length === 0) {
-      noticeContent.innerHTML = `
-        <div class="notice-empty">
-          <div class="notice-empty-icon">🌈</div>
-          <p class="notice-empty-title">놓친 알림 없이<br>모두 확인하셨어요!</p>
-        </div>
-        <p class="notice-footer">최근 30일 동안의 알림만 보관됩니다.</p>
-      `;
-      return;
-    }
-
-    data.notices.forEach((n) => {
-      const item = document.createElement("div");
-      item.className = "notice-item-panel";
-      item.dataset.noticeId = n.id || "";
-      item.dataset.roomId   = n.room_id || "";
-      item.dataset.fromUser = n.from_user || "";
-
-      if (n.type === "trade") {
-        item.innerHTML = `
-          <div class="trade-notice-card">
-            <div class="trade-badge">📦 거래 알림</div>
-            <div class="trade-message">${n.message || "새로운 거래가 발생했습니다."}</div>
-            <div class="trade-sub">작업 페이지로 이동하여 확인하세요.</div>
-            <div class="notice-date">${formatDate(n.created_at)}</div>
-          </div>
-        `;
-      } else {
-        item.innerHTML = `
-          <div class="notice-msg">${n.message || "새 알림이 도착했습니다."}</div>
-          <div class="notice-date">${formatDate(n.created_at)}</div>
-        `;
-      }
-
-      item.onclick = async () => {
-        noticePanel.style.display = "none";
-
-        if (n.id) {
-          fetch(`${API_URL}/notice/read/${n.id}`, {
-            method: "POST",
-            credentials: "include",
-          }).catch(() => {});
-        }
-
-        loadUnreadBadge();
-
-        if (n.type === "trade" && n.task_key) {
-          location.href = `/expert-tasks.html?task=${encodeURIComponent(n.task_key)}`;
-          return;
-        }
-
-        if (n.room_id) {
-          location.href = `chat.html?room=${n.room_id}`;
-          return;
-        }
-
-        if (n.from_user) {
-          const res = await fetch(`${API_URL}/chat/start`, {
-            method: "POST",
-            credentials: "include",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ targetId: n.from_user }),
-          });
-          const d = await res.json();
-          if (d.success) location.href = `chat.html?room=${d.roomId}`;
-        }
-      };
-
-      noticeContent.appendChild(item);
-    });
+  if (!data.success || !Array.isArray(data.notices) || data.notices.length === 0) {
+    noticeContent.innerHTML = `
+      <div class="notice-empty">
+        <div class="notice-empty-icon">🌈</div>
+        <p class="notice-empty-title">
+          놓친 알림 없이<br>모두 확인하셨어요!
+        </p>
+      </div>
+      <p class="notice-footer">최근 30일 동안의 알림만 보관됩니다.</p>
+    `;
+    return;
   }
 
-  /* ================================
-     🔔 패널 토글
-  ================================ */
-  noticeIcon.onclick = () => {
-    const open = noticePanel.style.display === "block";
-    noticePanel.style.display = open ? "none" : "block";
-    if (!open) loadNotices(currentTab);
-  };
+  data.notices.forEach((n) => {
+    const item = document.createElement("div");
+    item.className = "notice-item-panel";
+    item.dataset.noticeId = n.id;
 
-  tabs.forEach(tab => {
-    tab.onclick = () => {
-      if (tab.dataset.tab === currentTab) return;
-      tabs.forEach(t => t.classList.remove("active"));
-      tab.classList.add("active");
-      currentTab = tab.dataset.tab;
-      loadNotices(currentTab);
-    };
-  });
-
-  document.addEventListener("click", (e) => {
-    if (!noticePanel.contains(e.target) && !noticeIcon.contains(e.target)) {
-      noticePanel.style.display = "none";
+    /* =========================
+       📦 거래 알림
+    ========================= */
+    if (type === "trade") {
+      item.innerHTML = `
+        <div class="trade-notice-card">
+          <div class="trade-badge">📦 거래 알림</div>
+          <div class="trade-message">
+            ${n.message || "새로운 거래 알림이 도착했습니다."}
+          </div>
+          <div class="trade-sub">
+            알림을 클릭하여 확인하세요.
+          </div>
+          <div class="notice-date">
+            ${formatDate(n.created_at)}
+          </div>
+        </div>
+      `;
     }
+
+    /* =========================
+       🔔 일반 / 시스템 알림
+    ========================= */
+    else {
+      item.innerHTML = `
+        <div class="notice-msg">
+          ${n.message || "새 알림이 도착했습니다."}
+        </div>
+        <div class="notice-date">
+          ${formatDate(n.created_at)}
+        </div>
+      `;
+    }
+
+    /* =========================
+       🔥 클릭 처리
+    ========================= */
+    item.onclick = async () => {
+      noticePanel.style.display = "none";
+
+      // 읽음 처리
+      fetch(`${API_URL}/notice/read/${n.id}`, {
+        method: "POST",
+        credentials: "include",
+      }).catch(() => {});
+
+      loadUnreadBadge();
+
+      // 🔥 trade + task_key 있는 경우만 이동
+      if (type === "trade" && n.task_key) {
+        location.href = `/expert-tasks.html?task=${encodeURIComponent(n.task_key)}`;
+      }
+    };
+
+    noticeContent.appendChild(item);
   });
+}
+
+/* ================================
+   🔔 패널 토글
+================================ */
+noticeIcon.onclick = () => {
+  const isOpen = noticePanel.style.display === "block";
+  noticePanel.style.display = isOpen ? "none" : "block";
+
+  if (!isOpen) {
+    const active = document.querySelector(".notice-tab.active");
+    if (active) {
+      requestAnimationFrame(() => moveUnderline(active));
+    }
+    loadNotices(currentTab);
+  }
+};
+
+/* ================================
+   🔄 탭 전환
+================================ */
+tabs.forEach((tab) => {
+  tab.onclick = () => {
+    if (tab.dataset.tab === currentTab) return;
+
+    tabs.forEach((t) => t.classList.remove("active"));
+    tab.classList.add("active");
+
+    currentTab = tab.dataset.tab;
+    loadNotices(currentTab);
+  };
+});
+
+/* ================================
+   외부 클릭 → 닫기
+================================ */
+document.addEventListener("click", (e) => {
+  if (
+    noticePanel.style.display === "block" &&
+    !noticePanel.contains(e.target) &&
+    !noticeIcon.contains(e.target)
+  ) {
+    noticePanel.style.display = "none";
+  }
+});
 
   /* ================================
      초기 실행
