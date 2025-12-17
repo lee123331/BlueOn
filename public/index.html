@@ -1089,24 +1089,28 @@ if (n.type === "trade") {
     /* =========================
        🔥 클릭 처리
     ========================= */
-    item.onclick = async () => {
-      noticePanel.style.display = "none";
+item.onclick = async () => {
+  noticePanel.style.display = "none";
 
-      // 읽음 처리
-      fetch(`${API_URL}/notice/read/${n.id}`, {
-        method: "POST",
-        credentials: "include",
-      }).catch(() => {});
+  // 1️⃣ 읽음 처리
+  if (n.id) {
+    fetch(`${API_URL}/notice/read/${n.id}`, {
+      method: "POST",
+      credentials: "include",
+    }).catch(() => {});
+  }
 
-      loadUnreadBadge();
+  loadUnreadBadge();
 
-      // 🔥 trade + task_key 있는 경우만 이동
-      if (type === "trade" && n.task_key) {
-        location.href = `/expert-tasks.html?task=${encodeURIComponent(n.task_key)}`;
-      }
-    };
+  // 2️⃣ 거래 알림 → 작업 페이지 이동 (핵심)
+  if (n.type === "trade" && n.task_key) {
+    location.href = `expert-tasks.html?task=${encodeURIComponent(n.task_key)}`;
+    return;
+  }
 
-    noticeContent.appendChild(item);
+  // 3️⃣ 그 외 알림은 이동 없음 (또는 추후 확장)
+};
+
   });
 }
 

@@ -98,6 +98,7 @@ body {
   align-items:center;
   border-bottom:1px solid var(--line);
   cursor:pointer;
+  transition:0.2s;
 }
 
 .task-item:last-child {
@@ -106,6 +107,12 @@ body {
 
 .task-item:hover {
   background:#f5f7ff;
+}
+
+/* 🔥 알림으로 들어온 작업 강조 */
+.task-item.highlight {
+  background:#eef3ff;
+  border-left:6px solid var(--primary);
 }
 
 .task-left {
@@ -186,26 +193,92 @@ body {
 
 <div class="container">
 
-  <!-- 🟡 작업 대기 (결제 완료) -->
+  <!-- 🟡 작업 대기 -->
   <div class="section-title">작업 대기중인 주문</div>
-  <div class="task-list" id="pendingTaskList">
-    <!-- JS로 삽입 -->
-  </div>
+  <div class="task-list" id="pendingTaskList"></div>
 
   <!-- 🔵 진행중 -->
   <div class="section-title">진행중인 작업</div>
-  <div class="task-list" id="taskList">
-    <!-- JS로 삽입 -->
-  </div>
+  <div class="task-list" id="taskList"></div>
 
   <!-- 🟢 완료 -->
   <div class="section-title">완료된 작업</div>
-  <div class="task-list" id="doneTaskList">
-    <!-- JS로 삽입 -->
-  </div>
+  <div class="task-list" id="doneTaskList"></div>
 
 </div>
 
-<script src="/js/expert-tasks.js"></script>
+<script>
+const API_URL = "https://blueon.up.railway.app";
+
+// 🔑 URL 파라미터에서 task_key 받기
+const params = new URLSearchParams(location.search);
+const highlightTaskKey = params.get("task");
+
+// ===============================
+// 작업 목록 불러오기
+// ===============================
+async function loadTasks() {
+  const res = await fetch(`${API_URL}/expert/tasks`, {
+    credentials: "include",
+  });
+  const data = await res.json();
+
+  if (!data.success) {
+    alert("작업 목록을 불러올 수 없습니다.");
+    return;
+  }
+
+  renderTasks(data.tasks || []);
+}
+
+function renderTasks(tasks) {
+  const pending = document.getElementById("pendingTaskList");
+  const progress = document.getElementById("taskList");
+  const done = document.getElementById("doneTaskList");
+
+  pending.innerHTML = "";
+  progress.innerHTML = "";
+  done.innerHTML = "";
+
+  if (tasks.length === 0) {
+    pending.innerHTML = `<div class="task-empty">대기중인 작업이 없습니다.</div>`;
+    return;
+  }
+
+  tasks.forEach(t => {
+    const item = document.createElement("div");
+    item.className = "task-item";
+
+    if (highlightTaskKey && t.task_key === highlightTaskKey) {
+      item.classList.add("highlight");
+      setTimeout(() => item.scrollIntoView({ behavior: "smooth", block: "center" }), 300);
+    }
+
+    item.innerHTML = `
+      <div class="task-left">
+        <img class="task-thumb" src="${t.thumbnail || '/assets/default_service.png'}" />
+        <div class="task-info">
+          <div class="task-title">${t.service_title || "서비스 작업"}</div>
+          <div class="task-user">${t.buyer_nickname || "의뢰인"}</div>
+        </div>
+      </div>
+      <div class="task-status">${t.status}</div>
+      <div class="task-date">${t.created_at?.slice(0,10)}</div>
+    `;
+
+    item.onclick = () => {
+      location.href = `expert-task-detail.html?task=${encodeURIComponent(t.task_key)}`;
+    };
+
+    if (t.status === "pending") pending.appendChild(item);
+    else if (t.status === "done") done.appendChild(item);
+    else progress.appendChild(item);
+  });
+}
+
+// 초기 실행
+loadTasks();
+</script>
+
 </body>
 </html>
