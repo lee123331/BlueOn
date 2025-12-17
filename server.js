@@ -971,15 +971,17 @@ app.get("/expert/my-services", async (req, res) => {
     const userId = req.session.user.id;
 
     const [rows] = await db.query(
-      `SELECT 
-         id,
-         title,
-         price_basic,
-         main_images,
-         sub_category
-       FROM services
-       WHERE user_id = ?
-       ORDER BY id DESC`,
+      `
+      SELECT 
+        id,
+        title,
+        price_basic,
+        main_images,
+        sub_category
+      FROM services
+      WHERE user_id = ?
+      ORDER BY id DESC
+      `,
       [userId]
     );
 
@@ -987,25 +989,25 @@ app.get("/expert/my-services", async (req, res) => {
       success: true,
       services: rows,
     });
+
   } catch (err) {
-    console.error("my-services 오류:", err);
+    console.error("❌ my-services 오류:", err);
     return res.json({
       success: false,
       message: "서비스 목록을 불러올 수 없습니다.",
     });
   }
 });
-// 🔵 로그인한 유저 + 전문가 여부 반환
+/* ------------------ 로그인 유저 정보 ------------------ */
 app.get("/auth/me", async (req, res) => {
   try {
-    // 로그인 안 함
+    // 로그인 안 됨
     if (!req.session.user) {
       return res.json({ success: false, user: null });
     }
 
     const userId = req.session.user.id;
 
-    // 🔍 users + expert_profiles 조인
     const [[row]] = await db.query(
       `
       SELECT 
@@ -1024,22 +1026,16 @@ app.get("/auth/me", async (req, res) => {
       [userId]
     );
 
-    // 유저 없음
     if (!row) {
       return res.json({ success: false, user: null });
     }
 
-    // ================================
-    // 세션 동기화 (프론트 메뉴가 즉시 반영되도록)
-    // ================================
+    // 🔵 세션 동기화
     req.session.user.nickname   = row.nickname;
     req.session.user.intro      = row.intro;
     req.session.user.avatar_url = row.avatar_url;
     req.session.user.isExpert   = row.is_expert === 1;
 
-    // ================================
-    // 응답 (프론트는 이 값만 사용함)
-    // ================================
     return res.json({
       success: true,
       user: {
@@ -1048,8 +1044,6 @@ app.get("/auth/me", async (req, res) => {
         nickname  : row.nickname || null,
         intro     : row.intro || null,
         avatar_url: row.avatar_url || null,
-
-        // 🔥 반드시 넣어야 하는 필드
         isExpert  : row.is_expert === 1,
       },
     });
@@ -1059,15 +1053,6 @@ app.get("/auth/me", async (req, res) => {
     return res.json({ success: false, user: null });
   }
 });
-
-const taskKey = svc.task_key;
-
-if (!taskKey) {
-  return res.status(500).json({
-    success: false,
-    message: "task_key가 존재하지 않습니다 (services 테이블 확인 필요)"
-  });
-}
 
 /* ------------------ 서비스 상세 불러오기 ------------------ */
 app.get("/services/:id", async (req, res) => {
