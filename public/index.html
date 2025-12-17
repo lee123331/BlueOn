@@ -1054,7 +1054,6 @@ const noticeList = document.getElementById("noticeList");
 async function loadNotices(type = "trade") {
   currentTab = type;
 
-  noticeContent.innerHTML = "";
   noticeList.innerHTML = "";
 
   const res = await fetch(`${API_URL}/notice/list?type=${type}`, {
@@ -1063,17 +1062,18 @@ async function loadNotices(type = "trade") {
   const data = await res.json();
 
   if (!data.success || !data.notices.length) {
-    noticeContent.innerHTML = `
-      <div class="notice-empty">
-        <div class="notice-empty-icon">🌈</div>
-        <p class="notice-empty-title">
-          놓친 알림 없이<br>모두 확인하셨어요!
-        </p>
-      </div>
-      <p class="notice-footer">
-        최근 30일 동안의 알림만 보관됩니다.
-      </p>
-    `;
+noticeList.innerHTML = `
+  <div class="notice-empty">
+    <div class="notice-empty-icon">🌈</div>
+    <p class="notice-empty-title">
+      놓친 알림 없이<br>모두 확인하셨어요!
+    </p>
+  </div>
+  <p class="notice-footer">
+    최근 30일 동안의 알림만 보관됩니다.
+  </p>
+`;
+
     return;
   }
 
