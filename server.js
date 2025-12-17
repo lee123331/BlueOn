@@ -2381,27 +2381,60 @@ app.post("/orders/create", async (req, res) => {
     }
 
     /* ---------------------------
-       4️⃣ 서비스 정보 조회
-    --------------------------- */
-    const [[svc]] = await db.query(
-      `
-      SELECT 
-        user_id AS expert_id,
-        price_basic,
-        task_key,
-        title
-      FROM services
-      WHERE id = ?
-      `,
-      [serviceId]
-    );
+   4️⃣ 서비스 정보 조회
+--------------------------- */
+const [[svc]] = await db.query(
+  `
+  SELECT 
+    user_id AS expert_id,
+    price_basic,
+    task_key
+  FROM services
+  WHERE id = ?
+  `,
+  [serviceId]
+);
 
-    if (!svc) {
-      return res.json({
-        success: false,
-        message: "서비스 없음"
-      });
-    }
+if (!svc || !svc.task_key) {
+  return res.status(500).json({
+    success: false,
+    message: "서비스 task_key 없음"
+  });
+}
+
+/* ---------------------------
+   5️⃣ 주문 생성
+--------------------------- */
+const orderId = crypto.randomUUID();
+const createdAt = new Date().toISOString().slice(0, 19).replace("T", " ");
+const taskKey = svc.task_key;   // ✅ 이 줄 필수
+
+await db.query(
+  `
+  INSERT INTO orders (
+    id,
+    user_id,
+    expert_id,
+    service_id,
+    task_key,
+    price,
+    status,
+    alarm_status,
+    alarm_error,
+    created_at
+  )
+  VALUES (?, ?, ?, ?, ?, ?, 'pending', 'none', '', ?)
+  `,
+  [
+    orderId,
+    userId,
+    svc.expert_id,
+    serviceId,
+    taskKey,              // ✅ 정상
+    svc.price_basic,
+    createdAt
+  ]
+);
 
     /* ---------------------------
        🔥 4-1️⃣ taskKey 확정 (이게 빠져 있었음)
