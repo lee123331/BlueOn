@@ -505,17 +505,17 @@
           </div>
 
 
-          <!-- 🔽 알림 내용 영역 -->
-<div class="notice-content" id="noticeContent">
-  <!-- 🚫 기본은 비어 있음
-       (알림이 없을 때만 JS에서 빈 상태 UI를 여기에 넣음) -->
-</div>
+          <div class="notice-content" id="noticeContent">
+            <div class="notice-empty">
+              <div class="notice-empty-icon">🌈</div>
+              <p class="notice-empty-title">놓친 알림 없이<br>모두 확인하셨어요!</p>
+            </div>
 
-<!-- 📦 실제 알림 리스트 영역 -->
-<div class="notice-list" id="noticeList">
-  <!-- JS에서 .notice-item-panel 들이 여기에 append 됨 -->
-</div>
+            <p class="notice-footer">
+              최근 30일 동안의 알림만 보관되며,<br>이후 자동 삭제됩니다.
+            </p>
 
+          </div>
         </div>
       </div>
 
@@ -1086,12 +1086,15 @@ async function loadNotices(type = "trade") {
       `;
     }
 
-    item.onclick = () => {
-      noticePanel.style.display = "none";
-      if (n.type === "trade" && n.task_key) {
-        location.href = `expert-tasks.html?task=${encodeURIComponent(n.task_key)}`;
-      }
-    };
+item.onclick = (e) => {
+  e.stopPropagation();          // 🔥 외부 클릭 닫기 방지 (핵심)
+  noticePanel.style.display = "none";
+
+  if (n.type === "trade" && n.task_key) {
+    location.href = `expert-tasks.html?task=${encodeURIComponent(n.task_key)}`;
+  }
+};
+
 
     noticeList.appendChild(item);
   });
