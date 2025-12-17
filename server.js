@@ -1184,10 +1184,22 @@ app.post("/notice/portfolio-request", async (req, res) => {
 
     const message = `${userName}님이 '${serviceTitle}' 서비스에서 포트폴리오를 요청했습니다.`;
 
-    await db.query(
-  "INSERT INTO notices (user_id, message, type) VALUES (?, ?, 'trade')",
-  [expertId, message]
-);
+await db.query(`
+  INSERT INTO notices (
+    user_id,
+    message,
+    type,
+    task_key,
+    is_read,
+    created_at
+  )
+  VALUES (?, ?, 'trade', ?, 0, NOW())
+`, [
+  expertId,
+  message,
+  taskKey   // 🔥 여기 핵심
+]);
+
 
 
     return res.json({ success: true });
