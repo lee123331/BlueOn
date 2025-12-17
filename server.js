@@ -1209,6 +1209,11 @@ await db.query(`
 ======================================================= */
 app.get("/notice/list", async (req, res) => {
   try {
+    // 🔴 캐시 완전 차단
+    res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+    res.setHeader("Pragma", "no-cache");
+    res.setHeader("Expires", "0");
+
     if (!req.session.user) {
       return res.json({ success: false, notices: [] });
     }
@@ -1245,6 +1250,7 @@ app.get("/notice/list", async (req, res) => {
     return res.json({ success: false, notices: [] });
   }
 });
+
 
 /* =======================================================
    🔢 안 읽은 알림 개수 조회
