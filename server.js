@@ -2388,7 +2388,8 @@ const [[svc]] = await db.query(
   SELECT 
     user_id AS expert_id,
     price_basic,
-    task_key
+    task_key,
+    service_name
   FROM services
   WHERE id = ?
   `,
@@ -2447,9 +2448,9 @@ await db.query(
     /* ---------------------------
        6️⃣ 전문가 trade 알림 생성
     --------------------------- */
-    const noticeMessage =
-      `${req.session.user.nickname || "고객"}님이 ` +
-      `'${svc.title || "서비스"}' 서비스를 구매하였습니다.`;
+const noticeMessage =
+  `${req.session.user.nickname || "고객"}님이 ` +
+  `'${svc.service_name}' 서비스를 구매하였습니다.`;
 
     await db.query(
       `
