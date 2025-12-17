@@ -2380,7 +2380,7 @@ app.post("/orders/create", async (req, res) => {
       });
     }
 
-    /* ---------------------------
+   /* ---------------------------
    4️⃣ 서비스 정보 조회
 --------------------------- */
 const [[svc]] = await db.query(
@@ -2436,54 +2436,6 @@ await db.query(
   ]
 );
 
-    /* ---------------------------
-       🔥 4-1️⃣ taskKey 확정 (이게 빠져 있었음)
-    --------------------------- */
-    const taskKey = svc.task_key;
-
-    if (!taskKey) {
-      return res.status(500).json({
-        success: false,
-        message: "task_key가 존재하지 않습니다 (services 테이블 확인 필요)"
-      });
-    }
-
-    /* ---------------------------
-       5️⃣ 주문 생성
-    --------------------------- */
-    const orderId = crypto.randomUUID();
-    const createdAt = new Date()
-      .toISOString()
-      .slice(0, 19)
-      .replace("T", " ");
-
-    await db.query(
-      `
-      INSERT INTO orders
-      (
-        id,
-        user_id,
-        expert_id,
-        service_id,
-        task_key,
-        price,
-        status,
-        alarm_status,
-        alarm_error,
-        created_at
-      )
-      VALUES (?, ?, ?, ?, ?, ?, 'pending', 'none', '', ?)
-      `,
-      [
-        orderId,
-        userId,
-        svc.expert_id,
-        serviceId,
-        taskKey,
-        svc.price_basic,
-        createdAt
-      ]
-    );
 
     /* ---------------------------
        6️⃣ 전문가 trade 알림 생성
