@@ -2450,7 +2450,7 @@ await db.query(
     --------------------------- */
 const noticeMessage =
   `${req.session.user.nickname || "고객"}님이 ` +
-  `'${svc.service_name}' 서비스를 구매하였습니다.`;
+  `'${svc.title}' 서비스를 구매하였습니다.`;
 
     await db.query(
       `
@@ -2573,33 +2573,6 @@ const noticeMessage =
   `${buyer?.nickname || "고객"}님이 ` +
   `'${service?.title || "서비스"}' 서비스를 구매하였습니다.`;
 
-// 🔵 trade 알림 + task_key 저장
-await db.query(
-  `
-  INSERT INTO notices
-  (
-    user_id,
-    message,
-    type,
-    is_read,
-    created_at,
-    task_key
-  )
-  VALUES (?, ?, 'trade', 0, NOW(), ?)
-  `,
-  [
-    order.expert_id,
-    noticeMessage,
-    order.task_key   // 🔥 핵심: 반드시 이 값
-  ]
-);
-
-// 🔴 실시간 소켓 알림
-io.to(`user:${order.expert_id}`).emit("notice:new", {
-  type: "trade",
-  message: noticeMessage,
-  task_key: order.task_key   // (선택이지만 넣는 게 좋음)
-});
 
     /* ======================================================
        5️⃣ 채팅방 생성 (work)
