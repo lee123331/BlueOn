@@ -1294,6 +1294,47 @@ document.addEventListener("click", (e) => {
     window.location.href = "brand-roadmap.html";
   }, true); // ← true = 기존 핸들러보다 우선 실행됨
 })();
+async function forceRenderNotices() {
+  const res = await fetch("/notice/list?type=trade", {
+    cache: "no-store"
+  });
+  const data = await res.json();
+
+  console.log("🔎 notice API response:", data);
+
+  // 🔴 실제 알림 패널 DOM 선택자 (중요)
+  const panel = document.querySelector(".notice-panel"); 
+  // ↑ 너 HTML에 맞게 반드시 맞춰야 함
+
+  if (!panel) {
+    console.error("❌ notice-panel DOM 못 찾음");
+    return;
+  }
+
+  panel.innerHTML = "";
+
+  if (!data.success || !data.notices || data.notices.length === 0) {
+    panel.innerHTML = `<div style="padding:12px;">알림 없음</div>`;
+    return;
+  }
+
+  data.notices.forEach(n => {
+    const div = document.createElement("div");
+    div.className = "notice-item";
+    div.textContent = n.message;
+    div.style.padding = "12px";
+    div.style.borderBottom = "1px solid #eee";
+
+    div.onclick = () => {
+      if (n.type === "trade" && n.task_key) {
+        location.href = `/expert-tasks.html?task=${n.task_key}`;
+      }
+    };
+
+    panel.appendChild(div);
+  });
+}
+
 </script>
 
 <script src="/socket.io/socket.io.js"></script>
