@@ -2389,7 +2389,7 @@ const [[svc]] = await db.query(
     user_id AS expert_id,
     price_basic,
     task_key,
-    service_name
+    title
   FROM services
   WHERE id = ?
   `,
