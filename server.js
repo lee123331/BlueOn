@@ -2403,15 +2403,22 @@ if (!svc || !svc.task_key) {
 }
 
 /* ---------------------------
-   5️⃣ 주문 생성
+   5️⃣ 주문 생성 (🔥 핵심)
 --------------------------- */
 const orderId = crypto.randomUUID();
-const createdAt = new Date().toISOString().slice(0, 19).replace("T", " ");
-const taskKey = svc.task_key;   // ✅ 이 줄 필수
+
+// ✅ 주문 단위 고유 task_key 생성
+const taskKey = `${svc.task_key}_${orderId.slice(0, 8)}`;
+
+const createdAt = new Date()
+  .toISOString()
+  .slice(0, 19)
+  .replace("T", " ");
 
 await db.query(
   `
-  INSERT INTO orders (
+  INSERT INTO orders
+  (
     id,
     user_id,
     expert_id,
@@ -2430,7 +2437,7 @@ await db.query(
     userId,
     svc.expert_id,
     serviceId,
-    taskKey,              // ✅ 정상
+    taskKey,              // ✅ 이제 고유
     svc.price_basic,
     createdAt
   ]
