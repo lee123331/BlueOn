@@ -1049,7 +1049,8 @@ function moveUnderline(tab) {
 /* ================================
    🔔 알림 목록
 ================================ */
-const noticeList = document.getElementById("noticeList");
+const noticeEmpty  = document.querySelector(".notice-empty");
+const noticeFooter = document.querySelector(".notice-footer");
 
 async function loadNotices(type = "trade") {
   currentTab = type;
@@ -1061,21 +1062,18 @@ async function loadNotices(type = "trade") {
   });
   const data = await res.json();
 
+  // 🔴 알림 없음
   if (!data.success || !data.notices.length) {
-noticeList.innerHTML = `
-  <div class="notice-empty">
-    <div class="notice-empty-icon">🌈</div>
-    <p class="notice-empty-title">
-      놓친 알림 없이<br>모두 확인하셨어요!
-    </p>
-  </div>
-  <p class="notice-footer">
-    최근 30일 동안의 알림만 보관됩니다.
-  </p>
-`;
-
+    noticeList.style.display = "none";
+    noticeEmpty.style.display = "block";
+    noticeFooter.style.display = "block";
     return;
   }
+
+  // 🟢 알림 있음
+  noticeList.style.display = "block";
+  noticeEmpty.style.display = "none";   // 🔥 핵심
+  noticeFooter.style.display = "none";  // 🔥 핵심
 
   data.notices.forEach((n) => {
     const item = document.createElement("div");
@@ -1096,19 +1094,19 @@ noticeList.innerHTML = `
       `;
     }
 
-item.onclick = (e) => {
-  e.stopPropagation();          // 🔥 외부 클릭 닫기 방지 (핵심)
-  noticePanel.style.display = "none";
+    item.onclick = (e) => {
+      e.stopPropagation();
+      noticePanel.style.display = "none";
 
-  if (n.type === "trade" && n.task_key) {
-    location.href = `expert-tasks.html?task=${encodeURIComponent(n.task_key)}`;
-  }
-};
-
+      if (n.type === "trade" && n.task_key) {
+        location.href = `expert-tasks.html?task=${encodeURIComponent(n.task_key)}`;
+      }
+    };
 
     noticeList.appendChild(item);
   });
 }
+
 
 
 /* ================================
