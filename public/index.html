@@ -453,6 +453,15 @@
   font-size: 13px;
   color: #6b7280;
 }
+.notice-list {
+  max-height: 340px;
+  overflow-y: auto;
+  padding: 16px 18px 20px;
+}
+.notice-content {
+  text-align: center;
+  padding: 70px 0 50px;
+}
 
   </style>
 </head>
@@ -496,17 +505,17 @@
           </div>
 
 
-          <div class="notice-content" id="noticeContent">
-            <div class="notice-empty">
-              <div class="notice-empty-icon">🌈</div>
-              <p class="notice-empty-title">놓친 알림 없이<br>모두 확인하셨어요!</p>
-            </div>
+          <!-- 🔽 알림 내용 영역 -->
+<div class="notice-content" id="noticeContent">
+  <!-- 🚫 기본은 비어 있음
+       (알림이 없을 때만 JS에서 빈 상태 UI를 여기에 넣음) -->
+</div>
 
-            <p class="notice-footer">
-              최근 30일 동안의 알림만 보관되며,<br>이후 자동 삭제됩니다.
-            </p>
+<!-- 📦 실제 알림 리스트 영역 -->
+<div class="notice-list" id="noticeList">
+  <!-- JS에서 .notice-item-panel 들이 여기에 append 됨 -->
+</div>
 
-          </div>
         </div>
       </div>
 
@@ -1030,16 +1039,20 @@ function moveUnderline(tab) {
 /* ================================
    🔔 알림 목록
 ================================ */
+const noticeList = document.getElementById("noticeList");
+
 async function loadNotices(type = "trade") {
   currentTab = type;
+
   noticeContent.innerHTML = "";
+  noticeList.innerHTML = "";
 
   const res = await fetch(`${API_URL}/notice/list?type=${type}`, {
     credentials: "include",
   });
   const data = await res.json();
 
-  if (!data.success || !Array.isArray(data.notices) || data.notices.length === 0) {
+  if (!data.success || !data.notices.length) {
     noticeContent.innerHTML = `
       <div class="notice-empty">
         <div class="notice-empty-icon">🌈</div>
@@ -1047,7 +1060,9 @@ async function loadNotices(type = "trade") {
           놓친 알림 없이<br>모두 확인하셨어요!
         </p>
       </div>
-      <p class="notice-footer">최근 30일 동안의 알림만 보관됩니다.</p>
+      <p class="notice-footer">
+        최근 30일 동안의 알림만 보관됩니다.
+      </p>
     `;
     return;
   }
@@ -1055,64 +1070,33 @@ async function loadNotices(type = "trade") {
   data.notices.forEach((n) => {
     const item = document.createElement("div");
     item.className = "notice-item-panel";
-    item.dataset.noticeId = n.id;
 
-    /* =========================
-       📦 거래 알림
-    ========================= */
-if (n.type === "trade") {
-  item.innerHTML = `
-    <div class="trade-notice-card">
-      <div class="trade-badge">📦 거래 알림</div>
-      <div class="trade-message">
-        ${n.message || "새로운 거래 알림이 도착했습니다."}
-      </div>
-      <div class="trade-sub">
-        알림을 클릭하여 확인하세요.
-      </div>
-      <div class="notice-date">
-        ${formatDate(n.created_at)}
-      </div>
-    </div>
-  `;
-} else {
-  item.innerHTML = `
-    <div class="notice-msg">
-      ${n.message || "새 알림이 도착했습니다."}
-    </div>
-    <div class="notice-date">
-      ${formatDate(n.created_at)}
-    </div>
-  `;
-}
+    if (n.type === "trade") {
+      item.innerHTML = `
+        <div class="trade-notice-card">
+          <div class="trade-badge">📦 거래 알림</div>
+          <div class="trade-message">${n.message}</div>
+          <div class="notice-date">${formatDate(n.created_at)}</div>
+        </div>
+      `;
+    } else {
+      item.innerHTML = `
+        <div class="notice-msg">${n.message}</div>
+        <div class="notice-date">${formatDate(n.created_at)}</div>
+      `;
+    }
 
-    /* =========================
-       🔥 클릭 처리
-    ========================= */
-item.onclick = async () => {
-  noticePanel.style.display = "none";
+    item.onclick = () => {
+      noticePanel.style.display = "none";
+      if (n.type === "trade" && n.task_key) {
+        location.href = `expert-tasks.html?task=${encodeURIComponent(n.task_key)}`;
+      }
+    };
 
-  // 1️⃣ 읽음 처리
-  if (n.id) {
-    fetch(`${API_URL}/notice/read/${n.id}`, {
-      method: "POST",
-      credentials: "include",
-    }).catch(() => {});
-  }
-
-  loadUnreadBadge();
-
-  // 2️⃣ 거래 알림 → 작업 페이지 이동 (핵심)
-  if (n.type === "trade" && n.task_key) {
-    location.href = `expert-tasks.html?task=${encodeURIComponent(n.task_key)}`;
-    return;
-  }
-
-  // 3️⃣ 그 외 알림은 이동 없음 (또는 추후 확장)
-};
-
+    noticeList.appendChild(item);
   });
 }
+
 
 /* ================================
    🔔 패널 토글
