@@ -1086,26 +1086,14 @@ async function loadNotices(type = "trade") {
       `;
     }
 
-item.onclick = async (e) => {
-  e.stopPropagation();      // 🔥 반드시 필요
-  noticePanel.style.display = "none";
+    item.onclick = () => {
+      noticePanel.style.display = "none";
+      if (n.type === "trade" && n.task_key) {
+        location.href = `expert-tasks.html?task=${encodeURIComponent(n.task_key)}`;
+      }
+    };
 
-  // 읽음 처리
-  if (n.id) {
-    fetch(`${API_URL}/notice/read/${n.id}`, {
-      method: "POST",
-      credentials: "include",
-    }).catch(() => {});
-  }
-
-  loadUnreadBadge();
-
-  // 거래 알림 → 작업 페이지 이동
-  if (n.type === "trade" && n.task_key) {
-    location.href = `expert-tasks.html?task=${encodeURIComponent(n.task_key)}`;
-  }
-};
-
+    noticeList.appendChild(item);
   });
 }
 
