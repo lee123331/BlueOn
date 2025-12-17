@@ -2325,17 +2325,6 @@ app.get("/expert/mypage", async (req, res) => {
 
 
 
-/* ============================
-   주문 생성 (무통장 입금)
-============================ */
-/* ============================
-   🔵 주문 생성 (무통장 입금)
-   - status: pending
-   - UUID 기반 orderId
-============================ */
-/* ============================
-   주문 생성 (무통장 입금)
-============================ */
 app.post("/orders/create", async (req, res) => {
   try {
     /* ---------------------------
@@ -2362,7 +2351,7 @@ app.post("/orders/create", async (req, res) => {
     }
 
     /* ---------------------------
-       3️⃣ 🔥 중복 pending 주문 체크
+       3️⃣ 중복 pending 주문 체크
     --------------------------- */
     const [[dup]] = await db.query(
       `
@@ -2377,9 +2366,8 @@ app.post("/orders/create", async (req, res) => {
     );
 
     if (dup) {
-      // ⚠️ 중복 주문도 "주문 자체는 존재" → 프론트는 이동 처리
       return res.json({
-        success: false,              // success는 false여도 됨
+        success: false,
         code: "DUPLICATE_PENDING",
         orderId: dup.id,
         message: "이미 입금 대기 중인 주문이 있습니다."
@@ -2392,12 +2380,12 @@ app.post("/orders/create", async (req, res) => {
     const [[svc]] = await db.query(
       `
       SELECT 
-  user_id AS expert_id,
-  price_basic,
-  task_key
-FROM services
-WHERE id = ?
-
+        user_id AS expert_id,
+        price_basic,
+        task_key,
+        title
+      FROM services
+      WHERE id = ?
       `,
       [serviceId]
     );
@@ -2410,7 +2398,19 @@ WHERE id = ?
     }
 
     /* ---------------------------
-       5️⃣ 주문 생성 (🔥 핵심)
+       🔥 4-1️⃣ taskKey 확정 (이게 빠져 있었음)
+    --------------------------- */
+    const taskKey = svc.task_key;
+
+    if (!taskKey) {
+      return res.status(500).json({
+        success: false,
+        message: "task_key가 존재하지 않습니다 (services 테이블 확인 필요)"
+      });
+    }
+
+    /* ---------------------------
+       5️⃣ 주문 생성
     --------------------------- */
     const orderId = crypto.randomUUID();
     const createdAt = new Date()
@@ -2418,65 +2418,84 @@ WHERE id = ?
       .slice(0, 19)
       .replace("T", " ");
 
-  await db.query(
-  `
-  INSERT INTO orders
-  (
-    id,
-    user_id,
-    expert_id,
-    service_id,
-    task_key,
-    price,
-    status,
-    alarm_status,
-    alarm_error,
-    created_at
-  )
-  VALUES (?, ?, ?, ?, ?, ?, 'pending', 'none', '', ?)
-  `,
-  [
-    orderId,
-    userId,
-    svc.expert_id,
-    serviceId,
-    taskKey,          // 🔥 추가
-    svc.price_basic,
-    createdAt
-  ]
-);
-
-
-    /* -------------------------------------------------
-       6️⃣ 🔔 알림은 "항상 다시 시도" (실패해도 OK)
-    ------------------------------------------------- */
-    try {
-      // 예시: 관리자 알림 / 소켓 / SMS 중 있는 것만 사용
-      // await notifyAdminNewOrder(orderId);
-      // await sendSMS(...);
-
-      console.log("🔔 주문 알림 전송 시도:", orderId);
-    } catch (alarmErr) {
-      // ❗ 절대 throw 하지 말 것
-      console.warn(
-        "⚠️ 주문 알림 실패 (주문은 성공):",
-        alarmErr.response?.status || alarmErr.message
-      );
-    }
+    await db.query(
+      `
+      INSERT INTO orders
+      (
+        id,
+        user_id,
+        expert_id,
+        service_id,
+        task_key,
+        price,
+        status,
+        alarm_status,
+        alarm_error,
+        created_at
+      )
+      VALUES (?, ?, ?, ?, ?, ?, 'pending', 'none', '', ?)
+      `,
+      [
+        orderId,
+        userId,
+        svc.expert_id,
+        serviceId,
+        taskKey,
+        svc.price_basic,
+        createdAt
+      ]
+    );
 
     /* ---------------------------
-       7️⃣ 성공 응답 (🔥 중요)
+       6️⃣ 전문가 trade 알림 생성
+    --------------------------- */
+    const noticeMessage =
+      `${req.session.user.nickname || "고객"}님이 ` +
+      `'${svc.title || "서비스"}' 서비스를 구매하였습니다.`;
+
+    await db.query(
+      `
+      INSERT INTO notices
+      (
+        user_id,
+        message,
+        type,
+        is_read,
+        created_at,
+        task_key
+      )
+      VALUES (?, ?, 'trade', 0, NOW(), ?)
+      `,
+      [
+        svc.expert_id,
+        noticeMessage,
+        taskKey
+      ]
+    );
+
+    // 🔴 실시간 소켓 알림
+    io.to(`user:${svc.expert_id}`).emit("notice:new", {
+      type: "trade",
+      message: noticeMessage,
+      task_key: taskKey
+    });
+
+    /* ---------------------------
+       7️⃣ 성공 응답
     --------------------------- */
     return res.json({
       success: true,
-      orderId
+      orderId,
+      taskKey
     });
 
   } catch (err) {
     console.error("❌ orders/create error:", err);
+    console.error("❌ sqlMessage:", err?.sqlMessage);
+
     return res.status(500).json({
       success: false,
-      message: "서버 오류"
+      message: err?.sqlMessage || err?.message || "서버 오류"
     });
   }
 });
