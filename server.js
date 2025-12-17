@@ -1060,6 +1060,14 @@ app.get("/auth/me", async (req, res) => {
   }
 });
 
+const taskKey = svc.task_key;
+
+if (!taskKey) {
+  return res.status(500).json({
+    success: false,
+    message: "task_key가 존재하지 않습니다 (services 테이블 확인 필요)"
+  });
+}
 
 /* ------------------ 서비스 상세 불러오기 ------------------ */
 app.get("/services/:id", async (req, res) => {
@@ -2399,10 +2407,12 @@ app.post("/orders/create", async (req, res) => {
     const [[svc]] = await db.query(
       `
       SELECT 
-        user_id AS expert_id,
-        price_basic
-      FROM services
-      WHERE id = ?
+  user_id AS expert_id,
+  price_basic,
+  task_key
+FROM services
+WHERE id = ?
+
       `,
       [serviceId]
     );
@@ -2423,7 +2433,7 @@ app.post("/orders/create", async (req, res) => {
       .slice(0, 19)
       .replace("T", " ");
 
-   await db.query(
+  await db.query(
   `
   INSERT INTO orders
   (
@@ -2431,19 +2441,21 @@ app.post("/orders/create", async (req, res) => {
     user_id,
     expert_id,
     service_id,
+    task_key,
     price,
     status,
     alarm_status,
     alarm_error,
     created_at
   )
-  VALUES (?, ?, ?, ?, ?, 'pending', 'none', '', ?)
+  VALUES (?, ?, ?, ?, ?, ?, 'pending', 'none', '', ?)
   `,
   [
     orderId,
     userId,
     svc.expert_id,
     serviceId,
+    taskKey,          // 🔥 추가
     svc.price_basic,
     createdAt
   ]
@@ -2554,23 +2566,37 @@ app.post("/orders/confirm-payment", async (req, res) => {
     /* ======================================================
        4️⃣ 🔔 전문가 구매 알림 생성 (1회)
     ====================================================== */
-    const noticeMessage =
-      `${buyer?.nickname || "고객"}님이 ` +
-      `'${service?.title || "서비스"}' 서비스를 구매하였습니다.`;
+const noticeMessage =
+  `${buyer?.nickname || "고객"}님이 ` +
+  `'${service?.title || "서비스"}' 서비스를 구매하였습니다.`;
 
-    await db.query(
-      `
-      INSERT INTO notices (user_id, message, type, is_read, created_at)
-      VALUES (?, ?, 'trade', 0, NOW())
-      `,
-      [order.expert_id, noticeMessage]
-    );
+// 🔵 trade 알림 + task_key 저장
+await db.query(
+  `
+  INSERT INTO notices
+  (
+    user_id,
+    message,
+    type,
+    is_read,
+    created_at,
+    task_key
+  )
+  VALUES (?, ?, 'trade', 0, NOW(), ?)
+  `,
+  [
+    order.expert_id,
+    noticeMessage,
+    order.task_key   // 🔥 핵심: 반드시 이 값
+  ]
+);
 
-    // 🔴 실시간 소켓 알림
-    io.to(`user:${order.expert_id}`).emit("notice:new", {
-      type: "trade",
-      message: noticeMessage
-    });
+// 🔴 실시간 소켓 알림
+io.to(`user:${order.expert_id}`).emit("notice:new", {
+  type: "trade",
+  message: noticeMessage,
+  task_key: order.task_key   // (선택이지만 넣는 게 좋음)
+});
 
     /* ======================================================
        5️⃣ 채팅방 생성 (work)
