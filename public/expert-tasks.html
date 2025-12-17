@@ -164,6 +164,11 @@ body {
   color:var(--text-gray);
   font-size:14px;
 }
+.task-item.highlight {
+  border: 2px solid #0056ff;
+  background: #f3f7ff;
+}
+
 </style>
 </head>
 
@@ -210,13 +215,15 @@ body {
 <script>
 const API_URL = "https://blueon.up.railway.app";
 
-// 🔑 URL 파라미터에서 task_key 받기
+/* ===============================
+   🔑 URL 파라미터에서 task_key 받기
+================================ */
 const params = new URLSearchParams(location.search);
 const highlightTaskKey = params.get("task");
 
-// ===============================
-// 작업 목록 불러오기
-// ===============================
+/* ===============================
+   📦 작업 목록 불러오기
+================================ */
 async function loadTasks() {
   const res = await fetch(`${API_URL}/expert/tasks`, {
     credentials: "include",
@@ -231,10 +238,13 @@ async function loadTasks() {
   renderTasks(data.tasks || []);
 }
 
+/* ===============================
+   🧩 작업 렌더링
+================================ */
 function renderTasks(tasks) {
-  const pending = document.getElementById("pendingTaskList");
+  const pending  = document.getElementById("pendingTaskList");
   const progress = document.getElementById("taskList");
-  const done = document.getElementById("doneTaskList");
+  const done     = document.getElementById("doneTaskList");
 
   pending.innerHTML = "";
   progress.innerHTML = "";
@@ -245,13 +255,17 @@ function renderTasks(tasks) {
     return;
   }
 
+  let highlightedItem = null;
+
   tasks.forEach(t => {
     const item = document.createElement("div");
     item.className = "task-item";
+    item.dataset.taskKey = t.task_key;
 
+    /* 🔥 알림에서 넘어온 task_key면 강조 */
     if (highlightTaskKey && t.task_key === highlightTaskKey) {
       item.classList.add("highlight");
-      setTimeout(() => item.scrollIntoView({ behavior: "smooth", block: "center" }), 300);
+      highlightedItem = item;
     }
 
     item.innerHTML = `
@@ -266,19 +280,36 @@ function renderTasks(tasks) {
       <div class="task-date">${t.created_at?.slice(0,10)}</div>
     `;
 
+    /* 🔗 작업 클릭 → 상세 페이지 */
     item.onclick = () => {
       location.href = `expert-task-detail.html?task=${encodeURIComponent(t.task_key)}`;
     };
 
+    /* 상태별 분류 */
     if (t.status === "pending") pending.appendChild(item);
     else if (t.status === "done") done.appendChild(item);
     else progress.appendChild(item);
   });
+
+  /* ===============================
+     🔽 강조된 작업 자동 스크롤
+  ================================ */
+  if (highlightedItem) {
+    setTimeout(() => {
+      highlightedItem.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+      });
+    }, 300);
+  }
 }
 
-// 초기 실행
+/* ===============================
+   🚀 초기 실행
+================================ */
 loadTasks();
 </script>
+
 
 </body>
 </html>
