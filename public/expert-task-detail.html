@@ -1,0 +1,62 @@
+<script>
+const API_URL = "https://blueon.up.railway.app";
+const params = new URLSearchParams(location.search);
+const taskKey = params.get("task");
+
+if (!taskKey) {
+  alert("잘못된 접근입니다.");
+  location.href = "/expert-tasks.html";
+}
+
+async function loadTaskDetail() {
+  const res = await fetch(
+    `${API_URL}/expert/tasks/detail?taskKey=${encodeURIComponent(taskKey)}`,
+    { credentials: "include" }
+  );
+  const data = await res.json();
+
+  if (!data.success) {
+    alert("작업 정보를 불러올 수 없습니다.");
+    return;
+  }
+
+  renderTask(data.task);
+}
+
+function renderTask(t) {
+  document.getElementById("serviceTitle").innerText = t.service_title;
+  document.getElementById("buyerName").innerText = t.buyer.nickname;
+  document.getElementById("taskStatus").innerText = t.status;
+
+  const action = document.getElementById("taskAction");
+
+  if (t.status === "pending") {
+    action.innerHTML = `<button onclick="startTask()">작업 시작</button>`;
+  } else if (t.status === "progress") {
+    action.innerHTML = `<button onclick="goChat(${t.room_id})">채팅 이동</button>`;
+  }
+}
+
+async function startTask() {
+  const res = await fetch(`${API_URL}/expert/tasks/start`, {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ taskKey })
+  });
+
+  const data = await res.json();
+  if (!data.success) {
+    alert("작업 시작 실패");
+    return;
+  }
+
+  loadTaskDetail();
+}
+
+function goChat(roomId) {
+  location.href = `/chat.html?room=${roomId}`;
+}
+
+loadTaskDetail();
+</script>

@@ -2712,19 +2712,31 @@ app.get("/orders/:id", async (req, res) => {
    🔵 전문가 작업 목록 (관리자 입금 확인 후)
    기준: orders.status = 'paid'
 ====================================================== */
+/* ======================================================
+   🔵 전문가 작업 목록 조회
+   GET /expert/tasks
+====================================================== */
 app.get("/expert/tasks", async (req, res) => {
   try {
+    // 1️⃣ 전문가 로그인 체크
     if (!req.session.user || !req.session.user.isExpert) {
       return res.status(401).json({ success: false });
     }
 
     const expertId = req.session.user.id;
 
-    /* 1️⃣ 결제 완료됐지만 아직 작업 안 만든 주문 */
-    const [paidOrders] = await db.query(`
+    /* ======================================================
+       2️⃣ 결제 완료됐지만 아직 작업(task) 생성 안 된 주문
+       - 관리자 입금 확인 후
+       - service_tasks에 아직 없는 상태
+       → "작업 대기중"
+    ====================================================== */
+    const [paidOrders] = await db.query(
+      `
       SELECT
         o.task_key,
         o.created_at,
+        s.id AS service_id,
         s.title AS service_title,
         s.main_images,
         u.nickname AS buyer_nickname
@@ -2733,58 +2745,80 @@ app.get("/expert/tasks", async (req, res) => {
       JOIN users u ON u.id = o.user_id
       WHERE o.expert_id = ?
         AND o.status = 'paid'
-        AND o.task_key NOT IN (
-          SELECT task_key FROM service_tasks
+        AND NOT EXISTS (
+          SELECT 1
+          FROM service_tasks t
+          WHERE t.task_key = o.task_key
         )
-    `, [expertId]);
+      ORDER BY o.created_at DESC
+      `,
+      [expertId]
+    );
 
-    /* 2️⃣ 실제 작업(task) */
-    const [tasks] = await db.query(`
+    /* ======================================================
+       3️⃣ 이미 생성된 작업(service_tasks)
+       → 진행중 / 완료
+    ====================================================== */
+    const [tasks] = await db.query(
+      `
       SELECT
         t.task_key,
         t.status,
+        t.phase,
         t.created_at,
+        t.thumbnail,
         s.title AS service_title,
-        u.nickname AS buyer_nickname,
-        t.thumbnail
+        u.nickname AS buyer_nickname
       FROM service_tasks t
       JOIN services s ON s.id = t.service_id
       JOIN users u ON u.id = t.buyer_id
       WHERE t.expert_id = ?
-    `, [expertId]);
+      ORDER BY t.created_at DESC
+      `,
+      [expertId]
+    );
 
+    /* ======================================================
+       4️⃣ 프론트에서 바로 쓰기 좋은 형태로 통합
+    ====================================================== */
     const result = [];
 
-    /* 🔹 작업 대기 (결제 완료) */
+    /* 🔹 작업 대기 (결제 완료 / 아직 시작 전) */
     paidOrders.forEach(o => {
       const imgs = parseImagesSafe(o.main_images);
+
       result.push({
         task_key: o.task_key,
         service_title: o.service_title,
-        buyer_nickname: o.buyer_nickname,
-        thumbnail: imgs[0],
-        status: "pending",
+        buyer_nickname: o.buyer_nickname || "의뢰인",
+        thumbnail: imgs[0] || "/assets/default_service.png",
+        status: "pending",          // 🔥 프론트 기준 상태
+        phase: "ready",
         created_at: o.created_at
       });
     });
 
-    /* 🔹 진행 / 완료 */
+    /* 🔹 진행중 / 완료 작업 */
     tasks.forEach(t => {
       result.push({
         task_key: t.task_key,
         service_title: t.service_title,
-        buyer_nickname: t.buyer_nickname,
-        thumbnail: t.thumbnail,
+        buyer_nickname: t.buyer_nickname || "의뢰인",
+        thumbnail: t.thumbnail || "/assets/default_service.png",
         status: t.status === "done" ? "done" : "progress",
+        phase: t.phase,
         created_at: t.created_at
       });
     });
 
-    res.json({ success: true, tasks: result });
+    return res.json({
+      success: true,
+      tasks: result
+    });
 
   } catch (err) {
     console.error("❌ /expert/tasks error:", err);
-    res.status(500).json({ success: false });
+    return res.status(500).json({ success: false });
   }
 });
 
