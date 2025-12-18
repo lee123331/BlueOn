@@ -24,12 +24,60 @@ body {
   background:var(--bg);
 }
 
+/* ===============================
+   상단 단계 표시 바
+================================ */
+.step-bar {
+  background:var(--white);
+  padding:20px;
+  border-bottom:1px solid var(--line);
+}
+
+.step-buttons {
+  max-width:1000px;
+  margin:0 auto;
+  display:grid;
+  grid-template-columns:repeat(4,1fr);
+  gap:12px;
+}
+
+.step-btn {
+  padding:14px;
+  border-radius:12px;
+  border:1px solid var(--line);
+  text-align:center;
+  font-weight:700;
+  font-size:14px;
+  background:#f9fafb;
+  color:var(--text-gray);
+}
+
+.step-btn.active {
+  background:var(--primary);
+  color:#fff;
+  border-color:var(--primary);
+}
+
+.step-btn span {
+  display:block;
+  font-size:12px;
+  margin-top:4px;
+  font-weight:500;
+  opacity:0.9;
+}
+
+/* ===============================
+   메인 컨테이너
+================================ */
 .container {
   max-width:900px;
-  margin:40px auto;
+  margin:30px auto;
   padding:0 20px;
 }
 
+/* ===============================
+   작업 요약 카드
+================================ */
 .task-card {
   background:var(--white);
   border:1px solid var(--line);
@@ -69,23 +117,35 @@ body {
   color:var(--text-gray);
 }
 
-.task-status {
-  margin-top:14px;
-  font-weight:700;
-  color:var(--primary);
+/* ===============================
+   단계 안내 카드
+================================ */
+.task-step {
+  margin-top:20px;
+  padding:20px;
+  border-radius:14px;
+  background:#f9fafb;
+  border:1px dashed var(--line);
+  font-size:14px;
+  line-height:1.6;
+  color:var(--text-dark);
 }
 
+/* ===============================
+   액션 영역
+================================ */
 .task-action {
-  margin-top:24px;
+  margin-top:20px;
 }
 
 .action-btn {
-  padding:12px 20px;
+  padding:12px 22px;
   border-radius:12px;
   border:none;
   background:var(--primary);
   color:#fff;
   font-weight:800;
+  font-size:14px;
   cursor:pointer;
 }
 
@@ -97,7 +157,31 @@ body {
 
 <body>
 
+<!-- 🔹 단계 표시 -->
+<div class="step-bar">
+  <div class="step-buttons">
+    <div class="step-btn active">
+      작업 시작하기
+      <span>결제 완료 · 작업 준비</span>
+    </div>
+    <div class="step-btn">
+      시안 제출하기
+      <span>1차 결과물</span>
+    </div>
+    <div class="step-btn">
+      작업 수정하기
+      <span>수정 요청 대응</span>
+    </div>
+    <div class="step-btn">
+      최종 제출
+      <span>작업 완료</span>
+    </div>
+  </div>
+</div>
+
 <div class="container">
+
+  <!-- 🔵 작업 요약 -->
   <div class="task-card">
 
     <div class="task-header">
@@ -105,18 +189,22 @@ body {
       <div class="task-info">
         <div id="serviceTitle" class="task-title">서비스 제목</div>
         <div class="task-meta">
-  <span id="buyerName">의뢰인 고객</span>
-</div>
-
+          <span id="buyerName">의뢰인 고객</span>
+        </div>
         <div class="task-meta">
           상태: <span id="taskStatus">pending</span>
         </div>
       </div>
     </div>
 
+    <!-- 🔽 단계 안내 -->
+    <div id="taskStepInfo" class="task-step"></div>
+
+    <!-- 🔽 액션 -->
     <div id="taskAction" class="task-action"></div>
 
   </div>
+
 </div>
 
 <script>
@@ -124,36 +212,27 @@ const API_URL = "https://blueon.up.railway.app";
 const params = new URLSearchParams(location.search);
 const taskKey = params.get("task");
 
-/* ===============================
-   유효성 체크
-================================ */
 if (!taskKey) {
   alert("잘못된 접근입니다.");
   location.href = "/expert-tasks.html";
 }
 
 /* ===============================
-   작업 상세 불러오기
+   작업 상세 로드
 ================================ */
 async function loadTaskDetail() {
-  try {
-    const res = await fetch(
-      `${API_URL}/expert/tasks/detail?taskKey=${encodeURIComponent(taskKey)}`,
-      { credentials: "include" }
-    );
+  const res = await fetch(
+    `${API_URL}/expert/tasks/detail?taskKey=${encodeURIComponent(taskKey)}`,
+    { credentials: "include" }
+  );
+  const data = await res.json();
 
-    const data = await res.json();
-
-    if (!data.success) {
-      alert("작업 정보를 불러올 수 없습니다.");
-      return;
-    }
-
-    renderTask(data.task);
-  } catch (e) {
-    console.error(e);
-    alert("서버 오류");
+  if (!data.success) {
+    alert("작업 정보를 불러올 수 없습니다.");
+    return;
   }
+
+  renderTask(data.task);
 }
 
 /* ===============================
@@ -162,33 +241,46 @@ async function loadTaskDetail() {
 function renderTask(t) {
   document.getElementById("serviceTitle").innerText = t.service_title;
   document.getElementById("buyerName").innerText =
-  t.buyer.nickname || "의뢰인 고객";
-
+    t.buyer.nickname || "의뢰인 고객";
   document.getElementById("taskStatus").innerText = t.status;
 
-  const thumb = document.getElementById("serviceThumb");
-  thumb.src = t.thumbnail || "/assets/default_service.png";
+  document.getElementById("serviceThumb").src =
+    t.thumbnail || "/assets/default_service.png";
 
   const action = document.getElementById("taskAction");
+  const stepInfo = document.getElementById("taskStepInfo");
+
   action.innerHTML = "";
+  stepInfo.innerHTML = "";
 
   if (t.status === "pending") {
+    stepInfo.innerHTML = `
+      <b>작업 시작 전 단계</b><br/>
+      결제가 완료되었습니다.<br/>
+      작업을 시작하려면 아래 버튼을 눌러주세요.
+    `;
     action.innerHTML = `
       <button class="action-btn" onclick="startTask()">
         작업 시작하기
       </button>
     `;
-  } 
+  }
   else if (t.status === "progress") {
+    stepInfo.innerHTML = `
+      <b>작업 진행 중</b><br/>
+      시안을 제작하여 1차 결과물을 준비해주세요.<br/>
+      의뢰인과의 소통은 채팅을 이용하세요.
+    `;
     action.innerHTML = `
       <button class="action-btn" onclick="goChat(${t.room_id})">
         채팅으로 이동
       </button>
     `;
-  } 
+  }
   else if (t.status === "done") {
-    action.innerHTML = `
-      <div class="task-meta">✔ 작업이 완료되었습니다.</div>
+    stepInfo.innerHTML = `
+      <b>작업 완료</b><br/>
+      의뢰인이 결과물을 확인 중입니다.
     `;
   }
 }
@@ -205,7 +297,6 @@ async function startTask() {
   });
 
   const data = await res.json();
-
   if (!data.success) {
     alert("작업 시작에 실패했습니다.");
     return;
@@ -221,9 +312,6 @@ function goChat(roomId) {
   location.href = `/chat.html?room=${roomId}`;
 }
 
-/* ===============================
-   초기 실행
-================================ */
 loadTaskDetail();
 </script>
 

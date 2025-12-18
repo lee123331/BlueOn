@@ -2822,6 +2822,65 @@ app.get("/expert/tasks", async (req, res) => {
   }
 });
 /* ======================================================
+   🔵 유저 작업 현황 목록
+   GET /my/tasks
+   - 관리자 입금 확인된 주문만
+====================================================== */
+app.get("/my/tasks", async (req, res) => {
+  try {
+    if (!req.session.user) {
+      return res.status(401).json({ success: false });
+    }
+
+    const userId = req.session.user.id;
+
+    const [rows] = await db.query(`
+      SELECT
+        o.task_key,
+        o.created_at,
+
+        s.title AS service_title,
+        s.main_images,
+
+        ep.nickname AS expert_nickname,
+
+        COALESCE(t.status, 'pending') AS status,
+        COALESCE(
+          t.thumbnail,
+          JSON_UNQUOTE(JSON_EXTRACT(s.main_images, '$[0]'))
+        ) AS thumbnail
+
+      FROM orders o
+      JOIN services s ON s.id = o.service_id
+      JOIN expert_profiles ep ON ep.user_id = o.expert_id
+      LEFT JOIN service_tasks t ON t.task_key = o.task_key
+
+      WHERE o.user_id = ?
+        AND o.status = 'paid'
+      ORDER BY o.created_at DESC
+    `, [userId]);
+
+    const result = rows.map(r => ({
+      task_key: r.task_key,
+      service_title: r.service_title,
+      expert_nickname: r.expert_nickname || "전문가",
+      status: r.status,
+      thumbnail: r.thumbnail || "/assets/default_service.png",
+      created_at: r.created_at
+    }));
+
+    return res.json({
+      success: true,
+      tasks: result
+    });
+
+  } catch (err) {
+    console.error("❌ /my/tasks error:", err);
+    return res.status(500).json({ success: false });
+  }
+});
+
+/* ======================================================
    🔵 전문가 작업 상세 조회
    GET /expert/tasks/detail?taskKey=xxx
 ====================================================== */
