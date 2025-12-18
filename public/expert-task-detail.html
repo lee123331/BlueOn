@@ -1,42 +1,198 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>BlueOn | 작업 상세</title>
+
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;600;700;800&display=swap" rel="stylesheet">
+
+<style>
+:root {
+  --primary:#0056ff;
+  --bg:#f4f6fb;
+  --white:#ffffff;
+  --line:#e5e7eb;
+  --text-dark:#111827;
+  --text-gray:#6b7280;
+}
+
+* { box-sizing:border-box; margin:0; padding:0; }
+
+body {
+  font-family:"Noto Sans KR", sans-serif;
+  background:var(--bg);
+}
+
+.container {
+  max-width:900px;
+  margin:40px auto;
+  padding:0 20px;
+}
+
+.task-card {
+  background:var(--white);
+  border:1px solid var(--line);
+  border-radius:16px;
+  padding:24px;
+}
+
+.task-header {
+  display:flex;
+  gap:16px;
+  align-items:center;
+}
+
+.task-thumb {
+  width:80px;
+  height:80px;
+  border-radius:12px;
+  object-fit:cover;
+  border:1px solid var(--line);
+  background:#eef2ff;
+}
+
+.task-info {
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+}
+
+.task-title {
+  font-size:20px;
+  font-weight:800;
+  color:var(--text-dark);
+}
+
+.task-meta {
+  font-size:14px;
+  color:var(--text-gray);
+}
+
+.task-status {
+  margin-top:14px;
+  font-weight:700;
+  color:var(--primary);
+}
+
+.task-action {
+  margin-top:24px;
+}
+
+.action-btn {
+  padding:12px 20px;
+  border-radius:12px;
+  border:none;
+  background:var(--primary);
+  color:#fff;
+  font-weight:800;
+  cursor:pointer;
+}
+
+.action-btn:hover {
+  opacity:0.9;
+}
+</style>
+</head>
+
+<body>
+
+<div class="container">
+  <div class="task-card">
+
+    <div class="task-header">
+      <img id="serviceThumb" class="task-thumb" src="/assets/default_service.png" />
+      <div class="task-info">
+        <div id="serviceTitle" class="task-title">서비스 제목</div>
+        <div class="task-meta">
+          의뢰인: <span id="buyerName">의뢰인</span>
+        </div>
+        <div class="task-meta">
+          상태: <span id="taskStatus">pending</span>
+        </div>
+      </div>
+    </div>
+
+    <div id="taskAction" class="task-action"></div>
+
+  </div>
+</div>
+
 <script>
 const API_URL = "https://blueon.up.railway.app";
 const params = new URLSearchParams(location.search);
 const taskKey = params.get("task");
 
+/* ===============================
+   유효성 체크
+================================ */
 if (!taskKey) {
   alert("잘못된 접근입니다.");
   location.href = "/expert-tasks.html";
 }
 
+/* ===============================
+   작업 상세 불러오기
+================================ */
 async function loadTaskDetail() {
-  const res = await fetch(
-    `${API_URL}/expert/tasks/detail?taskKey=${encodeURIComponent(taskKey)}`,
-    { credentials: "include" }
-  );
-  const data = await res.json();
+  try {
+    const res = await fetch(
+      `${API_URL}/expert/tasks/detail?taskKey=${encodeURIComponent(taskKey)}`,
+      { credentials: "include" }
+    );
 
-  if (!data.success) {
-    alert("작업 정보를 불러올 수 없습니다.");
-    return;
+    const data = await res.json();
+
+    if (!data.success) {
+      alert("작업 정보를 불러올 수 없습니다.");
+      return;
+    }
+
+    renderTask(data.task);
+  } catch (e) {
+    console.error(e);
+    alert("서버 오류");
   }
-
-  renderTask(data.task);
 }
 
+/* ===============================
+   렌더링
+================================ */
 function renderTask(t) {
   document.getElementById("serviceTitle").innerText = t.service_title;
-  document.getElementById("buyerName").innerText = t.buyer.nickname;
+  document.getElementById("buyerName").innerText = t.buyer.nickname || "의뢰인";
   document.getElementById("taskStatus").innerText = t.status;
 
+  const thumb = document.getElementById("serviceThumb");
+  thumb.src = t.thumbnail || "/assets/default_service.png";
+
   const action = document.getElementById("taskAction");
+  action.innerHTML = "";
 
   if (t.status === "pending") {
-    action.innerHTML = `<button onclick="startTask()">작업 시작</button>`;
-  } else if (t.status === "progress") {
-    action.innerHTML = `<button onclick="goChat(${t.room_id})">채팅 이동</button>`;
+    action.innerHTML = `
+      <button class="action-btn" onclick="startTask()">
+        작업 시작하기
+      </button>
+    `;
+  } 
+  else if (t.status === "progress") {
+    action.innerHTML = `
+      <button class="action-btn" onclick="goChat(${t.room_id})">
+        채팅으로 이동
+      </button>
+    `;
+  } 
+  else if (t.status === "done") {
+    action.innerHTML = `
+      <div class="task-meta">✔ 작업이 완료되었습니다.</div>
+    `;
   }
 }
 
+/* ===============================
+   작업 시작
+================================ */
 async function startTask() {
   const res = await fetch(`${API_URL}/expert/tasks/start`, {
     method: "POST",
@@ -46,17 +202,27 @@ async function startTask() {
   });
 
   const data = await res.json();
+
   if (!data.success) {
-    alert("작업 시작 실패");
+    alert("작업 시작에 실패했습니다.");
     return;
   }
 
   loadTaskDetail();
 }
 
+/* ===============================
+   채팅 이동
+================================ */
 function goChat(roomId) {
   location.href = `/chat.html?room=${roomId}`;
 }
 
+/* ===============================
+   초기 실행
+================================ */
 loadTaskDetail();
 </script>
+
+</body>
+</html>
