@@ -2845,35 +2845,33 @@ app.get("/expert/tasks/detail", async (req, res) => {
     ====================================================== */
     const [[row]] = await db.query(
       `
-      SELECT
-        o.task_key,
-        o.created_at,
+SELECT
+  o.task_key,
+  o.created_at,
 
-        -- 작업 상태 (없으면 아직 시작 전)
-        COALESCE(t.status, 'pending') AS status,
-        COALESCE(t.phase, 'ready') AS phase,
-        t.thumbnail,
+  COALESCE(t.status, 'pending') AS status,
+  COALESCE(t.phase, 'ready') AS phase,
 
-        s.title AS service_title,
+  -- 🔥 핵심: task 썸네일이 없으면 서비스 썸네일 사용
+  COALESCE(
+    t.thumbnail,
+    JSON_UNQUOTE(JSON_EXTRACT(s.main_images, '$[0]'))
+  ) AS thumbnail,
 
-        u.id AS buyer_id,
-        u.nickname AS buyer_nickname,
+  s.title AS service_title,
 
-        o.room_id
-      FROM orders o
+  u.id AS buyer_id,
+  u.nickname AS buyer_nickname,
 
-      JOIN services s
-        ON s.id = o.service_id
+  o.room_id
+FROM orders o
+JOIN services s ON s.id = o.service_id
+JOIN users u ON u.id = o.user_id
+LEFT JOIN service_tasks t ON t.task_key = o.task_key
+WHERE o.task_key = ?
+  AND o.expert_id = ?
+LIMIT 1
 
-      JOIN users u
-        ON u.id = o.user_id
-
-      LEFT JOIN service_tasks t
-        ON t.task_key = o.task_key
-
-      WHERE o.task_key = ?
-        AND o.expert_id = ?
-      LIMIT 1
       `,
       [taskKey, expertId]
     );
