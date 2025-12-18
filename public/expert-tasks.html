@@ -297,29 +297,7 @@ function renderTasks(tasks) {
     <div class="task-date">${t.created_at?.slice(0,10)}</div>
   `;
 
-  /* 🔥 여기부터가 중요: 반드시 forEach 안 */
-  if (t.status === "pending") {
-    const btn = item.querySelector(".start-btn");
 
-    btn.onclick = async (e) => {
-      e.stopPropagation();
-
-      const res = await fetch("/expert/tasks/start", {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ taskKey: t.task_key }),
-      });
-
-      const data = await res.json();
-      if (!data.success) {
-        alert("작업 시작에 실패했습니다.");
-        return;
-      }
-
-      location.href = `expert-task-detail.html?task=${encodeURIComponent(t.task_key)}`;
-    };
-  }
 
   /* 카드 클릭 */
   item.onclick = () => {
@@ -344,29 +322,6 @@ function renderTasks(tasks) {
       });
     }, 300);
   }
-}
-if (t.status === "pending") {
-  const btn = item.querySelector(".start-btn");
-
-  btn.onclick = async (e) => {
-    e.stopPropagation();
-
-    const res = await fetch("/expert/tasks/start", {
-      method: "POST",
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ taskKey: t.task_key }),
-    });
-
-    const data = await res.json();
-    if (!data.success) {
-      alert("작업 시작에 실패했습니다.");
-      return;
-    }
-
-    // 👉 작업 과정 페이지로 이동
-    location.href = `expert-task-detail.html?task=${t.task_key}`;
-  };
 }
 
 /* ===============================
