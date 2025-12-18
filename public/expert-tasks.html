@@ -272,46 +272,66 @@ function renderTasks(tasks) {
 
   let highlightedItem = null;
 
-  tasks.forEach(t => {
-    const item = document.createElement("div");
-    item.className = "task-item";
-    item.dataset.taskKey = t.task_key;
+ tasks.forEach(t => {
+  const item = document.createElement("div");
+  item.className = "task-item";
+  item.dataset.taskKey = t.task_key;
 
-    /* 🔥 알림에서 넘어온 task_key면 강조 */
-    if (highlightTaskKey && t.task_key === highlightTaskKey) {
-      item.classList.add("highlight");
-      highlightedItem = item;
-    }
-
-    item.innerHTML = `
-  <div class="task-left">
-    <img class="task-thumb" src="${t.thumbnail || '/assets/default_service.png'}" />
-    <div class="task-info">
-      <div class="task-title">${t.service_title}</div>
-      <div class="task-user">의뢰인</div>
+  item.innerHTML = `
+    <div class="task-left">
+      <img class="task-thumb" src="${t.thumbnail || '/assets/default_service.png'}" />
+      <div class="task-info">
+        <div class="task-title">${t.service_title}</div>
+        <div class="task-user">의뢰인</div>
+      </div>
     </div>
-  </div>
 
-  <div class="task-status">
-    ${t.status === "pending"
-      ? `<button class="start-btn">작업 시작</button>`
-      : t.status}
-  </div>
+    <div class="task-status">
+      ${
+        t.status === "pending"
+          ? `<button class="start-btn">작업 시작</button>`
+          : t.status
+      }
+    </div>
 
-  <div class="task-date">${t.created_at?.slice(0,10)}</div>
-`;
+    <div class="task-date">${t.created_at?.slice(0,10)}</div>
+  `;
 
+  /* 🔥 여기부터가 중요: 반드시 forEach 안 */
+  if (t.status === "pending") {
+    const btn = item.querySelector(".start-btn");
 
-    /* 🔗 작업 클릭 → 상세 페이지 */
-    item.onclick = () => {
+    btn.onclick = async (e) => {
+      e.stopPropagation();
+
+      const res = await fetch("/expert/tasks/start", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ taskKey: t.task_key }),
+      });
+
+      const data = await res.json();
+      if (!data.success) {
+        alert("작업 시작에 실패했습니다.");
+        return;
+      }
+
       location.href = `expert-task-detail.html?task=${encodeURIComponent(t.task_key)}`;
     };
+  }
 
-    /* 상태별 분류 */
-    if (t.status === "pending") pending.appendChild(item);
-    else if (t.status === "done") done.appendChild(item);
-    else progress.appendChild(item);
-  });
+  /* 카드 클릭 */
+  item.onclick = () => {
+    location.href = `expert-task-detail.html?task=${encodeURIComponent(t.task_key)}`;
+  };
+
+  /* 상태별 분류 */
+  if (t.status === "pending") pending.appendChild(item);
+  else if (t.status === "done") done.appendChild(item);
+  else progress.appendChild(item);
+});
+
 
   /* ===============================
      🔽 강조된 작업 자동 스크롤
