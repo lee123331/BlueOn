@@ -105,8 +105,9 @@ body {
       <div class="task-info">
         <div id="serviceTitle" class="task-title">서비스 제목</div>
         <div class="task-meta">
-          의뢰인: <span id="buyerName">의뢰인</span>
-        </div>
+  <span id="buyerName">의뢰인 고객</span>
+</div>
+
         <div class="task-meta">
           상태: <span id="taskStatus">pending</span>
         </div>
@@ -160,7 +161,9 @@ async function loadTaskDetail() {
 ================================ */
 function renderTask(t) {
   document.getElementById("serviceTitle").innerText = t.service_title;
-  document.getElementById("buyerName").innerText = t.buyer.nickname || "의뢰인";
+  document.getElementById("buyerName").innerText =
+  t.buyer.nickname || "의뢰인 고객";
+
   document.getElementById("taskStatus").innerText = t.status;
 
   const thumb = document.getElementById("serviceThumb");
