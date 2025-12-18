@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>BlueOn | 내 작업 현황</title>
+
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;600;700;800&display=swap" rel="stylesheet">
+
+<style>
+:root {
+  --primary:#0056ff;
+  --bg:#f4f6fb;
+  --white:#ffffff;
+  --line:#e5e7eb;
+  --text:#111827;
+  --gray:#6b7280;
+}
+
+* { box-sizing:border-box; margin:0; padding:0; }
+
+body {
+  font-family:"Noto Sans KR", sans-serif;
+  background:var(--bg);
+}
+
+header {
+  background:#fff;
+  border-bottom:1px solid var(--line);
+  padding:16px 60px;
+  font-size:22px;
+  font-weight:800;
+  color:var(--primary);
+  cursor:pointer;
+}
+
+.container {
+  max-width:900px;
+  margin:40px auto;
+  padding:0 20px;
+}
+
+.title {
+  font-size:22px;
+  font-weight:800;
+  margin-bottom:20px;
+}
+
+.task-list {
+  background:#fff;
+  border:1px solid var(--line);
+  border-radius:16px;
+  overflow:hidden;
+}
+
+.task-item {
+  display:flex;
+  gap:16px;
+  padding:18px 22px;
+  border-bottom:1px solid var(--line);
+  cursor:pointer;
+  align-items:center;
+}
+
+.task-item:last-child {
+  border-bottom:none;
+}
+
+.task-item:hover {
+  background:#f5f7ff;
+}
+
+.thumb {
+  width:64px;
+  height:64px;
+  border-radius:10px;
+  object-fit:cover;
+  border:1px solid var(--line);
+  background:#eef2ff;
+}
+
+.info {
+  flex:1;
+}
+
+.service-title {
+  font-weight:800;
+  margin-bottom:6px;
+}
+
+.meta {
+  font-size:14px;
+  color:var(--gray);
+}
+
+.status {
+  font-size:14px;
+  font-weight:800;
+  color:var(--primary);
+  text-align:right;
+  white-space:nowrap;
+}
+</style>
+</head>
+
+<body>
+
+<header onclick="location.href='index.html'">BlueOn</header>
+
+<div class="container">
+  <div class="title">내 작업 현황</div>
+  <div class="task-list" id="taskList"></div>
+</div>
+
+<script>
+const API = "https://blueon.up.railway.app";
+
+/* ======================================================
+   내 작업 목록 불러오기
+====================================================== */
+async function loadMyTasks() {
+  try {
+    const res = await fetch(`${API}/my/tasks`, {
+      credentials: "include"
+    });
+    const data = await res.json();
+
+    if (!data.success) {
+      alert("작업 현황을 불러올 수 없습니다.");
+      return;
+    }
+
+    renderTasks(data.tasks || []);
+  } catch (e) {
+    console.error(e);
+    alert("서버 오류");
+  }
+}
+
+function renderTasks(tasks) {
+  const list = document.getElementById("taskList");
+  list.innerHTML = "";
+
+  if (tasks.length === 0) {
+    list.innerHTML = `
+      <div style="padding:32px;text-align:center;color:#6b7280">
+        아직 진행 중인 작업이 없습니다.
+      </div>
+    `;
+    return;
+  }
+
+  tasks.forEach(t => {
+    const div = document.createElement("div");
+    div.className = "task-item";
+
+    const statusText =
+      t.status === "pending"  ? "작업 준비중" :
+      t.status === "start"    ? "작업 진행중" :
+      t.status === "done"     ? "작업 완료"   :
+                                "작업 진행중";
+
+    div.innerHTML = `
+      <img class="thumb" src="${t.thumbnail || '/assets/default_service.png'}" />
+      <div class="info">
+        <div class="service-title">${t.service_title}</div>
+        <div class="meta">전문가: ${t.expert_nickname}</div>
+      </div>
+      <div class="status">${statusText}</div>
+    `;
+
+    // 🔥 작업 상세 페이지 이동
+    div.onclick = () => {
+      location.href = `/user-task-detail.html?task=${t.task_key}`;
+    };
+
+    list.appendChild(div);
+  });
+}
+
+/* ======================================================
+   초기 실행
+====================================================== */
+loadMyTasks();
+</script>
+
+</body>
+</html>
