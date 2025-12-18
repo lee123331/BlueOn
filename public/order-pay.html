@@ -1,172 +1,335 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>BlueOn | 내 작업 현황</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>입금 안내 | BlueOn</title>
 
-<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;800&display=swap" rel="stylesheet">
 
-<style>
-:root {
-  --primary:#0056ff;
-  --bg:#f4f6fb;
-  --white:#ffffff;
-  --line:#e5e7eb;
-  --text:#111827;
-  --gray:#6b7280;
-}
+  <style>
+    :root {
+      --primary:#0056ff;
+      --primary-dark:#0031b7;
+      --bg:#f9fafb;
+      --line:#e5e7eb;
+      --text:#111827;
+      --gray:#6b7280;
+      --white:#fff;
+    }
 
-* { box-sizing:border-box; margin:0; padding:0; }
+    * { box-sizing: border-box; }
+    body {
+      margin:0;
+      font-family:"Noto Sans KR",sans-serif;
+      background:var(--bg);
+      color:var(--text);
+    }
 
-body {
-  font-family:"Noto Sans KR", sans-serif;
-  background:var(--bg);
-}
+    header {
+      background:#fff;
+      border-bottom:1px solid var(--line);
+      padding:16px 60px;
+      font-size:22px;
+      font-weight:800;
+      color:var(--primary);
+      cursor:pointer;
+    }
 
-header {
-  background:#fff;
-  border-bottom:1px solid var(--line);
-  padding:16px 60px;
-  font-size:22px;
-  font-weight:800;
-  color:var(--primary);
-  cursor:pointer;
-}
+    .wrap {
+      max-width:720px;
+      margin:40px auto;
+      padding:0 20px;
+    }
 
-.container {
-  max-width:900px;
-  margin:40px auto;
-  padding:0 20px;
-}
+    .card {
+      background:#fff;
+      border:1px solid var(--line);
+      border-radius:16px;
+      padding:28px;
+      box-shadow:0 6px 20px rgba(0,0,0,0.05);
+    }
 
-.title {
-  font-size:22px;
-  font-weight:800;
-  margin-bottom:20px;
-}
+    .title {
+      font-size:22px;
+      font-weight:800;
+      margin-bottom:8px;
+    }
 
-.order-list {
-  background:#fff;
-  border:1px solid var(--line);
-  border-radius:16px;
-  overflow:hidden;
-}
+    .desc {
+      color:var(--gray);
+      font-size:14px;
+      margin-bottom:24px;
+      line-height:1.6;
+    }
 
-.order-item {
-  display:flex;
-  gap:16px;
-  padding:18px 22px;
-  border-bottom:1px solid var(--line);
-  cursor:pointer;
-}
+    .info-box {
+      border:1px dashed #dbe2ff;
+      background:#f5f7ff;
+      border-radius:14px;
+      padding:18px;
+      margin-bottom:20px;
+    }
 
-.order-item:last-child {
-  border-bottom:none;
-}
+    .row {
+      display:flex;
+      justify-content:space-between;
+      gap:10px;
+      margin-bottom:10px;
+      font-size:15px;
+    }
 
-.order-item:hover {
-  background:#f5f7ff;
-}
+    .row span:first-child {
+      color:#374151;
+      font-weight:700;
+    }
 
-.thumb {
-  width:64px;
-  height:64px;
-  border-radius:10px;
-  object-fit:cover;
-  border:1px solid var(--line);
-  background:#eef2ff;
-}
+    .row span:last-child {
+      font-weight:800;
+    }
 
-.info {
-  flex:1;
-}
+    .amount {
+      font-size:22px;
+      font-weight:800;
+      color:var(--primary);
+    }
 
-.service-title {
-  font-weight:800;
-  margin-bottom:6px;
-}
+    .notice {
+      font-size:13px;
+      color:#374151;
+      line-height:1.7;
+      margin-top:14px;
+    }
 
-.meta {
-  font-size:14px;
-  color:var(--gray);
-}
+    .btn {
+      width:100%;
+      padding:14px 0;
+      border:none;
+      border-radius:12px;
+      font-size:15px;
+      font-weight:800;
+      cursor:pointer;
+      background:var(--primary);
+      color:#fff;
+      margin-top:18px;
+      transition:.2s;
+    }
 
-.status {
-  font-size:14px;
-  font-weight:700;
-  color:var(--primary);
-  text-align:right;
-}
-</style>
+    .btn:hover { background:var(--primary-dark); }
+
+    .sub-btn {
+      width:100%;
+      padding:12px 0;
+      border-radius:12px;
+      font-size:14px;
+      font-weight:700;
+      margin-top:10px;
+      border:1px solid var(--line);
+      background:#fff;
+      cursor:pointer;
+    }
+
+    .status-box {
+      margin-top:22px;
+      padding:16px;
+      border-radius:12px;
+      background:#eef4ff;
+      border:1px solid #dbe2ff;
+      font-size:14px;
+      line-height:1.6;
+    }
+
+    .status-box b {
+      color:#0037c2;
+    }
+
+    .toast {
+      position: fixed;
+      bottom: 36px;
+      right: 36px;
+      background: #111;
+      color: #fff;
+      padding: 14px 20px;
+      border-radius: 10px;
+      font-size: 14px;
+      font-weight: 700;
+      opacity: 0;
+      transform: translateY(20px);
+      transition: .3s;
+      z-index: 9999;
+    }
+    .toast.show {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  </style>
 </head>
-
 <body>
 
 <header onclick="location.href='index.html'">BlueOn</header>
 
-<div class="container">
-  <div class="title">내 작업 현황</div>
-  <div class="order-list" id="orderList"></div>
+<div class="wrap">
+  <div class="card">
+
+    <div class="title">무통장 입금 안내</div>
+    <div class="desc">
+      아래 계좌로 정확한 금액을 입금해 주세요.<br>
+      입금 확인 후 전문가가 작업을 시작합니다.
+    </div>
+
+    <div class="info-box">
+      <div class="row">
+        <span>주문번호</span>
+        <span id="orderIdText">-</span>
+      </div>
+      <div class="row">
+        <span>입금 금액</span>
+        <span class="amount" id="orderPrice">-</span>
+      </div>
+<div class="row">
+  <span>은행</span>
+  <span>국민은행</span>
 </div>
+<div class="row">
+  <span>계좌번호</span>
+  <span>655601-04-566268</span>
+</div>
+<div class="row">
+  <span>예금주</span>
+  <span>이동건</span>
+</div>
+
+      <div class="notice">
+        ⚠️ 입금자명은 <b>주문자 이름</b> 또는 <b>주문번호</b>로 입력해 주세요.<br>
+        ⚠️ 금액 불일치 시 확인이 지연될 수 있습니다.
+      </div>
+    </div>
+
+    <button class="btn" onclick="notifyDeposit()">이체 완료했어요</button>
+    <button class="sub-btn" onclick="goMyOrders()">내 작업 현황 보기</button>
+
+    <div class="status-box" id="statusBox">
+  현재 상태: <b id="paymentStatus">입금 대기</b><br>
+  관리자가 입금을 확인하면 자동으로 작업이 시작됩니다.
+</div>
+
+
+  </div>
+</div>
+
+<div id="toast" class="toast">관리자에게 알림이 전달되었습니다.</div>
 
 <script>
 const API = "https://blueon.up.railway.app";
+const orderId = new URLSearchParams(location.search).get("orderId");
+
+if (!orderId) {
+  alert("잘못된 접근입니다.");
+  location.href = "/";
+}
+
+document.getElementById("orderIdText").textContent = orderId;
 
 /* --------------------------------------------------
-   내 주문 목록 불러오기
+   주문 정보 불러오기
 -------------------------------------------------- */
-async function loadMyOrders() {
-  const res = await fetch(`${API}/my/orders`, {
-    credentials: "include"
-  });
-  const data = await res.json();
+async function loadOrder() {
+  try {
+    const res = await fetch(`${API}/orders/${orderId}`, {
+      credentials: "include"
+    });
+    const data = await res.json();
 
-  if (!data.success) {
-    alert("주문 목록을 불러올 수 없습니다.");
-    return;
+    if (!data.success) {
+      alert("주문 정보를 불러올 수 없습니다.");
+      return;
+    }
+
+    const order = data.order;
+    document.getElementById("orderPrice").textContent =
+      Number(order.price).toLocaleString() + "원";
+
+  } catch (e) {
+    console.error(e);
+    alert("서버 오류가 발생했습니다.");
   }
+}
+/* --------------------------------------------------
+   주문 상태 조회 (pending / paid)
+-------------------------------------------------- */
+async function loadOrderStatus() {
+  try {
+    const res = await fetch(
+      `${API}/orders/status?orderId=${orderId}`,
+      { credentials: "include" }
+    );
+    const data = await res.json();
+    if (!data.success) return;
 
-  renderOrders(data.orders);
+    const statusEl = document.getElementById("paymentStatus");
+    const statusBox = document.getElementById("statusBox");
+
+    if (!statusEl || !statusBox) return;
+
+    if (data.status === "paid") {
+      statusEl.textContent = "입금 확인";
+      statusEl.style.color = "#0056ff";
+
+      statusBox.querySelector("br").nextSibling.textContent =
+        "입금이 확인되어 전문가가 작업을 시작합니다.";
+    } else {
+      statusEl.textContent = "입금 대기";
+      statusEl.style.color = "";
+    }
+
+  } catch (e) {
+    console.error("status load error:", e);
+  }
 }
 
-function renderOrders(orders) {
-  const list = document.getElementById("orderList");
-  list.innerHTML = "";
 
-  if (!orders.length) {
-    list.innerHTML = `<div style="padding:30px;text-align:center;color:#6b7280">
-      진행 중인 작업이 없습니다.
-    </div>`;
-    return;
+/* --------------------------------------------------
+   이체 완료 알림 (상태는 그대로 pending)
+-------------------------------------------------- */
+async function notifyDeposit() {
+  try {
+    const res = await fetch(`${API}/orders/notify-deposit`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ orderId })
+    });
+
+    const data = await res.json();
+    if (!data.success) {
+      alert("알림 전송에 실패했습니다.");
+      return;
+    }
+
+    showToast();
+
+  } catch (e) {
+    console.error(e);
+    alert("서버 오류");
   }
-
-  orders.forEach(o => {
-    const div = document.createElement("div");
-    div.className = "order-item";
-
-    div.innerHTML = `
-      <img class="thumb" src="${o.thumbnail || '/assets/default_service.png'}" />
-      <div class="info">
-        <div class="service-title">${o.service_title}</div>
-        <div class="meta">전문가: ${o.expert_name}</div>
-      </div>
-      <div class="status">
-        ${o.task_status || "작업 준비"}
-      </div>
-    `;
-
-    div.onclick = () => {
-      if (o.task_key) {
-        location.href = `/user-task-detail.html?task=${o.task_key}`;
-      }
-    };
-
-    list.appendChild(div);
-  });
 }
 
-loadMyOrders();
+function goMyOrders() {
+  location.href = "/my-orders.html";
+}
+
+function showToast() {
+  const t = document.getElementById("toast");
+  t.classList.add("show");
+  setTimeout(() => t.classList.remove("show"), 1800);
+}
+
+loadOrder();
+loadOrderStatus();
+
+// 10초마다 상태 재확인 (선택이지만 강력 추천)
+setInterval(loadOrderStatus, 10000);
+
 </script>
 
 </body>
