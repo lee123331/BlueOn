@@ -2821,6 +2821,92 @@ app.get("/expert/tasks", async (req, res) => {
     return res.status(500).json({ success: false });
   }
 });
+/* ======================================================
+   🔵 전문가 작업 상세 조회
+   GET /expert/tasks/detail?taskKey=xxx
+====================================================== */
+app.get("/expert/tasks/detail", async (req, res) => {
+  try {
+    // 1️⃣ 로그인 + 전문가 체크
+    if (!req.session.user || !req.session.user.isExpert) {
+      return res.status(401).json({ success: false });
+    }
+
+    const expertId = req.session.user.id;
+    const { taskKey } = req.query;
+
+    if (!taskKey) {
+      return res.json({ success: false, message: "taskKey 누락" });
+    }
+
+    /* ======================================================
+       2️⃣ 작업 상세 조회
+       - orders + service_tasks + services + users
+    ====================================================== */
+    const [[row]] = await db.query(
+      `
+      SELECT
+        o.task_key,
+        o.created_at,
+
+        -- 작업 상태 (없으면 아직 시작 전)
+        COALESCE(t.status, 'pending') AS status,
+        COALESCE(t.phase, 'ready') AS phase,
+        t.thumbnail,
+
+        s.title AS service_title,
+
+        u.id AS buyer_id,
+        u.nickname AS buyer_nickname,
+
+        o.room_id
+      FROM orders o
+
+      JOIN services s
+        ON s.id = o.service_id
+
+      JOIN users u
+        ON u.id = o.user_id
+
+      LEFT JOIN service_tasks t
+        ON t.task_key = o.task_key
+
+      WHERE o.task_key = ?
+        AND o.expert_id = ?
+      LIMIT 1
+      `,
+      [taskKey, expertId]
+    );
+
+    if (!row) {
+      return res.json({ success: false, message: "작업 없음" });
+    }
+
+    /* ======================================================
+       3️⃣ 응답
+    ====================================================== */
+    return res.json({
+      success: true,
+      task: {
+        task_key: row.task_key,
+        status: row.status,
+        phase: row.phase,
+        created_at: row.created_at,
+        service_title: row.service_title,
+        thumbnail: row.thumbnail || "/assets/default_service.png",
+        buyer: {
+          id: row.buyer_id,
+          nickname: row.buyer_nickname || "의뢰인"
+        },
+        room_id: row.room_id
+      }
+    });
+
+  } catch (err) {
+    console.error("❌ /expert/tasks/detail error:", err);
+    return res.status(500).json({ success: false });
+  }
+});
 
 
 /* ======================================================
