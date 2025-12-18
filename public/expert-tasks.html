@@ -169,6 +169,20 @@ body {
   border: 2px solid #0056ff;
   background: #f3f7ff;
 }
+.start-btn {
+  padding: 8px 14px;
+  border-radius: 10px;
+  border: none;
+  background: var(--primary);
+  color: #fff;
+  font-weight: 700;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.start-btn:hover {
+  opacity: 0.9;
+}
 
 </style>
 </head>
@@ -270,16 +284,23 @@ function renderTasks(tasks) {
     }
 
     item.innerHTML = `
-      <div class="task-left">
-        <img class="task-thumb" src="${t.thumbnail || '/assets/default_service.png'}" />
-        <div class="task-info">
-          <div class="task-title">${t.service_title || "서비스 작업"}</div>
-          <div class="task-user">${t.buyer_nickname || "의뢰인"}</div>
-        </div>
-      </div>
-      <div class="task-status">${t.status}</div>
-      <div class="task-date">${t.created_at?.slice(0,10)}</div>
-    `;
+  <div class="task-left">
+    <img class="task-thumb" src="${t.thumbnail || '/assets/default_service.png'}" />
+    <div class="task-info">
+      <div class="task-title">${t.service_title}</div>
+      <div class="task-user">의뢰인</div>
+    </div>
+  </div>
+
+  <div class="task-status">
+    ${t.status === "pending"
+      ? `<button class="start-btn">작업 시작</button>`
+      : t.status}
+  </div>
+
+  <div class="task-date">${t.created_at?.slice(0,10)}</div>
+`;
+
 
     /* 🔗 작업 클릭 → 상세 페이지 */
     item.onclick = () => {
@@ -303,6 +324,29 @@ function renderTasks(tasks) {
       });
     }, 300);
   }
+}
+if (t.status === "pending") {
+  const btn = item.querySelector(".start-btn");
+
+  btn.onclick = async (e) => {
+    e.stopPropagation();
+
+    const res = await fetch("/expert/tasks/start", {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ taskKey: t.task_key }),
+    });
+
+    const data = await res.json();
+    if (!data.success) {
+      alert("작업 시작에 실패했습니다.");
+      return;
+    }
+
+    // 👉 작업 과정 페이지로 이동
+    location.href = `expert-task-detail.html?task=${t.task_key}`;
+  };
 }
 
 /* ===============================

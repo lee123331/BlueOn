@@ -3000,6 +3000,70 @@ app.post("/notice/read/:id", async (req, res) => {
     return res.status(500).json({ success: false });
   }
 });
+/* ======================================================
+   🔵 전문가 작업 시작
+====================================================== */
+app.post("/expert/tasks/start", async (req, res) => {
+  try {
+    if (!req.session.user || !req.session.user.isExpert) {
+      return res.status(401).json({ success: false });
+    }
+
+    const expertId = req.session.user.id;
+    const { taskKey } = req.body;
+
+    if (!taskKey) {
+      return res.json({ success: false, message: "taskKey 누락" });
+    }
+
+    /* 1️⃣ 주문 조회 */
+    const [[order]] = await db.query(`
+      SELECT
+        o.task_key,
+        o.service_id,
+        o.user_id AS buyer_id,
+        s.main_images
+      FROM orders o
+      JOIN services s ON s.id = o.service_id
+      WHERE o.task_key = ?
+        AND o.expert_id = ?
+        AND o.status = 'paid'
+      LIMIT 1
+    `, [taskKey, expertId]);
+
+    if (!order) {
+      return res.json({ success: false, message: "작업 시작 불가" });
+    }
+
+    /* 2️⃣ 이미 작업 존재 여부 */
+    const [[exist]] = await db.query(
+      "SELECT id FROM service_tasks WHERE task_key = ? LIMIT 1",
+      [taskKey]
+    );
+
+    if (!exist) {
+      const images = parseImagesSafe(order.main_images);
+
+      await db.query(`
+        INSERT INTO service_tasks
+        (task_key, service_id, buyer_id, expert_id, status, phase, thumbnail, created_at)
+        VALUES (?, ?, ?, ?, 'start', 'ready', ?, NOW())
+      `, [
+        taskKey,
+        order.service_id,
+        order.buyer_id,
+        expertId,
+        images[0] || "/assets/default_service.png"
+      ]);
+    }
+
+    return res.json({ success: true });
+
+  } catch (err) {
+    console.error("❌ task start error:", err);
+    return res.status(500).json({ success: false });
+  }
+});
 
 /* ======================================================
    🔵 채팅방 목록 (프로필 이미지 완전 보정)
