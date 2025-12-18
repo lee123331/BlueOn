@@ -2708,41 +2708,86 @@ app.get("/orders/:id", async (req, res) => {
 });
 
 // 전문가 작업 목록
+/* ======================================================
+   🔵 전문가 작업 목록 (관리자 입금 확인 후)
+   기준: orders.status = 'paid'
+====================================================== */
 app.get("/expert/tasks", async (req, res) => {
   try {
-    if (!req.session.user) {
+    if (!req.session.user || !req.session.user.isExpert) {
       return res.status(401).json({ success: false });
     }
 
     const expertId = req.session.user.id;
 
-    const [rows] = await db.query(`
-SELECT
-  t.task_key,
-  t.status,
-  t.phase,
-  t.created_at,
-  t.thumbnail,                -- ✅ 여기
-  s.title AS service_title,
-  u.nickname AS buyer_name
-FROM service_tasks t
-JOIN services s ON t.service_id = s.id
-JOIN users u ON t.buyer_id = u.id
-WHERE t.expert_id = ?
-ORDER BY t.created_at DESC
-
+    /* 1️⃣ 결제 완료됐지만 아직 작업 안 만든 주문 */
+    const [paidOrders] = await db.query(`
+      SELECT
+        o.task_key,
+        o.created_at,
+        s.title AS service_title,
+        s.main_images,
+        u.nickname AS buyer_nickname
+      FROM orders o
+      JOIN services s ON s.id = o.service_id
+      JOIN users u ON u.id = o.user_id
+      WHERE o.expert_id = ?
+        AND o.status = 'paid'
+        AND o.task_key NOT IN (
+          SELECT task_key FROM service_tasks
+        )
     `, [expertId]);
 
-    res.json({
-      success: true,
-      tasks: rows
+    /* 2️⃣ 실제 작업(task) */
+    const [tasks] = await db.query(`
+      SELECT
+        t.task_key,
+        t.status,
+        t.created_at,
+        s.title AS service_title,
+        u.nickname AS buyer_nickname,
+        t.thumbnail
+      FROM service_tasks t
+      JOIN services s ON s.id = t.service_id
+      JOIN users u ON u.id = t.buyer_id
+      WHERE t.expert_id = ?
+    `, [expertId]);
+
+    const result = [];
+
+    /* 🔹 작업 대기 (결제 완료) */
+    paidOrders.forEach(o => {
+      const imgs = parseImagesSafe(o.main_images);
+      result.push({
+        task_key: o.task_key,
+        service_title: o.service_title,
+        buyer_nickname: o.buyer_nickname,
+        thumbnail: imgs[0],
+        status: "pending",
+        created_at: o.created_at
+      });
     });
 
+    /* 🔹 진행 / 완료 */
+    tasks.forEach(t => {
+      result.push({
+        task_key: t.task_key,
+        service_title: t.service_title,
+        buyer_nickname: t.buyer_nickname,
+        thumbnail: t.thumbnail,
+        status: t.status === "done" ? "done" : "progress",
+        created_at: t.created_at
+      });
+    });
+
+    res.json({ success: true, tasks: result });
+
   } catch (err) {
-    console.error("❌ /expert/tasks 오류:", err);
+    console.error("❌ /expert/tasks error:", err);
     res.status(500).json({ success: false });
   }
 });
+
 
 /* ======================================================
    🔔 유저 → 관리자 입금 완료 알림
