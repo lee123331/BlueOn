@@ -2826,15 +2826,29 @@ app.get("/expert/tasks", async (req, res) => {
    GET /my/tasks
    - 관리자 입금 확인된 주문만
 ====================================================== */
+/* ======================================================
+   🔵 유저 작업 현황 조회
+   GET /my/tasks
+   - 관리자 입금 확인된 작업만
+   - "주문" ❌ → "작업 현황" ⭕
+====================================================== */
 app.get("/my/tasks", async (req, res) => {
   try {
+    // 1️⃣ 로그인 체크
     if (!req.session.user) {
       return res.status(401).json({ success: false });
     }
 
     const userId = req.session.user.id;
 
-    const [rows] = await db.query(`
+    /* ======================================================
+       2️⃣ 작업 기준 조회
+       - orders.status = 'paid'
+       - service_tasks 있으면 진행/완료
+       - 없으면 작업 준비(pending)
+    ====================================================== */
+    const [rows] = await db.query(
+      `
       SELECT
         o.task_key,
         o.created_at,
@@ -2842,36 +2856,57 @@ app.get("/my/tasks", async (req, res) => {
         s.title AS service_title,
         s.main_images,
 
-        ep.nickname AS expert_nickname,
+        -- 전문가 정보
+        COALESCE(ep.nickname, '전문가') AS expert_nickname,
 
-        COALESCE(t.status, 'pending') AS status,
+        -- 작업 상태
+        COALESCE(t.status, 'pending') AS task_status,
+
+        -- 썸네일 우선순위
         COALESCE(
           t.thumbnail,
-          JSON_UNQUOTE(JSON_EXTRACT(s.main_images, '$[0]'))
+          JSON_UNQUOTE(JSON_EXTRACT(s.main_images, '$[0]')),
+          '/assets/default_service.png'
         ) AS thumbnail
 
       FROM orders o
-      JOIN services s ON s.id = o.service_id
-      JOIN expert_profiles ep ON ep.user_id = o.expert_id
-      LEFT JOIN service_tasks t ON t.task_key = o.task_key
+      JOIN services s
+        ON s.id = o.service_id
+
+      JOIN expert_profiles ep
+        ON ep.user_id = o.expert_id
+
+      LEFT JOIN service_tasks t
+        ON t.task_key = o.task_key
 
       WHERE o.user_id = ?
         AND o.status = 'paid'
-      ORDER BY o.created_at DESC
-    `, [userId]);
 
-    const result = rows.map(r => ({
+      ORDER BY o.created_at DESC
+      `,
+      [userId]
+    );
+
+    /* ======================================================
+       3️⃣ 프론트 친화적 형태로 변환
+    ====================================================== */
+    const tasks = rows.map(r => ({
       task_key: r.task_key,
       service_title: r.service_title,
-      expert_nickname: r.expert_nickname || "전문가",
-      status: r.status,
-      thumbnail: r.thumbnail || "/assets/default_service.png",
+      expert_name: r.expert_nickname,
+      task_status:
+        r.task_status === "done"
+          ? "작업 완료"
+          : r.task_status === "progress" || r.task_status === "start"
+          ? "작업 진행중"
+          : "작업 준비",
+      thumbnail: r.thumbnail,
       created_at: r.created_at
     }));
 
     return res.json({
       success: true,
-      tasks: result
+      tasks
     });
 
   } catch (err) {
@@ -2879,6 +2914,7 @@ app.get("/my/tasks", async (req, res) => {
     return res.status(500).json({ success: false });
   }
 });
+
 
 /* ======================================================
    🔵 전문가 작업 상세 조회
