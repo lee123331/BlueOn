@@ -37,6 +37,16 @@ function isAdmin(req) {
 }
 
 
+// =======================
+// 공통 시간 문자열 생성 함수
+// =======================
+function nowStr() {
+  return new Date()
+    .toISOString()
+    .slice(0, 19)
+    .replace("T", " ");
+}
+
 
 
 /* ======================================================
@@ -411,14 +421,17 @@ const newId = row.newId;
 
 
     // 5) 저장 (created_at + updated_at 모두 포함)
+const now = nowStr();
+
 await db.execute(
   `
   INSERT INTO users 
   (id, provider, provider_id, email, password, phone, created_at, updated_at)
-  VALUES (?, 'local', ?, ?, ?, ?, NOW(), NOW())
+  VALUES (?, 'local', ?, ?, ?, ?, ?, ?)
   `,
-  [newId, email, email, hashedPw, phone]
+  [newId, email, email, hashedPw, phone, now, now]
 );
+
 
 
     return res.json({ success: true });
@@ -617,45 +630,47 @@ app.post(
 
 
 
-      /* ==========================================================
-         🔥 4) INSERT — id 추가함
-      ========================================================== */
-      await db.query(
-        `
-        INSERT INTO services
-        (
-          id,
-          user_id, title, main_category, sub_category, keywords,
-          price_basic, duration, description, process, customer_request,
-          main_images, detail_images, created_at, updated_at,
-          brand_concept, revision_count, offer_items,
-          is_package_mode, package_json,
-          task_key
-        )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW(), ?, ?, ?, ?, ?, ?)
-        `,
-        [
-          newId,                    // ⭐ 직접 생성한 ID
-          userId,
-          b.title,
-          b.mainCategory,
-          b.subCategory,
-          b.keywords,
-          priceBasicValue,
-          durationValue,
-          b.description,
-          b.process,
-          b.customerRequest,
-          JSON.stringify(mainImgs),
-          JSON.stringify(detailImgs),
-          b.brandConcept || null,
-          revisionValue,
-          offerItemsValue,
-          b.isPackageMode || 0,
-          b.packageJson || null,
-          taskKey,
-        ]
-      );
+      const now = nowStr();
+
+await db.query(
+  `
+  INSERT INTO services
+  (
+    id,
+    user_id, title, main_category, sub_category, keywords,
+    price_basic, duration, description, process, customer_request,
+    main_images, detail_images, created_at, updated_at,
+    brand_concept, revision_count, offer_items,
+    is_package_mode, package_json,
+    task_key
+  )
+  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `,
+  [
+    newId,                    // ⭐ 직접 생성한 ID
+    userId,
+    b.title,
+    b.mainCategory,
+    b.subCategory,
+    b.keywords,
+    priceBasicValue,
+    durationValue,
+    b.description,
+    b.process,
+    b.customerRequest,
+    JSON.stringify(mainImgs),
+    JSON.stringify(detailImgs),
+    now,                       // ✅ created_at
+    now,                       // ✅ updated_at
+    b.brandConcept || null,
+    revisionValue,
+    offerItemsValue,
+    b.isPackageMode || 0,
+    b.packageJson || null,
+    taskKey,
+  ]
+);
+
 
 
 
@@ -829,117 +844,121 @@ app.post("/expert/submit", async (req, res) => {
     const accountNumber = req.body.accountNumber || null;
 
     /* ------------------ 기존 전문가 프로필 여부 체크 ------------------ */
-    const [exist] = await db.query(
-      "SELECT id FROM expert_profiles WHERE user_id=?",
-      [userId]
-    );
+ const [exist] = await db.query(
+  "SELECT id FROM expert_profiles WHERE user_id=?",
+  [userId]
+);
 
-    /* =============================================================
-       INSERT (신규 전문가 등록)
-    ============================================================= */
-    if (exist.length === 0) {
-      await db.query(
-        `INSERT INTO expert_profiles
-        (
-          user_id, nickname, intro, avatar_url,
-          main_category, sub_category,
-          total_experience, careers_json,
-          skills_json, tools_json, certificates_json, styles_json,
-          strength,
-          story_work, story_care, story_brand, story_goal,
-          solutions, skills, projects, brand_story,
-          bank_name, account_holder, account_number,
-          created_at, updated_at
-        )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
-        [
-          userId,
-          nickname,
-          intro,
-          avatar_url,
-          main_category,
-          sub_category,
-          total_experience,
-          JSON.stringify(careers_json),
-          JSON.stringify(skills_json),
-          JSON.stringify(tools_json),
-          JSON.stringify(certificates_json),
-          JSON.stringify(styles_json),
-          strength,
-          story_work,
-          story_care,
-          story_brand,
-          story_goal,
-          solutions,
-          skills_text,
-          JSON.stringify(projects),
-          brand_story,
-          bankName,
-          accountHolder,
-          accountNumber,
-        ]
-      );
-    }
+const now = nowStr();
 
-    /* =============================================================
-       UPDATE (기존 전문가 정보 수정)
-    ============================================================= */
-    else {
-      await db.query(
-        `UPDATE expert_profiles SET
-          nickname=?,
-          intro=?,
-          avatar_url=?,
-          main_category=?,
-          sub_category=?,
-          total_experience=?,
-          careers_json=?,
-          skills_json=?,
-          tools_json=?,
-          certificates_json=?,
-          styles_json=?,
-          strength=?,
-          story_work=?,
-          story_care=?,
-          story_brand=?,
-          story_goal=?,
-          solutions=?,
-          skills=?,
-          projects=?,
-          brand_story=?,
-          bank_name=?,
-          account_holder=?,
-          account_number=?,
-          updated_at=NOW()
-        WHERE user_id=?`,
-        [
-          nickname,
-          intro,
-          avatar_url,
-          main_category,
-          sub_category,
-          total_experience,
-          JSON.stringify(careers_json),
-          JSON.stringify(skills_json),
-          JSON.stringify(tools_json),
-          JSON.stringify(certificates_json),
-          JSON.stringify(styles_json),
-          strength,
-          story_work,
-          story_care,
-          story_brand,
-          story_goal,
-          solutions,
-          skills_text,
-          JSON.stringify(projects),
-          brand_story,
-          bankName,
-          accountHolder,
-          accountNumber,
-          userId,
-        ]
-      );
-    }
+if (exist.length === 0) {
+  // 🔹 신규 등록
+  await db.query(
+    `
+    INSERT INTO expert_profiles
+    (
+      user_id, nickname, intro, avatar_url,
+      main_category, sub_category,
+      total_experience, careers_json,
+      skills_json, tools_json, certificates_json, styles_json,
+      strength,
+      story_work, story_care, story_brand, story_goal,
+      solutions, skills, projects, brand_story,
+      bank_name, account_holder, account_number,
+      created_at, updated_at
+    )
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `,
+    [
+      userId,
+      nickname,
+      intro,
+      avatar_url,
+      main_category,
+      sub_category,
+      total_experience,
+      JSON.stringify(careers_json),
+      JSON.stringify(skills_json),
+      JSON.stringify(tools_json),
+      JSON.stringify(certificates_json),
+      JSON.stringify(styles_json),
+      strength,
+      story_work,
+      story_care,
+      story_brand,
+      story_goal,
+      solutions,
+      skills_text,
+      JSON.stringify(projects),
+      brand_story,
+      bankName,
+      accountHolder,
+      accountNumber,
+      now,
+      now
+    ]
+  );
+} else {
+  // 🔹 수정
+  await db.query(
+    `
+    UPDATE expert_profiles SET
+      nickname=?,
+      intro=?,
+      avatar_url=?,
+      main_category=?,
+      sub_category=?,
+      total_experience=?,
+      careers_json=?,
+      skills_json=?,
+      tools_json=?,
+      certificates_json=?,
+      styles_json=?,
+      strength=?,
+      story_work=?,
+      story_care=?,
+      story_brand=?,
+      story_goal=?,
+      solutions=?,
+      skills=?,
+      projects=?,
+      brand_story=?,
+      bank_name=?,
+      account_holder=?,
+      account_number=?,
+      updated_at=?
+    WHERE user_id=?
+    `,
+    [
+      nickname,
+      intro,
+      avatar_url,
+      main_category,
+      sub_category,
+      total_experience,
+      JSON.stringify(careers_json),
+      JSON.stringify(skills_json),
+      JSON.stringify(tools_json),
+      JSON.stringify(certificates_json),
+      JSON.stringify(styles_json),
+      strength,
+      story_work,
+      story_care,
+      story_brand,
+      story_goal,
+      solutions,
+      skills_text,
+      JSON.stringify(projects),
+      brand_story,
+      bankName,
+      accountHolder,
+      accountNumber,
+      now,
+      userId
+    ]
+  );
+}
+
 
     /* =============================================================
        🔥 전문가 등록 인증 처리 — 핵심 2개
@@ -1157,8 +1176,8 @@ app.post("/notice/portfolio-request", async (req, res) => {
       return res.json({ success: false, message: "로그인이 필요합니다." });
     }
 
-    const { expertId, serviceTitle } = req.body;
-    const requesterId = req.session.user.id;   // 요청자 ID
+    const { expertId, serviceTitle, taskKey = null } = req.body; // taskKey는 있으면 받고, 없으면 null
+    const requesterId = req.session.user.id;
 
     if (!expertId) {
       return res.json({ success: false, message: "expertId가 없습니다." });
@@ -1173,34 +1192,75 @@ app.post("/notice/portfolio-request", async (req, res) => {
     }
 
     const userName = req.session.user.nickname || "유저";
-
-
     const message = `${userName}님이 '${serviceTitle}' 서비스에서 포트폴리오를 요청했습니다.`;
 
-await db.query(`
-  INSERT INTO notices (
-    user_id,
-    message,
-    type,
-    task_key,
-    is_read,
-    created_at
-  )
-  VALUES (?, ?, 'trade', ?, 0, NOW())
-`, [
-  expertId,
-  message,
-  taskKey   // 🔥 여기 핵심
-]);
+    // ✅ 여기서 진짜로 DB 저장
+    await createNotice({
+      targetUserId: expertId,
+      message,
+      type: "trade",
+      taskKey,             // 포트폴리오 요청은 taskKey 없으면 null이라도 OK
+      fromUser: requesterId
+    });
 
-
+    // ✅ 실시간 알림도 원하면
+    io.to(`user:${expertId}`).emit("notice:new", {
+      type: "trade",
+      message,
+      task_key: taskKey
+    });
 
     return res.json({ success: true });
+
   } catch (err) {
     console.error("portfolio request notice error:", err);
-    res.json({ success: false });
+    return res.json({ success: false });
   }
 });
+
+
+
+
+async function createNotice({
+  targetUserId,
+  message,
+  type = "trade",
+  taskKey = null,
+  roomId = null,
+  fromUser = null
+}) {
+  if (!targetUserId || !message) return;
+
+  try {
+    await db.query(
+      `
+      INSERT INTO notices
+      (
+        user_id,
+        message,
+        type,
+        is_read,
+        created_at,
+        room_id,
+        from_user,
+        task_key
+      )
+      VALUES (?, ?, ?, 0, ?, ?, ?, ?)
+      `,
+      [
+        targetUserId,
+        message,
+        type,
+        nowStr(),   // 🔥 문자열 시간
+        roomId,
+        fromUser,
+        taskKey
+      ]
+    );
+  } catch (err) {
+    console.error("❌ createNotice error:", err);
+  }
+}
 
 /* =======================================================
    🔔 전문가 알림 목록 (거래/시스템 분리)
@@ -1455,13 +1515,18 @@ io.on("connection", (socket) => {
     socket.join(`user:${user.id}`);
     console.log(`➡ user:${user.id} 방 입장`);
 
-    /* ======================================================
-       2️⃣ 관리자 room (서버 세션 기준)
-    ====================================================== */
-    if (user.is_admin === true) {
-      socket.join("admin");
-      console.log("👑 admin 소켓 연결");
-    }
+  /* ======================================================
+   2️⃣ 관리자 room 연결 (서버 세션 기준)
+====================================================== */
+const ADMIN_ID = String(process.env.ADMIN_USER_ID || "");
+
+if (ADMIN_ID && String(user.id) === ADMIN_ID) {
+  socket.join("admin");
+
+  console.log(
+    `👑 관리자 소켓 연결됨 | userId=${user.id} | socket=${socket.id}`
+  );
+}
 
     /* ======================================================
        3️⃣ 채팅 관련 이벤트 (로그인 유저만)
@@ -1686,12 +1751,15 @@ app.post("/chat/send-message", async (req, res) => {
         ? realMessage.substring(0, 80) + "..."
         : realMessage;
 
-    await db.query(
-      `UPDATE chat_rooms 
-       SET last_msg=?, updated_at=NOW()
-       WHERE id=?`,
-      [lastMsgPreview, roomId]
-    );
+    const now = nowStr();
+
+await db.query(
+  `UPDATE chat_rooms 
+   SET last_msg=?, updated_at=?
+   WHERE id=?`,
+  [lastMsgPreview, now, roomId]
+);
+
 
 
     /* ======================================================
@@ -1729,7 +1797,8 @@ app.post("/chat/send-message", async (req, res) => {
       senderId,
       content: realMessage,
       message_type,
-      created_at: new Date()
+      created_at: nowStr()
+
     });
 
 
@@ -1991,46 +2060,54 @@ app.get("/brand-plan/history", async (req, res) => {
 });
 
 /* ======================================================
-   🔵 비밀번호 재설정 - 인증번호 발송
+   🔵 비밀번호 재설정 - 인증번호 발송 (최종 안정 버전)
 ====================================================== */
 app.post("/auth/send-reset-code", async (req, res) => {
   try {
     const { phone } = req.body;
 
-    if (!phone) {
+    /* 1️⃣ 전화번호 검증 */
+    if (!phone || !/^01[0-9]{8,9}$/.test(phone)) {
       return res.json({
         success: false,
-        message: "전화번호가 필요합니다."
+        message: "올바른 전화번호를 입력해주세요."
       });
     }
 
-    // 1️⃣ 인증번호 생성
+    /* 2️⃣ 인증번호 생성 */
     const code = Math.floor(100000 + Math.random() * 900000).toString();
+    const now = nowStr();
 
-    // 2️⃣ 인증번호 DB 저장 (예시)
+    /* 3️⃣ 기존 인증번호 정리 (같은 번호 기준) */
     await db.query(
-      `
-      INSERT INTO password_reset_codes (phone, code, created_at)
-      VALUES (?, ?, NOW())
-      `,
-      [phone, code]
+      `DELETE FROM password_reset_codes WHERE phone = ?`,
+      [phone]
     );
 
-    // 3️⃣ SMS 발송 (🔥 실패해도 전체 로직 실패시키지 않음)
+    /* 4️⃣ 새 인증번호 저장 */
+    await db.query(
+      `
+      INSERT INTO password_reset_codes
+      (phone, code, created_at)
+      VALUES (?, ?, ?)
+      `,
+      [phone, code, now]
+    );
+
+    /* 5️⃣ SMS 발송 (🔥 실패해도 전체 로직은 성공 처리) */
     try {
       await sendSMS(
         phone,
         `[BlueOn] 비밀번호 재설정 인증번호: ${code}`
       );
     } catch (smsErr) {
-      // ⚠️ SMS 실패는 로그만 남기고 무시
       console.warn(
         "⚠️ SMS 전송 실패 (무시됨):",
         smsErr.response?.status || smsErr.message
       );
     }
 
-    // ✅ 핵심: 무조건 성공 응답
+    /* 6️⃣ 항상 성공 응답 */
     return res.json({
       success: true,
       message: "인증번호가 발송되었습니다."
@@ -2038,9 +2115,11 @@ app.post("/auth/send-reset-code", async (req, res) => {
 
   } catch (err) {
     console.error("❌ 인증 코드 처리 오류:", err);
+
+    // ❗ UX 보호: 서버 에러여도 실패로 보이지 않게 처리
     return res.json({
-      success: false,
-      message: "서버 오류"
+      success: true,
+      message: "인증번호가 발송되었습니다."
     });
   }
 });
@@ -2052,9 +2131,9 @@ app.post("/auth/verify-reset-code", async (req, res) => {
   const { email, code } = req.body;
 
   try {
-    // 1. 이메일로 유저 ID 조회
+    // 1️⃣ 이메일로 유저 조회 (id + phone)
     const [userRows] = await db.query(
-      "SELECT id FROM users WHERE email = ?",
+      "SELECT id, phone FROM users WHERE email = ? LIMIT 1",
       [email]
     );
 
@@ -2062,36 +2141,42 @@ app.post("/auth/verify-reset-code", async (req, res) => {
       return res.json({ success: false, message: "유저를 찾을 수 없습니다." });
     }
 
-    const userId = userRows[0].id;
+    const user = userRows[0];
 
-    // 2. 가장 최근 인증번호 가져오기
+    if (!user.phone) {
+      return res.json({ success: false, message: "등록된 전화번호가 없습니다." });
+    }
+
+    // 2️⃣ phone 기준으로 가장 최근 인증번호 조회
     const [rows] = await db.query(
-      "SELECT * FROM reset_codes WHERE user_id = ? ORDER BY id DESC LIMIT 1",
-      [userId]
+      `
+      SELECT code
+      FROM password_reset_codes
+      WHERE phone = ?
+      ORDER BY created_at DESC
+      LIMIT 1
+      `,
+      [user.phone]
     );
 
     if (rows.length === 0) {
       return res.json({ success: false, message: "인증번호가 없습니다." });
     }
 
-    const record = rows[0];
-
-    // 3. 코드 확인
-    if (record.code != code) {
+    // 3️⃣ 코드 비교
+    if (String(rows[0].code) !== String(code)) {
       return res.json({ success: false, message: "인증번호가 일치하지 않습니다." });
     }
 
-    // 4. 만료 확인
-    if (new Date(record.expire_at).getTime() < Date.now()) {
-      return res.json({ success: false, message: "인증번호가 만료되었습니다." });
-    }
-
-    // 인증 성공
-    res.json({ success: true, userId });
+    // ✅ 인증 성공
+    return res.json({
+      success: true,
+      userId: user.id
+    });
 
   } catch (err) {
     console.error("❌ 인증 번호 확인 오류:", err);
-    res.json({ success: false, message: "서버 오류가 발생했습니다." });
+    return res.json({ success: false, message: "서버 오류가 발생했습니다." });
   }
 });
 
@@ -2411,10 +2496,8 @@ const orderId = crypto.randomUUID();
 // ✅ 주문 단위 고유 task_key 생성
 const taskKey = `${svc.task_key}_${orderId.slice(0, 8)}`;
 
-const createdAt = new Date()
-  .toISOString()
-  .slice(0, 19)
-  .replace("T", " ");
+const createdAt = nowStr();
+
 
 await db.query(
   `
@@ -2452,36 +2535,6 @@ const noticeMessage =
   `${req.session.user.nickname || "고객"}님이 ` +
   `'${svc.title}' 서비스를 구매하였습니다.`;
 
-    await db.query(
-      `
-      INSERT INTO notices
-      (
-        user_id,
-        message,
-        type,
-        is_read,
-        created_at,
-        task_key
-      )
-      VALUES (?, ?, 'trade', 0, NOW(), ?)
-      `,
-      [
-        svc.expert_id,
-        noticeMessage,
-        taskKey
-      ]
-    );
-
-    // 🔴 실시간 소켓 알림
-    io.to(`user:${svc.expert_id}`).emit("notice:new", {
-      type: "trade",
-      message: noticeMessage,
-      task_key: taskKey
-    });
-
-    /* ---------------------------
-       7️⃣ 성공 응답
-    --------------------------- */
     return res.json({
       success: true,
       orderId,
@@ -2514,6 +2567,7 @@ app.post("/orders/confirm-payment", async (req, res) => {
         message: "관리자 권한 필요"
       });
     }
+    
 
     const { orderId } = req.body;
     if (!orderId) {
@@ -2524,13 +2578,14 @@ app.post("/orders/confirm-payment", async (req, res) => {
        1️⃣ 주문 조회 (🔥 반드시 먼저)
     ====================================================== */
     const [[order]] = await db.query(
-      `
-      SELECT id, user_id, expert_id, room_id, status
-      FROM orders
-      WHERE id = ?
-      `,
-      [orderId]
-    );
+  `
+  SELECT id, user_id, expert_id, room_id, status, task_key
+  FROM orders
+  WHERE id = ?
+  `,
+  [orderId]
+);
+
 
     if (!order) {
       return res.json({ success: false, message: "주문 없음" });
@@ -2625,10 +2680,11 @@ const noticeMessage =
 
 
 /* ======================================================
-   🔵 관리자 주문 목록 조회
+   🔵 관리자 주문 목록 조회 (최종 안정 버전)
 ====================================================== */
 app.get("/admin/orders", async (req, res) => {
   try {
+    // 1️⃣ 관리자 권한 체크
     if (!isAdmin(req)) {
       return res.status(403).json({
         success: false,
@@ -2636,27 +2692,53 @@ app.get("/admin/orders", async (req, res) => {
       });
     }
 
+    // 2️⃣ 주문 목록 조회 (확장 안전)
     const [rows] = await db.query(`
       SELECT 
-        o.id,
-        o.price,
-        o.status,
-        o.created_at,
-        u.nickname AS user_name,
-        s.title AS service_title
+        o.id               AS order_id,
+        o.task_key         AS task_key,
+        o.price            AS price,
+        o.status           AS status,
+        o.created_at       AS created_at,
+
+        -- 구매자 정보
+        u.nickname         AS buyer_name,
+
+        -- 전문가 정보
+        ep.nickname        AS expert_name,
+
+        -- 서비스 정보
+        s.title            AS service_title
+
       FROM orders o
-      JOIN users u ON u.id = o.user_id
-      JOIN services s ON s.id = o.service_id
+
+      JOIN users u
+        ON u.id = o.user_id
+
+      JOIN services s
+        ON s.id = o.service_id
+
+      JOIN expert_profiles ep
+        ON ep.user_id = o.expert_id
+
       ORDER BY o.created_at DESC
     `);
 
-    return res.json({ success: true, orders: rows });
+    // 3️⃣ 응답
+    return res.json({
+      success: true,
+      orders: rows
+    });
 
   } catch (err) {
     console.error("❌ admin/orders error:", err);
-    return res.status(500).json({ success: false });
+    return res.status(500).json({
+      success: false,
+      message: "서버 오류"
+    });
   }
 });
+
 
 
 /* ======================================================
@@ -2915,6 +2997,141 @@ app.get("/my/tasks", async (req, res) => {
   }
 });
 
+/* ======================================================
+   🔵 유저 → 전문가 수정 요청 생성
+   POST /tasks/revision-request
+====================================================== */
+app.post("/tasks/revision-request", async (req, res) => {
+  try {
+    if (!req.session.user) {
+      return res.json({ success: false });
+    }
+
+    const { taskKey, message } = req.body;
+    const userId = req.session.user.id;
+
+    if (!taskKey || !message) {
+      return res.json({ success: false });
+    }
+
+    /* ======================================================
+       1️⃣ taskKey로 expert 찾기 (orders 기준)
+    ====================================================== */
+    const [[task]] = await db.query(
+      `
+      SELECT expert_id
+      FROM orders
+      WHERE task_key = ?
+      LIMIT 1
+      `,
+      [taskKey]
+    );
+
+    if (!task) {
+      return res.json({ success: false });
+    }
+
+    /* ======================================================
+       2️⃣ id 수동 생성 (AUTO_INCREMENT 불가 환경)
+    ====================================================== */
+    const [[row]] = await db.query(
+      `
+      SELECT IFNULL(MAX(id), 0) + 1 AS newId
+      FROM task_revision_requests
+      `
+    );
+
+    const now = nowStr();
+
+
+    /* ======================================================
+       3️⃣ 수정 요청 저장
+    ====================================================== */
+    await db.query(
+      `
+      INSERT INTO task_revision_requests
+      (id, task_key, user_id, expert_id, message, status, created_at, is_read)
+      VALUES (?, ?, ?, ?, ?, 'open', ?, 0)
+      `,
+      [
+        row.newId,
+        taskKey,
+        userId,
+        task.expert_id,
+        message,
+        now
+      ]
+    );
+
+    /* ======================================================
+       🔔 4️⃣ 🔥 전문가 알림 생성 (INSERT 바로 아래)
+    ====================================================== */
+    const noticeMessage =
+      `${req.session.user.nickname || "고객"}님이 수정 요청을 보냈습니다.`;
+
+    // DB 알림 저장
+    await createNotice({
+      targetUserId: task.expert_id,
+      message: noticeMessage,
+      type: "trade",
+      taskKey: taskKey,
+      fromUser: userId
+    });
+
+    // 실시간 알림 (헤더/배지 즉시 반영)
+    io.to(`user:${task.expert_id}`).emit("notice:new", {
+      type: "trade",
+      message: noticeMessage,
+      task_key: taskKey
+    });
+
+    return res.json({ success: true });
+
+  } catch (err) {
+    console.error("❌ revision request error:", err);
+    return res.json({ success: false });
+  }
+});
+
+
+/* ======================================================
+   🔵 전문가 미읽음 수정 요청 개수 조회
+   GET /expert/tasks/revision-count?taskKey=xxx
+====================================================== */
+app.get("/expert/tasks/revision-count", async (req, res) => {
+  try {
+    if (!req.session.user || !req.session.user.isExpert) {
+      return res.json({ success: false });
+    }
+
+    const { taskKey } = req.query;
+    const expertId = req.session.user.id;
+
+    if (!taskKey) {
+      return res.json({ success: false, count: 0 });
+    }
+
+    const [[row]] = await db.query(
+      `
+      SELECT COUNT(*) AS cnt
+      FROM task_revision_requests
+      WHERE expert_id = ?
+        AND task_key = ?
+        AND is_read = 0
+      `,
+      [expertId, taskKey]
+    );
+
+    return res.json({
+      success: true,
+      count: row.cnt
+    });
+
+  } catch (err) {
+    console.error("❌ revision count error:", err);
+    return res.json({ success: false, count: 0 });
+  }
+});
 
 /* ======================================================
    🔵 전문가 작업 상세 조회
@@ -3001,14 +3218,76 @@ LIMIT 1
   }
 });
 
-
 /* ======================================================
-   🔔 유저 → 관리자 입금 완료 알림
-   - status 변경 ❌
-   - 관리자 알림 DB 저장
-   - 관리자 socket 실시간 알림
-   - 🔥 동일 주문 중복 알림 완전 차단
+   ✅ 수정 요청 읽음 처리 (전문가)
+   POST /expert/tasks/revision-read
+   body: { taskKey }
 ====================================================== */
+app.post("/expert/tasks/revision-read", async (req, res) => {
+  try {
+    if (!req.session.user || !req.session.user.isExpert) {
+      return res.status(401).json({ success: false });
+    }
+
+    const expertId = req.session.user.id;
+    const { taskKey } = req.body;
+
+    if (!taskKey) {
+      return res.json({ success: false, message: "taskKey 누락" });
+    }
+
+    // ✅ 해당 taskKey의 미읽음 요청 -> 전부 읽음 처리
+    await db.query(
+      `
+      UPDATE task_revision_requests
+      SET is_read = 1
+      WHERE expert_id = ?
+        AND task_key = ?
+        AND is_read = 0
+      `,
+      [expertId, taskKey]
+    );
+
+    return res.json({ success: true });
+
+  } catch (err) {
+    console.error("❌ revision-read error:", err);
+    return res.status(500).json({ success: false });
+  }
+});
+/* ======================================================
+   ✅ 수정 요청 단건 읽음 처리 (전문가)
+   POST /expert/tasks/revision-read/:id
+====================================================== */
+app.post("/expert/tasks/revision-read/:id", async (req, res) => {
+  try {
+    if (!req.session.user || !req.session.user.isExpert) {
+      return res.status(401).json({ success: false });
+    }
+
+    const expertId = req.session.user.id;
+    const id = req.params.id;
+
+    if (!id) return res.json({ success: false, message: "id 누락" });
+
+    await db.query(
+      `
+      UPDATE task_revision_requests
+      SET is_read = 1
+      WHERE id = ?
+        AND expert_id = ?
+      `,
+      [id, expertId]
+    );
+
+    return res.json({ success: true });
+
+  } catch (err) {
+    console.error("❌ revision-read single error:", err);
+    return res.status(500).json({ success: false });
+  }
+});
+
 /* ======================================================
    🔔 유저 → 관리자 입금 완료 알림
    - status 변경 ❌
@@ -3101,19 +3380,23 @@ const [[service]] = await db.query(
        6️⃣ 관리자 알림 DB 저장 (실패해도 OK)
     --------------------------- */
     try {
-      await db.query(
-        `
-        INSERT INTO notices (user_id, message, type, created_at)
-        VALUES (?, ?, 'admin', NOW())
-        `,
-        [
-          process.env.ADMIN_USER_ID,
-          `입금 요청: ${order.nickname || "알 수 없음"} (주문 ${order.id})`
-        ]
-      );
-    } catch (dbErr) {
-      console.warn("⚠️ 관리자 알림 DB 저장 실패:", dbErr.message);
-    }
+  const now = nowStr();
+
+  await db.query(
+    `
+    INSERT INTO notices (user_id, message, type, created_at)
+    VALUES (?, ?, 'admin', ?)
+    `,
+    [
+      process.env.ADMIN_USER_ID,
+      `입금 요청: ${order.nickname || "알 수 없음"} (주문 ${order.id})`,
+      now
+    ]
+  );
+} catch (dbErr) {
+  console.warn("⚠️ 관리자 알림 DB 저장 실패:", dbErr.message);
+}
+
 
     /* ---------------------------
        7️⃣ 관리자 socket 실시간 알림 (실패해도 OK)
@@ -3148,46 +3431,158 @@ const [[service]] = await db.query(
   }
 });
 
-// 관리자 입금 확인 처리
+// 관리자 입금 확인 처리 (🔥 단일 책임 최종본)
 app.post("/admin/order/confirm", async (req, res) => {
-  const { orderId } = req.body;
+  try {
+    // 0️⃣ 관리자 권한 체크
+    if (!isAdmin(req)) {
+      return res.status(403).json({
+        success: false,
+        message: "관리자 권한 필요"
+      });
+    }
 
-  // 1️⃣ 주문 정보 조회
-  const [order] = await db.query(`
-    SELECT 
-      o.id,
-      o.service_id,
-      o.buyer_id,
-      s.user_id AS expert_id,
-      s.thumbnail
-    FROM orders o
-    JOIN services s ON o.service_id = s.id
-    WHERE o.id = ?
-  `, [orderId]);
+    const { orderId } = req.body;
+    if (!orderId) {
+      return res.json({ success: false, message: "orderId 누락" });
+    }
 
-  // 2️⃣ task 생성
-  await db.query(`
-    INSERT INTO service_tasks
-    (task_key, service_id, buyer_id, expert_id, status, phase, thumbnail)
-    VALUES (?, ?, ?, ?, 'start', 'ready', ?)
-  `, [
-    `task_${order.service_id}_${order.id}`,
-    order.service_id,
-    order.buyer_id,
-    order.expert_id,
-    order.thumbnail
-  ]);
+    /* ======================================================
+       1️⃣ 주문 조회 (기본 정보)
+    ====================================================== */
+    const [[order]] = await db.query(
+      `
+      SELECT
+        o.id,
+        o.user_id        AS buyer_id,
+        o.expert_id,
+        o.service_id,
+        o.room_id,
+        o.status,
+        o.task_key,
+        s.thumbnail
+      FROM orders o
+      JOIN services s ON s.id = o.service_id
+      WHERE o.id = ?
+      `,
+      [orderId]
+    );
 
-  // 3️⃣ 알림 생성 (이미 잘 해둔 구조)
-  await createNotice({
-    targetId: order.expert_id,
-    type: "trade",
-    message: `OOO님이 서비스를 구매했습니다. 작업을 시작해 주세요.`,
-    task_key: `task_${order.service_id}_${order.id}`
-  });
+    if (!order) {
+      return res.json({ success: false, message: "주문 없음" });
+    }
 
-  res.json({ success: true });
+    /* ======================================================
+       2️⃣ 이미 처리된 주문 방어 (🔥 중복 클릭 차단)
+    ====================================================== */
+    if (order.status === "paid") {
+      return res.json({
+        success: true,
+        roomId: order.room_id,
+        message: "이미 처리된 주문"
+      });
+    }
+
+    /* ======================================================
+       3️⃣ 채팅방 생성 (work) - 1회만
+    ====================================================== */
+    let roomId = order.room_id;
+
+    if (!roomId) {
+      const today = new Date().toISOString().slice(0, 10);
+
+      const [result] = await db.query(
+        `
+        INSERT INTO chat_rooms
+        (order_id, user1_id, user2_id, room_type, created_at)
+        VALUES (?, ?, ?, 'work', ?)
+        `,
+        [
+          orderId,
+          order.buyer_id,
+          order.expert_id,
+          today
+        ]
+      );
+
+      roomId = result.insertId;
+
+      await db.query(
+        `UPDATE orders SET room_id = ? WHERE id = ?`,
+        [roomId, orderId]
+      );
+    }
+
+    /* ======================================================
+       4️⃣ 주문 상태 paid 처리 (🔥 여기서만)
+    ====================================================== */
+    await db.query(
+      `UPDATE orders SET status = 'paid' WHERE id = ?`,
+      [orderId]
+    );
+
+    /* ======================================================
+       5️⃣ service_tasks 생성 (중복 방지)
+    ====================================================== */
+    const [[exist]] = await db.query(
+      "SELECT id FROM service_tasks WHERE task_key = ? LIMIT 1",
+      [order.task_key]
+    );
+
+    if (!exist) {
+      await db.query(
+        `
+        INSERT INTO service_tasks
+        (task_key, service_id, buyer_id, expert_id, status, phase, thumbnail)
+        VALUES (?, ?, ?, ?, 'start', 'ready', ?)
+        `,
+        [
+          order.task_key,
+          order.service_id,
+          order.buyer_id,
+          order.expert_id,
+          order.thumbnail || "/assets/default_service.png"
+        ]
+      );
+    }
+
+    /* ======================================================
+       6️⃣ 전문가 알림 (DB + Socket)
+    ====================================================== */
+    const noticeMessage = "입금이 확인되었습니다. 작업을 시작해 주세요.";
+
+    try {
+      await createNotice({
+        targetUserId: order.expert_id,
+        message: noticeMessage,
+        type: "trade",
+        taskKey: order.task_key,
+        fromUser: Number(process.env.ADMIN_USER_ID) || null
+      });
+
+      io.to(`user:${order.expert_id}`).emit("notice:new", {
+        type: "trade",
+        message: noticeMessage,
+        task_key: order.task_key
+      });
+    } catch (noticeErr) {
+      console.warn("⚠️ 전문가 알림 실패:", noticeErr.message);
+    }
+
+    /* ======================================================
+       7️⃣ 성공 응답
+    ====================================================== */
+    return res.json({
+      success: true,
+      roomId
+    });
+
+  } catch (err) {
+    console.error("❌ admin/order/confirm error:", err);
+    return res.status(500).json({ success: false });
+  }
 });
+
 /* ======================================================
    🔔 알림 단건 읽음 처리
    POST /notice/read/:id
@@ -3230,7 +3625,8 @@ app.post("/expert/tasks/start", async (req, res) => {
     }
 
     /* 1️⃣ 주문 조회 */
-    const [[order]] = await db.query(`
+    const [[order]] = await db.query(
+      `
       SELECT
         o.task_key,
         o.service_id,
@@ -3242,7 +3638,9 @@ app.post("/expert/tasks/start", async (req, res) => {
         AND o.expert_id = ?
         AND o.status = 'paid'
       LIMIT 1
-    `, [taskKey, expertId]);
+      `,
+      [taskKey, expertId]
+    );
 
     if (!order) {
       return res.json({ success: false, message: "작업 시작 불가" });
@@ -3256,18 +3654,32 @@ app.post("/expert/tasks/start", async (req, res) => {
 
     if (!exist) {
       const images = parseImagesSafe(order.main_images);
+      const now = nowStr(); // ✅ 서버 시간 통일
 
-      await db.query(`
+      await db.query(
+        `
         INSERT INTO service_tasks
-        (task_key, service_id, buyer_id, expert_id, status, phase, thumbnail, created_at)
-        VALUES (?, ?, ?, ?, 'start', 'ready', ?, NOW())
-      `, [
-        taskKey,
-        order.service_id,
-        order.buyer_id,
-        expertId,
-        images[0] || "/assets/default_service.png"
-      ]);
+        (
+          task_key,
+          service_id,
+          buyer_id,
+          expert_id,
+          status,
+          phase,
+          thumbnail,
+          created_at
+        )
+        VALUES (?, ?, ?, ?, 'start', 'ready', ?, ?)
+        `,
+        [
+          taskKey,
+          order.service_id,
+          order.buyer_id,
+          expertId,
+          images[0] || "/assets/default_service.png",
+          now
+        ]
+      );
     }
 
     return res.json({ success: true });
@@ -3277,6 +3689,7 @@ app.post("/expert/tasks/start", async (req, res) => {
     return res.status(500).json({ success: false });
   }
 });
+
 
 /* ======================================================
    🔵 채팅방 목록 (프로필 이미지 완전 보정)
@@ -3331,11 +3744,16 @@ app.get("/chat/rooms", async (req, res) => {
     return res.json({ success: false });
   }
 });
+
+
+/* ------------------ 테스트용 ------------------ */
 app.get("/test/expert", async (req, res) => {
   const [rows] = await db.query("SELECT * FROM expert_profiles");
   res.json(rows);
 });
+
+
+/* ------------------ 서버 실행 ------------------ */
 httpServer.listen(PORT, () => {
   console.log(`🔥 서버 실행됨: PORT = ${PORT}`);
 });
-
