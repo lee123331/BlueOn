@@ -3577,32 +3577,31 @@ if (!exist) {
 
   const now = nowStr(); // ✅ 서버 시간 통일
 
-  await db.query(
-    `
-    INSERT INTO service_tasks
-    (
-      task_key,
-      service_id,
-      buyer_id,
-      expert_id,
-      status,
-      phase,
-      thumbnail,
-      created_at
-    )
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    `,
-    [
-      order.task_key,        // ✅ 주문 단위 고유 task_key
-      order.service_id,      // 서비스 ID
-      order.buyer_id,        // 구매자 ID
-      order.expert_id,       // 전문가 ID
-      "start",               // status
-      "ready",               // phase
-      thumbnail,             // 🔥 안전한 썸네일
-      now                    // 생성 시각
-    ]
-  );
+await db.query(
+  `
+  INSERT INTO service_tasks
+  (
+    task_key,
+    service_id,
+    buyer_id,
+    expert_id,
+    status,
+    phase,
+    thumbnail,
+    created_at
+  )
+  VALUES (?, ?, ?, ?, 'pending', 'ready', ?, ?)
+  `,
+  [
+    order.task_key,
+    order.service_id,
+    order.buyer_id,
+    order.expert_id,
+    thumbnail,
+    now
+  ]
+);
+
 }
 
 
