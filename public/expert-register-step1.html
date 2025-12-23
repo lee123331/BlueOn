@@ -551,33 +551,59 @@ function renderSubCategories() {
 }
 
 /* ===============================
-   닉네임 중복 체크
+   닉네임 중복 체크 (최종 안정화)
+   - server: available true/false 기준
+   - debounce 400ms
+   - input 이벤트 기반
 ================================ */
-nicknameInput.addEventListener("blur", async () => {
+
+let nicknameValid = false;
+let nicknameTimer = null;
+
+nicknameInput.addEventListener("input", () => {
   const nickname = nicknameInput.value.trim();
+
+  // 초기화
+  nicknameStatus.className = "status-msg";
+  nicknameStatus.textContent = "";
+  nicknameValid = false;
+
+  // 빈 값이면 검사 안 함
   if (!nickname) return;
 
-  try {
-    const res = await fetch(
-      `${API_URL}/expert/check-nickname?nickname=${encodeURIComponent(nickname)}`,
-      { credentials: "include" }
-    );
-    if (!res.ok) throw new Error();
+  // 이전 타이머 제거
+  clearTimeout(nicknameTimer);
 
-    const data = await res.json();
-    nicknameStatus.className = "status-msg";
+  // 400ms 입력 멈추면 검사
+  nicknameTimer = setTimeout(async () => {
+    try {
+      const res = await fetch(
+        `${API_URL}/expert/check-nickname?nickname=${encodeURIComponent(nickname)}`,
+        { credentials: "include" }
+      );
 
-    if (!data.exists) {
-      nicknameStatus.textContent = "사용 가능한 닉네임입니다.";
-      nicknameStatus.classList.add("ok");
-    } else {
-      nicknameStatus.textContent = "이미 사용 중인 닉네임입니다.";
+      if (!res.ok) throw new Error("request failed");
+
+      const data = await res.json();
+
+      // ✅ 서버는 available 기준
+      if (!data.available) {
+        nicknameStatus.textContent = "이미 사용 중인 닉네임입니다.";
+        nicknameStatus.classList.add("error");
+        nicknameValid = false;
+      } else {
+        nicknameStatus.textContent = "사용 가능한 닉네임입니다.";
+        nicknameStatus.classList.add("ok");
+        nicknameValid = true;
+      }
+
+    } catch (err) {
+      console.error("닉네임 체크 오류:", err);
+      nicknameStatus.textContent = "닉네임 확인 실패";
       nicknameStatus.classList.add("error");
+      nicknameValid = false;
     }
-  } catch {
-    nicknameStatus.textContent = "닉네임 확인 실패";
-    nicknameStatus.className = "status-msg error";
-  }
+  }, 400);
 });
 
 /* ===============================
@@ -618,18 +644,32 @@ introDetail.addEventListener("input", () => saveStep1());
    다음 단계 이동
 ================================ */
 function goNextStep() {
-  if (!nicknameInput.value.trim()) {
+  const nickname = nicknameInput.value.trim();
+
+  // 1️⃣ 닉네임 입력 여부
+  if (!nickname) {
     alert("닉네임을 입력하세요.");
     return;
   }
+
+  // 2️⃣ 닉네임 중복 검사 통과 여부 (🔥 핵심)
+  if (!nicknameValid) {
+    alert("닉네임 중복 여부를 확인해주세요.");
+    nicknameInput.focus();
+    return;
+  }
+
+  // 3️⃣ 카테고리 선택 여부
   if (!selectedTop || !selectedSub) {
     alert("카테고리를 선택하세요.");
     return;
   }
 
+  // 4️⃣ 저장 + 다음 단계
   saveStep1({ syncServer: true });
   location.href = "/expert-register-step2.html";
 }
+
 
 /* ===============================
    초기 실행

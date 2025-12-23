@@ -270,44 +270,39 @@ app.post(
   }
 );
 /* ======================================================
-   🔵 전문가 닉네임 중복 체크
-   GET /expert/check-nickname?nickname=xxx
+   🔵 닉네임 중복 체크 (전문가 등록 / 프로필 공용)
 ====================================================== */
 app.get("/expert/check-nickname", async (req, res) => {
   try {
     const { nickname } = req.query;
+    const myId = req.session.user?.id || null;
 
     if (!nickname) {
-      return res.json({
-        success: false,
-        message: "nickname 누락"
-      });
+      return res.json({ success: false });
     }
 
     const [rows] = await db.query(
       `
       SELECT id
-      FROM expert_profiles
+      FROM users
       WHERE nickname = ?
+        AND id != ?
       LIMIT 1
       `,
-      [nickname]
+      [nickname, myId]
     );
 
-   return res.json({
-  success: true,
-  available: rows.length === 0
-});
-
+    return res.json({
+      success: true,
+      available: rows.length === 0
+    });
 
   } catch (err) {
     console.error("❌ check-nickname error:", err);
-    return res.status(500).json({
-      success: false,
-      message: "서버 오류"
-    });
+    return res.status(500).json({ success: false });
   }
 });
+
 /* ======================================================
    🔵 현재 로그인 유저 정보
    GET /me
