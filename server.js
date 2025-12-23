@@ -3566,6 +3566,9 @@ app.post("/admin/order/confirm", async (req, res) => {
 /* ======================================================
    5️⃣ service_tasks 생성 (중복 방지 + 썸네일 안정 처리)
 ====================================================== */
+/* ======================================================
+   5️⃣ service_tasks 생성 (중복 방지)
+====================================================== */
 const [[exist]] = await db.query(
   "SELECT id FROM service_tasks WHERE task_key = ? LIMIT 1",
   [order.task_key]
@@ -3575,7 +3578,8 @@ if (!exist) {
   // 🔥 services.main_images → 썸네일 안전 파싱
   const images = parseImagesSafe(order.main_images);
   const thumbnail = images[0] || "/assets/default_service.png";
-  const now = nowStr(); // 서버 시간 통일
+
+  const now = nowStr(); // ✅ 서버 시간 통일
 
   await db.query(
     `
@@ -3590,18 +3594,21 @@ if (!exist) {
       thumbnail,
       created_at
     )
-    VALUES (?, ?, ?, ?, 'start', 'ready', ?, ?)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `,
     [
       order.task_key,        // ✅ 주문 단위 고유 task_key
       order.service_id,      // 서비스 ID
-      order.buyer_id,        // 구매자
-      order.expert_id,       // 전문가
+      order.buyer_id,        // 구매자 ID
+      order.expert_id,       // 전문가 ID
+      "start",               // status
+      "ready",               // phase
       thumbnail,             // 🔥 안전한 썸네일
       now                    // 생성 시각
     ]
   );
 }
+
 
 
     /* ======================================================
