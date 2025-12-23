@@ -3490,29 +3490,25 @@ app.post("/admin/order/confirm", async (req, res) => {
     }
 
     /* ======================================================
-       1️⃣ 주문 조회 (기본 정보)
-    ====================================================== */
-    const [[order]] = await db.query(
-      `
-      SELECT
-        o.id,
-        o.user_id        AS buyer_id,
-        o.expert_id,
-        o.service_id,
-        o.room_id,
-        o.status,
-        o.task_key,
-        s.thumbnail
-      FROM orders o
-      JOIN services s ON s.id = o.service_id
-      WHERE o.id = ?
-      `,
-      [orderId]
-    );
-
-    if (!order) {
-      return res.json({ success: false, message: "주문 없음" });
-    }
+   1️⃣ 주문 조회 (기본 정보)
+====================================================== */
+const [[order]] = await db.query(
+  `
+  SELECT
+    o.id,
+    o.user_id    AS buyer_id,
+    o.expert_id,
+    o.service_id,
+    o.room_id,
+    o.status,
+    o.task_key,
+    s.main_images
+  FROM orders o
+  JOIN services s ON s.id = o.service_id
+  WHERE o.id = ?
+  `,
+  [orderId]
+);
 
     /* ======================================================
        2️⃣ 이미 처리된 주문 방어 (🔥 중복 클릭 차단)
