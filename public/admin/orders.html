@@ -6,7 +6,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;600;800&display=swap" rel="stylesheet">
-
   <script src="/socket.io/socket.io.js"></script>
 
   <style>
@@ -88,6 +87,7 @@
 <div class="wrap">
   <h2>주문 목록</h2>
 
+  <!-- 🔔 관리자 실시간 알림 -->
   <div id="adminNotice" class="notice"></div>
 
   <table>
@@ -122,18 +122,37 @@ if ("Notification" in window && Notification.permission === "default") {
 =========================== */
 const socket = io(API, {
   transports: ["websocket"],
-  auth: { isAdmin: true }
+  credentials: true
 });
 
+/* =====================================================
+   🔔 신규 주문 알림 (orders/create → notice:new)
+===================================================== */
+socket.on("notice:new", (data) => {
+  if (data.type !== "admin") return;
+
+  noticeBox.textContent = data.message;
+  noticeBox.style.display = "block";
+
+  if (Notification.permission === "granted") {
+    new Notification("🛒 신규 주문 발생", {
+      body: data.message
+    });
+  }
+
+  loadOrders();
+});
+
+/* =====================================================
+   💰 입금 요청 알림 (orders/notify-deposit)
+===================================================== */
 socket.on("admin:deposit-notify", (data) => {
   noticeBox.textContent = data.message;
   noticeBox.style.display = "block";
 
-  // 크롬 바탕화면 알림
   if (Notification.permission === "granted") {
     new Notification("💰 입금 요청 도착", {
-      body: data.message,
-      
+      body: data.message
     });
   }
 
@@ -149,9 +168,7 @@ async function loadOrders() {
       credentials: "include"
     });
 
-    if (!res.ok) {
-      throw new Error(`HTTP ${res.status}`);
-    }
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
     const data = await res.json();
 
@@ -175,8 +192,7 @@ async function loadOrders() {
         <td>
           ${
             o.status === "pending"
-              ? `<button 
-                   class="btn btn-confirm"
+              ? `<button class="btn btn-confirm"
                    onclick="confirmPayment('${o.order_id}')">
                    입금 확인
                  </button>`
@@ -194,15 +210,11 @@ async function loadOrders() {
   }
 }
 
-
 /* ===========================
-   ✅ 입금 확인 처리 (최종 안정화)
+   ✅ 입금 확인 처리
 =========================== */
 async function confirmPayment(orderId) {
-  if (!orderId) {
-    alert("주문 번호가 없습니다.");
-    return;
-  }
+  if (!orderId) return;
 
   if (!confirm(`주문번호 ${orderId}의 입금을 확인하시겠습니까?`)) return;
 
@@ -214,28 +226,28 @@ async function confirmPayment(orderId) {
       body: JSON.stringify({ orderId })
     });
 
-    // 🔴 서버가 JSON이 아닌 응답을 줄 경우 방어
-    if (!res.ok) {
-      throw new Error(`HTTP ${res.status}`);
-    }
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
     const data = await res.json();
 
     if (!data.success) {
-      console.error("입금 확인 실패:", data);
-      alert(data.message || "입금 확인 처리 실패");
+      alert(data.message || "입금 확인 실패");
       return;
     }
 
     alert("입금 확인 완료");
-    loadOrders(); // ✅ 목록 갱신
+    loadOrders();
 
   } catch (err) {
-    console.error("❌ 입금 확인 요청 오류:", err);
+    console.error("❌ 입금 확인 오류:", err);
     alert("서버 오류로 입금 확인에 실패했습니다.");
   }
 }
 
+/* ===========================
+   초기 로딩
+=========================== */
+loadOrders();
 </script>
 
 </body>
