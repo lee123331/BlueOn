@@ -2826,11 +2826,7 @@ app.get("/orders/:id", async (req, res) => {
   }
 });
 
-// 전문가 작업 목록
-/* ======================================================
-   🔵 전문가 작업 목록 (관리자 입금 확인 후)
-   기준: orders.status = 'paid'
-====================================================== */
+
 /* ======================================================
    🔵 전문가 작업 목록 조회
    GET /expert/tasks
@@ -2947,32 +2943,24 @@ tasks.forEach(t => {
     return res.status(500).json({ success: false });
   }
 });
+
 /* ======================================================
-   🔵 유저 작업 현황 목록
-   GET /my/tasks
-   - 관리자 입금 확인된 주문만
+   🔵 유저 작업 현황 조회 + 수정 요청 생성 (통합)
+   - GET  /my/tasks
+   - POST /tasks/revision-request
 ====================================================== */
-/* ======================================================
-   🔵 유저 작업 현황 조회
-   GET /my/tasks
-   - 관리자 입금 확인된 작업만
-   - "주문" ❌ → "작업 현황" ⭕
-====================================================== */
+
+/* =========================
+   1️⃣ 유저 작업 현황 조회
+========================= */
 app.get("/my/tasks", async (req, res) => {
   try {
-    // 1️⃣ 로그인 체크
     if (!req.session.user) {
       return res.status(401).json({ success: false });
     }
 
     const userId = req.session.user.id;
 
-    /* ======================================================
-       2️⃣ 작업 기준 조회
-       - orders.status = 'paid'
-       - service_tasks 있으면 진행/완료
-       - 없으면 작업 준비(pending)
-    ====================================================== */
     const [rows] = await db.query(
       `
       SELECT
@@ -2982,13 +2970,11 @@ app.get("/my/tasks", async (req, res) => {
         s.title AS service_title,
         s.main_images,
 
-        -- 전문가 정보
         COALESCE(ep.nickname, '전문가') AS expert_nickname,
 
-        -- 작업 상태
+        -- 🔥 핵심: task 없으면 pending, 있으면 그대로
         COALESCE(t.status, 'pending') AS task_status,
 
-        -- 썸네일 우선순위
         COALESCE(
           t.thumbnail,
           JSON_UNQUOTE(JSON_EXTRACT(s.main_images, '$[0]')),
@@ -2998,10 +2984,8 @@ app.get("/my/tasks", async (req, res) => {
       FROM orders o
       JOIN services s
         ON s.id = o.service_id
-
       JOIN expert_profiles ep
         ON ep.user_id = o.expert_id
-
       LEFT JOIN service_tasks t
         ON t.task_key = o.task_key
 
@@ -3013,19 +2997,11 @@ app.get("/my/tasks", async (req, res) => {
       [userId]
     );
 
-    /* ======================================================
-       3️⃣ 프론트 친화적 형태로 변환
-    ====================================================== */
     const tasks = rows.map(r => ({
       task_key: r.task_key,
       service_title: r.service_title,
-      expert_name: r.expert_nickname,
-      task_status:
-        r.task_status === "done"
-          ? "작업 완료"
-          : r.task_status === "progress" || r.task_status === "start"
-          ? "작업 진행중"
-          : "작업 준비",
+      expert_nickname: r.expert_nickname,
+      status: r.task_status,          // 🔴 프론트는 이 값만 믿는다
       thumbnail: r.thumbnail,
       created_at: r.created_at
     }));
@@ -3041,10 +3017,10 @@ app.get("/my/tasks", async (req, res) => {
   }
 });
 
-/* ======================================================
-   🔵 유저 → 전문가 수정 요청 생성
-   POST /tasks/revision-request
-====================================================== */
+
+/* =========================
+   2️⃣ 유저 → 전문가 수정 요청
+========================= */
 app.post("/tasks/revision-request", async (req, res) => {
   try {
     if (!req.session.user) {
@@ -3058,10 +3034,8 @@ app.post("/tasks/revision-request", async (req, res) => {
       return res.json({ success: false });
     }
 
-    /* ======================================================
-       1️⃣ taskKey로 expert 찾기 (orders 기준)
-    ====================================================== */
-    const [[task]] = await db.query(
+    /* 🔥 expert_id 조회 */
+    const [[order]] = await db.query(
       `
       SELECT expert_id
       FROM orders
@@ -3071,13 +3045,11 @@ app.post("/tasks/revision-request", async (req, res) => {
       [taskKey]
     );
 
-    if (!task) {
+    if (!order) {
       return res.json({ success: false });
     }
 
-    /* ======================================================
-       2️⃣ id 수동 생성 (AUTO_INCREMENT 불가 환경)
-    ====================================================== */
+    /* 🔥 ID 수동 생성 */
     const [[row]] = await db.query(
       `
       SELECT IFNULL(MAX(id), 0) + 1 AS newId
@@ -3087,10 +3059,7 @@ app.post("/tasks/revision-request", async (req, res) => {
 
     const now = nowStr();
 
-
-    /* ======================================================
-       3️⃣ 수정 요청 저장
-    ====================================================== */
+    /* 🔥 수정 요청 저장 */
     await db.query(
       `
       INSERT INTO task_revision_requests
@@ -3101,12 +3070,11 @@ app.post("/tasks/revision-request", async (req, res) => {
         row.newId,
         taskKey,
         userId,
-        task.expert_id,
+        order.expert_id,
         message,
         now
       ]
     );
-
     /* ======================================================
        🔔 4️⃣ 🔥 전문가 알림 생성 (INSERT 바로 아래)
     ====================================================== */
