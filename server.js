@@ -3792,6 +3792,39 @@ app.get("/chat/rooms", async (req, res) => {
   }
 });
 
+/* ======================================================
+   🔵 전문가 작업 요약
+   GET /expert/tasks/summary
+====================================================== */
+app.get("/expert/tasks/summary", async (req, res) => {
+  try {
+    if (!req.session.user || !req.session.user.isExpert) {
+      return res.status(401).json({ success: false });
+    }
+
+    const expertId = req.session.user.id;
+
+    const [[row]] = await db.query(`
+      SELECT
+        SUM(CASE WHEN t.status = 'progress' THEN 1 ELSE 0 END) AS progress,
+        SUM(CASE WHEN t.status = 'done' THEN 1 ELSE 0 END) AS done
+      FROM service_tasks t
+      WHERE t.expert_id = ?
+    `, [expertId]);
+
+    return res.json({
+      success: true,
+      summary: {
+        progress: row.progress || 0,
+        done: row.done || 0
+      }
+    });
+
+  } catch (err) {
+    console.error("❌ tasks summary error:", err);
+    return res.status(500).json({ success: false });
+  }
+});
 
 /* ------------------ 테스트용 ------------------ */
 app.get("/test/expert", async (req, res) => {
