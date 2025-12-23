@@ -289,15 +289,14 @@ async function markRevisionAsRead() {
 ================================ */
 function renderTask(t) {
   serviceTitle.innerText = t.service_title;
-  buyerName.innerText = t.buyer.nickname || "의뢰인";
+  buyerName.innerText = t.buyer_nickname || "의뢰인";
   serviceThumb.src = t.thumbnail || "/assets/default_service.png";
 
   const badge = taskStatusBadge;
   badge.className = "task-status";
 
-  // 🔥 핵심: service_tasks.status 기준
   switch (t.status) {
-    case "start":
+    case "pending":
       badge.classList.add("status-pending");
       badge.innerText = "작업 시작 전";
       taskGuide.innerHTML = "작업 시작 버튼을 눌러 작업을 시작하세요.";
@@ -326,6 +325,7 @@ function renderTask(t) {
       taskAction.innerHTML = "";
   }
 }
+
 
 /* ===============================
    작업 시작

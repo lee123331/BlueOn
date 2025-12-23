@@ -3657,6 +3657,7 @@ app.post("/notice/read/:id", async (req, res) => {
 ====================================================== */
 app.post("/expert/tasks/start", async (req, res) => {
   try {
+    // 1️⃣ 전문가 로그인 체크
     if (!req.session.user || !req.session.user.isExpert) {
       return res.status(401).json({ success: false });
     }
@@ -3668,16 +3669,13 @@ app.post("/expert/tasks/start", async (req, res) => {
       return res.json({ success: false, message: "taskKey 누락" });
     }
 
-    /* 1️⃣ 주문 조회 */
+    /* --------------------------------------------------
+       2️⃣ 해당 작업이 전문가 소유인지 + 결제 완료 확인
+    -------------------------------------------------- */
     const [[order]] = await db.query(
       `
-      SELECT
-        o.task_key,
-        o.service_id,
-        o.user_id AS buyer_id,
-        s.main_images
+      SELECT o.task_key
       FROM orders o
-      JOIN services s ON s.id = o.service_id
       WHERE o.task_key = ?
         AND o.expert_id = ?
         AND o.status = 'paid'
@@ -3687,45 +3685,37 @@ app.post("/expert/tasks/start", async (req, res) => {
     );
 
     if (!order) {
-      return res.json({ success: false, message: "작업 시작 불가" });
+      return res.json({
+        success: false,
+        message: "작업을 시작할 수 없습니다."
+      });
     }
 
-    /* 2️⃣ 이미 작업 존재 여부 */
-    const [[exist]] = await db.query(
-      "SELECT id FROM service_tasks WHERE task_key = ? LIMIT 1",
-      [taskKey]
+    /* --------------------------------------------------
+       3️⃣ 작업 상태 pending → progress 로 변경
+       (🔥 INSERT 절대 금지)
+    -------------------------------------------------- */
+    const [result] = await db.query(
+      `
+      UPDATE service_tasks
+      SET status = 'progress'
+      WHERE task_key = ?
+        AND expert_id = ?
+        AND status = 'pending'
+      `,
+      [taskKey, expertId]
     );
 
-    if (!exist) {
-      const images = parseImagesSafe(order.main_images);
-      const now = nowStr(); // ✅ 서버 시간 통일
-
-      await db.query(
-        `
-        INSERT INTO service_tasks
-        (
-          task_key,
-          service_id,
-          buyer_id,
-          expert_id,
-          status,
-          phase,
-          thumbnail,
-          created_at
-        )
-        VALUES (?, ?, ?, ?, 'start', 'ready', ?, ?)
-        `,
-        [
-          taskKey,
-          order.service_id,
-          order.buyer_id,
-          expertId,
-          images[0] || "/assets/default_service.png",
-          now
-        ]
-      );
+    if (result.affectedRows === 0) {
+      return res.json({
+        success: false,
+        message: "이미 시작된 작업이거나 작업이 존재하지 않습니다."
+      });
     }
 
+    /* --------------------------------------------------
+       4️⃣ 성공
+    -------------------------------------------------- */
     return res.json({ success: true });
 
   } catch (err) {
@@ -3733,6 +3723,7 @@ app.post("/expert/tasks/start", async (req, res) => {
     return res.status(500).json({ success: false });
   }
 });
+
 
 
 /* ======================================================
