@@ -2502,88 +2502,105 @@ app.post("/orders/create", async (req, res) => {
       });
     }
 
-   /* ---------------------------
-   4️⃣ 서비스 정보 조회
---------------------------- */
-const [[svc]] = await db.query(
-  `
-  SELECT 
-    user_id AS expert_id,
-    price_basic,
-    task_key,
-    title
-  FROM services
-  WHERE id = ?
-  `,
-  [serviceId]
-);
+    /* ---------------------------
+       4️⃣ 서비스 정보 조회
+    --------------------------- */
+    const [[svc]] = await db.query(
+      `
+      SELECT 
+        user_id AS expert_id,
+        price_basic,
+        task_key,
+        title
+      FROM services
+      WHERE id = ?
+      `,
+      [serviceId]
+    );
 
-if (!svc || !svc.task_key) {
-  return res.status(500).json({
-    success: false,
-    message: "서비스 task_key 없음"
-  });
-}
+    if (!svc || !svc.task_key) {
+      return res.status(500).json({
+        success: false,
+        message: "서비스 task_key 없음"
+      });
+    }
 
-/* ---------------------------
-   5️⃣ 주문 생성 (🔥 핵심)
---------------------------- */
-const orderId = crypto.randomUUID();
+    /* ---------------------------
+       5️⃣ 주문 생성
+    --------------------------- */
+    const orderId = crypto.randomUUID();
 
-// ✅ 주문 단위 고유 task_key 생성
-const taskKey = `${svc.task_key}_${orderId.slice(0, 8)}`;
+    // 주문 단위 고유 task_key
+    const taskKey = `${svc.task_key}_${orderId.slice(0, 8)}`;
+    const createdAt = nowStr();
 
-const createdAt = nowStr();
+    await db.query(
+      `
+      INSERT INTO orders
+      (
+        id,
+        user_id,
+        expert_id,
+        service_id,
+        task_key,
+        price,
+        status,
+        alarm_status,
+        alarm_error,
+        created_at
+      )
+      VALUES (?, ?, ?, ?, ?, ?, 'pending', 'none', '', ?)
+      `,
+      [
+        orderId,
+        userId,
+        svc.expert_id,
+        serviceId,
+        taskKey,
+        svc.price_basic,
+        createdAt
+      ]
+    );
 
+    /* ---------------------------
+       6️⃣ 🔔 관리자 주문 알림
+    --------------------------- */
+    const adminId = Number(process.env.ADMIN_USER_ID);
 
-await db.query(
-  `
-  INSERT INTO orders
-  (
-    id,
-    user_id,
-    expert_id,
-    service_id,
-    task_key,
-    price,
-    status,
-    alarm_status,
-    alarm_error,
-    created_at
-  )
-  VALUES (?, ?, ?, ?, ?, ?, 'pending', 'none', '', ?)
-  `,
-  [
-    orderId,
-    userId,
-    svc.expert_id,
-    serviceId,
-    taskKey,              // ✅ 이제 고유
-    svc.price_basic,
-    createdAt
-  ]
-);
+    const adminMessage =
+      `${req.session.user.nickname || "고객"}님이 ` +
+      `'${svc.title}' 서비스를 구매했습니다.`;
 
+    // DB 알림 저장
+    await createNotice({
+      targetUserId: adminId,
+      message: adminMessage,
+      type: "admin",
+      taskKey,
+      fromUser: userId
+    });
 
-/* ---------------------------
-   6️⃣ 🔔 관리자 주문 알림 (🔥 필수)
---------------------------- */
-await createNotice({
-  targetUserId: process.env.ADMIN_USER_ID,
-  message: `${req.session.user.nickname || "고객"}님이 '${svc.title}' 서비스를 구매했습니다.`,
-  type: "admin",          // 🔥 관리자 전용
-  taskKey,
-  fromUser: userId
+    // 실시간 관리자 알림
+    io.to("admin").emit("notice:new", {
+      type: "admin",
+      message: adminMessage,
+      task_key: taskKey
+    });
+
+    /* ---------------------------
+       7️⃣ 성공 응답 (🔥 반드시 필요)
+    --------------------------- */
+    return res.json({
+      success: true,
+      orderId,
+      taskKey
+    });
+
+  } catch (err) {
+    console.error("❌ orders/create error:", err);
+    return res.status(500).json({ success: false });
+  }
 });
-
-// 실시간 관리자 알림
-io.to("admin").emit("notice:new", {
-  type: "admin",
-  message: `${req.session.user.nickname || "고객"}님이 '${svc.title}' 서비스를 구매했습니다.`,
-  task_key: taskKey
-});
-
-
 
 /* ======================================================
    🔵 주문 입금 확인 (관리자)
