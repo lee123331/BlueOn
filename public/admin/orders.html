@@ -133,7 +133,7 @@ socket.on("admin:deposit-notify", (data) => {
   if (Notification.permission === "granted") {
     new Notification("💰 입금 요청 도착", {
       body: data.message,
-      icon: "/assets/logo.png"
+      
     });
   }
 
@@ -144,36 +144,56 @@ socket.on("admin:deposit-notify", (data) => {
    📦 주문 목록 불러오기
 =========================== */
 async function loadOrders() {
-  const res = await fetch("/admin/orders", { credentials:"include" });
-  const data = await res.json();
+  try {
+    const res = await fetch("/admin/orders", {
+      credentials: "include"
+    });
 
-  if (!data.success) {
-    alert("관리자만 접근 가능합니다.");
-    location.href = "/";
-    return;
+    if (!res.ok) {
+      throw new Error(`HTTP ${res.status}`);
+    }
+
+    const data = await res.json();
+
+    if (!data.success) {
+      alert("관리자만 접근 가능합니다.");
+      location.href = "/";
+      return;
+    }
+
+    tbody.innerHTML = "";
+
+    data.orders.forEach(o => {
+      const tr = document.createElement("tr");
+
+      tr.innerHTML = `
+        <td>${o.order_id}</td>
+        <td>${o.buyer_name || "알 수 없음"}</td>
+        <td>${o.service_title || "-"}</td>
+        <td>${Number(o.price || 0).toLocaleString()}원</td>
+        <td class="status ${o.status}">${o.status}</td>
+        <td>
+          ${
+            o.status === "pending"
+              ? `<button 
+                   class="btn btn-confirm"
+                   onclick="confirmPayment('${o.order_id}')">
+                   입금 확인
+                 </button>`
+              : "-"
+          }
+        </td>
+      `;
+
+      tbody.appendChild(tr);
+    });
+
+  } catch (err) {
+    console.error("❌ 주문 목록 로딩 실패:", err);
+    alert("주문 목록을 불러오는 중 오류가 발생했습니다.");
   }
-
-  tbody.innerHTML = "";
-
-  data.orders.forEach(o => {
-    const tr = document.createElement("tr");
-
-    tr.innerHTML = `
-      <td>${o.order_id}</td>
-      <td>${o.buyer_name}</td>
-      <td>${o.service_title}</td>
-      <td>${Number(o.price).toLocaleString()}원</td>
-      <td class="status ${o.status}">${o.status}</td>
-      <td>
-        ${o.status === "pending"
-          ? `<button class="btn btn-confirm" onclick="confirmPayment('${o.id}')">입금 확인</button>`
-          : "-"}
-      </td>
-    `;
-
-    tbody.appendChild(tr);
-  });
 }
+
 
 /* ===========================
    ✅ 입금 확인 처리 (최종 안정화)
