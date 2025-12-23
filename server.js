@@ -2846,30 +2846,27 @@ app.get("/expert/tasks", async (req, res) => {
        - service_tasks에 아직 없는 상태
        → "작업 대기중"
     ====================================================== */
-    const [paidOrders] = await db.query(
-      `
-      SELECT
-        o.task_key,
-        o.created_at,
-        s.id AS service_id,
-        s.title AS service_title,
-        s.main_images,
-        u.nickname AS buyer_nickname
-      FROM orders o
-      JOIN services s ON s.id = o.service_id
-      JOIN users u ON u.id = o.user_id
-      WHERE o.expert_id = ?
-        AND o.status = 'paid'
-        WHERE o.expert_id = ?
-  AND o.status = 'paid'
-  AND o.task_key NOT IN (
-    SELECT task_key FROM service_tasks
-  )
-
-      ORDER BY o.created_at DESC
-      `,
-      [expertId]
-    );
+const [paidOrders] = await db.query(
+  `
+  SELECT
+    o.task_key,
+    o.created_at,
+    s.id AS service_id,
+    s.title AS service_title,
+    s.main_images,
+    u.nickname AS buyer_nickname
+  FROM orders o
+  JOIN services s ON s.id = o.service_id
+  JOIN users u ON u.id = o.user_id
+  WHERE o.expert_id = ?
+    AND o.status = 'paid'
+    AND o.task_key NOT IN (
+      SELECT task_key FROM service_tasks
+    )
+  ORDER BY o.created_at DESC
+  `,
+  [expertId]
+);
 
     /* ======================================================
        3️⃣ 이미 생성된 작업(service_tasks)
