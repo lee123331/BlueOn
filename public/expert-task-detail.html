@@ -295,25 +295,35 @@ function renderTask(t) {
   const badge = taskStatusBadge;
   badge.className = "task-status";
 
-  if (t.status === "pending") {
-    badge.classList.add("status-pending");
-    badge.innerText = "작업 시작 전";
-    taskGuide.innerHTML = "작업 시작 버튼을 눌러 작업을 시작하세요.";
-    taskAction.innerHTML = `<button class="action-btn" onclick="startTask()">작업 시작하기</button>`;
-  }
+  // 🔥 핵심: service_tasks.status 기준
+  switch (t.status) {
+    case "start":
+      badge.classList.add("status-pending");
+      badge.innerText = "작업 시작 전";
+      taskGuide.innerHTML = "작업 시작 버튼을 눌러 작업을 시작하세요.";
+      taskAction.innerHTML =
+        `<button class="action-btn" onclick="startTask()">작업 시작하기</button>`;
+      break;
 
-  if (t.status === "progress") {
-    badge.classList.add("status-progress");
-    badge.innerText = "진행중";
-    taskGuide.innerHTML = "의뢰인의 수정 요청이 있으면 상단에 표시됩니다.";
-    taskAction.innerHTML = `<button class="action-btn" onclick="goChat(${t.room_id})">채팅으로 이동</button>`;
-  }
+    case "progress":
+      badge.classList.add("status-progress");
+      badge.innerText = "진행중";
+      taskGuide.innerHTML = "의뢰인의 수정 요청이 있으면 상단에 표시됩니다.";
+      taskAction.innerHTML =
+        `<button class="action-btn" onclick="goChat(${t.room_id})">채팅으로 이동</button>`;
+      break;
 
-  if (t.status === "done") {
-    badge.classList.add("status-done");
-    badge.innerText = "작업 완료";
-    taskGuide.innerHTML = "의뢰인이 결과물을 확인 중입니다.";
-    taskAction.innerHTML = "";
+    case "done":
+      badge.classList.add("status-done");
+      badge.innerText = "작업 완료";
+      taskGuide.innerHTML = "의뢰인이 결과물을 확인 중입니다.";
+      taskAction.innerHTML = "";
+      break;
+
+    default:
+      badge.innerText = "알 수 없음";
+      taskGuide.innerHTML = "";
+      taskAction.innerHTML = "";
   }
 }
 
