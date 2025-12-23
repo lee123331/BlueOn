@@ -670,6 +670,25 @@ function goNextStep() {
   location.href = "/expert-register-step2.html";
 }
 
+/* ===============================
+   전문가 등록 단계 이동
+================================ */
+function goStep(step) {
+  const stepMap = {
+    intro: "/expert-register-step1.html",
+    career: "/expert-register-step2.html",
+    skill: "/expert-register-step3.html",
+    brand: "/expert-register-step4.html"
+  };
+
+  const target = stepMap[step];
+  if (!target) return;
+
+  // Step1 데이터 저장 (로컬)
+  saveStep1();
+
+  location.href = target;
+}
 
 /* ===============================
    초기 실행
