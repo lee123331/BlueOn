@@ -2918,17 +2918,23 @@ app.get("/expert/tasks", async (req, res) => {
     });
 
     /* 🔹 진행중 / 완료 작업 */
-    tasks.forEach(t => {
-      result.push({
-        task_key: t.task_key,
-        service_title: t.service_title,
-        buyer_nickname: t.buyer_nickname || "의뢰인",
-        thumbnail: t.thumbnail || "/assets/default_service.png",
-        status: t.status === "done" ? "done" : "progress",
-        phase: t.phase,
-        created_at: t.created_at
-      });
-    });
+tasks.forEach(t => {
+  let status = "pending";
+
+  if (t.status === "progress") status = "progress";
+  if (t.status === "done") status = "done";
+
+  result.push({
+    task_key: t.task_key,
+    service_title: t.service_title,
+    buyer_nickname: t.buyer_nickname || "의뢰인",
+    thumbnail: t.thumbnail || "/assets/default_service.png",
+    status, // ✅ DB 상태 그대로 반영
+    phase: t.phase,
+    created_at: t.created_at
+  });
+});
+
 
     return res.json({
       success: true,
