@@ -178,7 +178,8 @@ body {
   <div class="summary-grid">
     <div class="summary-box">
       <div class="summary-title">진행중</div>
-      <div class="summary-count">1</div>
+      <div id="progressCount" class="summary-count">0</div>
+
     </div>
     <div class="summary-box">
       <div class="summary-title">작업물 도착</div>
@@ -343,8 +344,30 @@ async function startTask() {
 function goChat(roomId) {
   location.href = `/chat.html?room=${roomId}`;
 }
+/* ===============================
+   🔹 상단 요약 (진행중)
+================================ */
+async function loadSummary() {
+  try {
+    const res = await fetch(`${API}/expert/tasks/summary`, {
+      credentials: "include"
+    });
+    const data = await res.json();
+
+    if (data.success) {
+      const el = document.getElementById("progressCount");
+      if (el) {
+        el.innerText = data.progress;
+      }
+    }
+  } catch (e) {
+    console.error("summary load error:", e);
+  }
+}
 
 loadTaskDetail();
+loadSummary(); // 🔥 반드시 추가
+
 </script>
 
 </body>
