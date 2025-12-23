@@ -406,6 +406,7 @@ function parseImagesSafe(raw) {
 const httpServer = http.createServer(app);
 
 const io = new SocketIOServer(httpServer, {
+   transports: ["websocket"], // 🔥 이거 반드시
   cors: {
     origin: [
       "http://localhost:3000",

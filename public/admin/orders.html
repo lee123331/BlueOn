@@ -121,6 +121,7 @@ if ("Notification" in window && Notification.permission === "default") {
    🔌 관리자 Socket 연결
 =========================== */
 const socket = io(API, {
+  transports: ["websocket"],
   auth: { isAdmin: true }
 });
 
@@ -158,8 +159,8 @@ async function loadOrders() {
     const tr = document.createElement("tr");
 
     tr.innerHTML = `
-      <td>${o.id}</td>
-      <td>${o.user_name}</td>
+      <td>${o.order_id}</td>
+      <td>${o.buyer_name}</td>
       <td>${o.service_title}</td>
       <td>${Number(o.price).toLocaleString()}원</td>
       <td class="status ${o.status}">${o.status}</td>
