@@ -313,6 +313,21 @@ section h2{
 .next-button:hover{
   background:#0044cc;
 }
+/* 닉네임 경고 강조 효과 */
+.status-msg.error {
+  color: #ef4444;
+  font-weight: 600;
+  animation: shake 0.25s ease;
+}
+
+@keyframes shake {
+  0% { transform: translateX(0); }
+  25% { transform: translateX(-3px); }
+  50% { transform: translateX(3px); }
+  75% { transform: translateX(-3px); }
+  100% { transform: translateX(0); }
+}
+
 </style>
 </head>
 
@@ -656,20 +671,23 @@ function goNextStep() {
 
   // 1️⃣ 닉네임 입력 여부
   if (!nickname) {
-    alert("닉네임을 입력하세요.");
+    nicknameStatus.textContent = "닉네임을 입력해주세요.";
+    nicknameStatus.className = "status-msg error";
+    nicknameInput.focus();
     return;
   }
 
-  // 2️⃣ 닉네임 중복 검사 통과 여부 (🔥 핵심)
+  // 2️⃣ 닉네임 중복 검사 여부
   if (!nicknameValid) {
-    alert("닉네임 중복 여부를 확인해주세요.");
+    nicknameStatus.textContent = "닉네임 중복 여부를 확인해주세요.";
+    nicknameStatus.className = "status-msg error";
     nicknameInput.focus();
     return;
   }
 
   // 3️⃣ 카테고리 선택 여부
   if (!selectedTop || !selectedSub) {
-    alert("카테고리를 선택하세요.");
+    alert("카테고리를 선택하세요."); // ← 이건 다음 단계에서 toast로 바꿔도 됨
     return;
   }
 
@@ -677,6 +695,7 @@ function goNextStep() {
   saveStep1({ syncServer: true });
   location.href = "/expert-register-step2.html";
 }
+
 
 /* ===============================
    전문가 등록 단계 이동
