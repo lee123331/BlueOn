@@ -3654,10 +3654,14 @@ app.post("/notice/read/:id", async (req, res) => {
 });
 /* ======================================================
    🔵 전문가 작업 시작
+   - INSERT ❌
+   - pending → progress 로만 변경
 ====================================================== */
 app.post("/expert/tasks/start", async (req, res) => {
   try {
-    // 1️⃣ 전문가 로그인 체크
+    /* --------------------------------------------------
+       1️⃣ 전문가 로그인 체크
+    -------------------------------------------------- */
     if (!req.session.user || !req.session.user.isExpert) {
       return res.status(401).json({ success: false });
     }
@@ -3666,11 +3670,15 @@ app.post("/expert/tasks/start", async (req, res) => {
     const { taskKey } = req.body;
 
     if (!taskKey) {
-      return res.json({ success: false, message: "taskKey 누락" });
+      return res.json({
+        success: false,
+        message: "taskKey 누락"
+      });
     }
 
     /* --------------------------------------------------
-       2️⃣ 해당 작업이 전문가 소유인지 + 결제 완료 확인
+       2️⃣ 주문 존재 + 소유권 + 결제 완료 확인
+       (orders 기준 → 단일 진실 소스)
     -------------------------------------------------- */
     const [[order]] = await db.query(
       `
@@ -3692,13 +3700,16 @@ app.post("/expert/tasks/start", async (req, res) => {
     }
 
     /* --------------------------------------------------
-       3️⃣ 작업 상태 pending → progress 로 변경
-       (🔥 INSERT 절대 금지)
+       3️⃣ service_tasks 상태 변경
+       - pending → progress 만 허용
+       - INSERT ❌
     -------------------------------------------------- */
     const [result] = await db.query(
       `
       UPDATE service_tasks
-      SET status = 'progress'
+      SET
+        status = 'progress',
+        phase = 'working'
       WHERE task_key = ?
         AND expert_id = ?
         AND status = 'pending'
@@ -3706,6 +3717,9 @@ app.post("/expert/tasks/start", async (req, res) => {
       [taskKey, expertId]
     );
 
+    /* --------------------------------------------------
+       4️⃣ 방어: 이미 시작되었거나 task 없음
+    -------------------------------------------------- */
     if (result.affectedRows === 0) {
       return res.json({
         success: false,
@@ -3714,17 +3728,15 @@ app.post("/expert/tasks/start", async (req, res) => {
     }
 
     /* --------------------------------------------------
-       4️⃣ 성공
+       5️⃣ 성공
     -------------------------------------------------- */
     return res.json({ success: true });
 
   } catch (err) {
-    console.error("❌ task start error:", err);
+    console.error("❌ /expert/tasks/start error:", err);
     return res.status(500).json({ success: false });
   }
 });
-
-
 
 /* ======================================================
    🔵 채팅방 목록 (프로필 이미지 완전 보정)
