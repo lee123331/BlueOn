@@ -294,10 +294,11 @@ app.get("/expert/check-nickname", async (req, res) => {
       [nickname]
     );
 
-    return res.json({
-      success: true,
-      exists: rows.length > 0
-    });
+   return res.json({
+  success: true,
+  available: rows.length === 0
+});
+
 
   } catch (err) {
     console.error("❌ check-nickname error:", err);
@@ -306,6 +307,46 @@ app.get("/expert/check-nickname", async (req, res) => {
       message: "서버 오류"
     });
   }
+});
+/* ======================================================
+   🔵 현재 로그인 유저 정보
+   GET /me
+====================================================== */
+app.get("/me", (req, res) => {
+  if (!req.session.user) {
+    return res.json({ success: false });
+  }
+
+  return res.json({
+    success: true,
+    user: {
+      id: req.session.user.id,
+      nickname: req.session.user.nickname,
+      avatar_url: req.session.user.avatar_url,
+      intro: req.session.user.intro || null,
+      isExpert: req.session.user.isExpert || false
+    }
+  });
+});
+/* ======================================================
+   🔵 전문가 등록 여부 확인
+   GET /expert/is-registered
+====================================================== */
+app.get("/expert/is-registered", async (req, res) => {
+  if (!req.session.user) {
+    return res.json({ isExpert: false });
+  }
+
+  const userId = req.session.user.id;
+
+  const [rows] = await db.query(
+    "SELECT id FROM expert_profiles WHERE user_id = ? LIMIT 1",
+    [userId]
+  );
+
+  return res.json({
+    isExpert: rows.length > 0
+  });
 });
 
 /* ======================================================
