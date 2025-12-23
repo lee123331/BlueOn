@@ -223,7 +223,7 @@ header img#headerAvatar{
               <span id="char-count">0/17</span>
             </div>
 
-            <div id="nickname-status"></div>
+            
           </div>
 
           <div class="tip-box">
@@ -456,6 +456,9 @@ window.addEventListener("DOMContentLoaded", async () => {
       nicknameInput.value = currentUserNickname;
       introInput.value = data.user.intro || "";
 
+      nicknameValid = true; // 🔥 현재 닉네임은 항상 valid
+
+
       charCnt.textContent = `${currentUserNickname.length}/17`;
       introCnt.textContent = `${introInput.value.length}/255`;
 
@@ -610,27 +613,24 @@ confirmDelete.addEventListener("click",async()=>{
   }
 });
 
-/* 유저 정보 불러오기 */
-window.addEventListener("DOMContentLoaded",async()=>{
-  try{
-    const res=await fetch(`${API_URL}/me`,{credentials:"include"});
-    const data=await res.json();
-    if(data.success && data.user){
-      if(data.user.avatar_url){
-        preview.src=data.user.avatar_url;
-        headerAvatar.src=data.user.avatar_url;
-      }
-      nicknameInput.value=data.user.nickname || "";
-      introInput.value=data.user.intro || "";
-      charCnt.textContent=`${nicknameInput.value.length}/17`;
-      introCnt.textContent=`${introInput.value.length}/255`;
-    }
-    currentUserNickname = data.user.nickname; // 🔵 현재 사용자 닉네임 저장
+window.addEventListener("DOMContentLoaded", async () => {
+  const res = await fetch(`${API_URL}/me`, { credentials: "include" });
+  const data = await res.json();
 
-  }catch(e){
-    console.error("프로필 불러오기 실패",e);
+  if (data.success && data.user) {
+    currentUserNickname = data.user.nickname || "";
+    nicknameInput.value = currentUserNickname;
+    introInput.value = data.user.intro || "";
+    charCnt.textContent = `${currentUserNickname.length}/17`;
+    introCnt.textContent = `${introInput.value.length}/255`;
+
+    if (data.user.avatar_url) {
+      preview.src = data.user.avatar_url;
+      headerAvatar.src = data.user.avatar_url;
+    }
   }
 });
+
 
 /* 프로필 드롭다운 */
 const headerAvatarImg=document.getElementById("headerAvatar");
