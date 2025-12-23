@@ -2565,29 +2565,24 @@ await db.query(
 );
 
 
-    /* ---------------------------
-       6️⃣ 전문가 trade 알림 생성
-    --------------------------- */
-const noticeMessage =
-  `${req.session.user.nickname || "고객"}님이 ` +
-  `'${svc.title}' 서비스를 구매하였습니다.`;
-
-    return res.json({
-      success: true,
-      orderId,
-      taskKey
-    });
-
-  } catch (err) {
-    console.error("❌ orders/create error:", err);
-    console.error("❌ sqlMessage:", err?.sqlMessage);
-
-    return res.status(500).json({
-      success: false,
-      message: err?.sqlMessage || err?.message || "서버 오류"
-    });
-  }
+/* ---------------------------
+   6️⃣ 🔔 관리자 주문 알림 (🔥 필수)
+--------------------------- */
+await createNotice({
+  targetUserId: process.env.ADMIN_USER_ID,
+  message: `${req.session.user.nickname || "고객"}님이 '${svc.title}' 서비스를 구매했습니다.`,
+  type: "admin",          // 🔥 관리자 전용
+  taskKey,
+  fromUser: userId
 });
+
+// 실시간 관리자 알림
+io.to("admin").emit("notice:new", {
+  type: "admin",
+  message: `${req.session.user.nickname || "고객"}님이 '${svc.title}' 서비스를 구매했습니다.`,
+  task_key: taskKey
+});
+
 
 
 /* ======================================================
