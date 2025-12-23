@@ -175,29 +175,46 @@ async function loadOrders() {
 }
 
 /* ===========================
-   ✅ 입금 확인 처리
+   ✅ 입금 확인 처리 (최종 안정화)
 =========================== */
 async function confirmPayment(orderId) {
-  if (!confirm("입금 확인 처리하시겠습니까?")) return;
-
-  const res = await fetch("/orders/confirm-payment", {
-    method:"POST",
-    headers:{ "Content-Type":"application/json" },
-    credentials:"include",
-    body:JSON.stringify({ orderId })
-  });
-
-  const data = await res.json();
-  if (!data.success) {
-    alert("처리 실패");
+  if (!orderId) {
+    alert("주문 번호가 없습니다.");
     return;
   }
 
-  alert("입금 확인 완료");
-  loadOrders();
+  if (!confirm(`주문번호 ${orderId}의 입금을 확인하시겠습니까?`)) return;
+
+  try {
+    const res = await fetch("/admin/order/confirm", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ orderId })
+    });
+
+    // 🔴 서버가 JSON이 아닌 응답을 줄 경우 방어
+    if (!res.ok) {
+      throw new Error(`HTTP ${res.status}`);
+    }
+
+    const data = await res.json();
+
+    if (!data.success) {
+      console.error("입금 확인 실패:", data);
+      alert(data.message || "입금 확인 처리 실패");
+      return;
+    }
+
+    alert("입금 확인 완료");
+    loadOrders(); // ✅ 목록 갱신
+
+  } catch (err) {
+    console.error("❌ 입금 확인 요청 오류:", err);
+    alert("서버 오류로 입금 확인에 실패했습니다.");
+  }
 }
 
-loadOrders();
 </script>
 
 </body>
