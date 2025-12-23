@@ -2864,11 +2864,12 @@ app.get("/expert/tasks", async (req, res) => {
       JOIN users u ON u.id = o.user_id
       WHERE o.expert_id = ?
         AND o.status = 'paid'
-        AND NOT EXISTS (
-          SELECT 1
-          FROM service_tasks t
-          WHERE t.task_key = o.task_key
-        )
+        WHERE o.expert_id = ?
+  AND o.status = 'paid'
+  AND o.task_key NOT IN (
+    SELECT task_key FROM service_tasks
+  )
+
       ORDER BY o.created_at DESC
       `,
       [expertId]
