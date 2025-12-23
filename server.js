@@ -3350,18 +3350,23 @@ app.post("/orders/notify-deposit", async (req, res) => {
        2️⃣ 주문 + 유저 정보 조회
     --------------------------- */
     const [[order]] = await db.query(
-      `
-      SELECT 
-        o.id,
-        o.price,
-        o.alarm_status,
-        u.nickname
-      FROM orders o
-      JOIN users u ON u.id = o.user_id
-      WHERE o.id = ?
-      `,
-      [orderId]
-    );
+  `
+  SELECT
+    o.id,
+    o.user_id        AS buyer_id,
+    o.expert_id,
+    o.service_id,
+    o.room_id,
+    o.status,
+    o.task_key,
+    s.main_images    -- ✅ 이걸로 교체
+  FROM orders o
+  JOIN services s ON s.id = o.service_id
+  WHERE o.id = ?
+  `,
+  [orderId]
+);
+
 
     // 🔥 구매자 정보
 const [[buyer]] = await db.query(
@@ -3558,30 +3563,46 @@ app.post("/admin/order/confirm", async (req, res) => {
       [orderId]
     );
 
-    /* ======================================================
-       5️⃣ service_tasks 생성 (중복 방지)
-    ====================================================== */
-    const [[exist]] = await db.query(
-      "SELECT id FROM service_tasks WHERE task_key = ? LIMIT 1",
-      [order.task_key]
-    );
+/* ======================================================
+   5️⃣ service_tasks 생성 (중복 방지 + 썸네일 안정 처리)
+====================================================== */
+const [[exist]] = await db.query(
+  "SELECT id FROM service_tasks WHERE task_key = ? LIMIT 1",
+  [order.task_key]
+);
 
-    if (!exist) {
-      await db.query(
-        `
-        INSERT INTO service_tasks
-        (task_key, service_id, buyer_id, expert_id, status, phase, thumbnail)
-        VALUES (?, ?, ?, ?, 'start', 'ready', ?)
-        `,
-        [
-          order.task_key,
-          order.service_id,
-          order.buyer_id,
-          order.expert_id,
-          order.thumbnail || "/assets/default_service.png"
-        ]
-      );
-    }
+if (!exist) {
+  // 🔥 services.main_images → 썸네일 안전 파싱
+  const images = parseImagesSafe(order.main_images);
+  const thumbnail = images[0] || "/assets/default_service.png";
+  const now = nowStr(); // 서버 시간 통일
+
+  await db.query(
+    `
+    INSERT INTO service_tasks
+    (
+      task_key,
+      service_id,
+      buyer_id,
+      expert_id,
+      status,
+      phase,
+      thumbnail,
+      created_at
+    )
+    VALUES (?, ?, ?, ?, 'start', 'ready', ?, ?)
+    `,
+    [
+      order.task_key,        // ✅ 주문 단위 고유 task_key
+      order.service_id,      // 서비스 ID
+      order.buyer_id,        // 구매자
+      order.expert_id,       // 전문가
+      thumbnail,             // 🔥 안전한 썸네일
+      now                    // 생성 시각
+    ]
+  );
+}
+
 
     /* ======================================================
        6️⃣ 전문가 알림 (DB + Socket)
