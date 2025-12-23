@@ -2904,48 +2904,48 @@ const [paidOrders] = await db.query(
     );
 
     /* ======================================================
-       4️⃣ 프론트에서 바로 쓰기 좋은 형태로 통합
-    ====================================================== */
-    const result = [];
+   4️⃣ 프론트에서 바로 쓰기 좋은 형태로 통합
+   - task_key 기준 중복 제거
+   - service_tasks가 있으면 무조건 우선
+====================================================== */
+const map = new Map();
 
-    /* 🔹 작업 대기 (결제 완료 / 아직 시작 전) */
-    paidOrders.forEach(o => {
-      const imgs = parseImagesSafe(o.main_images);
+/* 🔹 작업 대기 (결제 완료 / 아직 service_tasks 없음) */
+paidOrders.forEach(o => {
+  const imgs = parseImagesSafe(o.main_images);
 
-      result.push({
-        task_key: o.task_key,
-        service_title: o.service_title,
-        buyer_nickname: o.buyer_nickname || "의뢰인",
-        thumbnail: imgs[0] || "/assets/default_service.png",
-        status: "pending",          // 🔥 프론트 기준 상태
-        phase: "ready",
-        created_at: o.created_at
-      });
-    });
+  map.set(o.task_key, {
+    task_key: o.task_key,
+    service_title: o.service_title,
+    buyer_nickname: o.buyer_nickname || "의뢰인",
+    thumbnail: imgs[0] || "/assets/default_service.png",
+    status: "pending",        // 🔥 시작 전
+    phase: "ready",
+    created_at: o.created_at
+  });
+});
 
-    /* 🔹 진행중 / 완료 작업 */
+/* 🔹 진행중 / 완료 작업 (service_tasks 기준 → 무조건 덮어씀) */
 tasks.forEach(t => {
-  let status = "pending";
-
-  if (t.status === "progress") status = "progress";
-  if (t.status === "done") status = "done";
-
-  result.push({
+  map.set(t.task_key, {
     task_key: t.task_key,
     service_title: t.service_title,
     buyer_nickname: t.buyer_nickname || "의뢰인",
     thumbnail: t.thumbnail || "/assets/default_service.png",
-    status, // ✅ DB 상태 그대로 반영
+    status: t.status,         // progress | done
     phase: t.phase,
     created_at: t.created_at
   });
 });
 
+/* 🔹 최종 결과 배열 */
+const result = Array.from(map.values());
 
-    return res.json({
-      success: true,
-      tasks: result
-    });
+return res.json({
+  success: true,
+  tasks: result
+});
+
 
   } catch (err) {
     console.error("❌ /expert/tasks error:", err);

@@ -338,15 +338,42 @@ async function startTask() {
     headers:{ "Content-Type":"application/json" },
     body:JSON.stringify({ taskKey })
   });
-  loadTaskDetail();
+
+  await loadTaskDetail();
+  await loadProgressCount(); // 🔥 이거 필수
 }
+
 
 function goChat(roomId) {
   location.href = `/chat.html?room=${roomId}`;
 }
+/* ===============================
+   상단 진행중 카운트 로드
+================================ */
+async function loadProgressCount() {
+  try {
+    const res = await fetch(`${API}/expert/tasks`, {
+      credentials: "include"
+    });
+    const data = await res.json();
+
+    if (!data.success) return;
+
+    const progressCount = data.tasks.filter(
+      t => t.status === "progress"
+    ).length;
+
+    document.getElementById("progressCount").innerText = progressCount;
+
+  } catch (e) {
+    console.error("progress count load error:", e);
+  }
+}
 
 
 loadTaskDetail();
+loadProgressCount();
+
 
 
 </script>
