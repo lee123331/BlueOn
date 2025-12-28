@@ -293,7 +293,12 @@ async function markRevisionAsRead() {
 ================================ */
 function renderTask(t) {
   serviceTitle.innerText = t.service_title;
-  buyerName.innerText = t.buyer_nickname || "의뢰인";
+   // 🔥 여기만 수정
+  buyerName.innerText =
+    t.buyer?.nickname ||
+    t.buyer_nickname ||
+    "의뢰인";
+
   serviceThumb.src = t.thumbnail || "/assets/default_service.png";
 
   const badge = taskStatusBadge;
