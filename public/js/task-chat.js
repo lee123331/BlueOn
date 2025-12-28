@@ -112,14 +112,20 @@
   /* ===============================
      2️⃣ 기존 메시지 로드
   ============================== */
-  async function loadMessages() {
+async function loadMessages() {
+  try {
     const data = await fetchJSON(
       `${API}/api/task-chat/messages?roomId=${ctx.roomId}`
     );
 
     chatBox.innerHTML = "";
     data.messages.forEach(renderMessage);
+  } catch (err) {
+    console.warn("메시지 로드 실패 (권한 문제 가능)", err);
+    chatBox.innerHTML = "";
   }
+}
+
 
   /* ===============================
      3️⃣ Socket 연결 (작업 전용)

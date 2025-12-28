@@ -502,24 +502,25 @@ app.get("/api/task-chat/messages", async (req, res) => {
 
     const myId = req.session.user.id;
     const { roomId } = req.query;
+
     if (!roomId) {
       return res.status(400).json({ success: false });
     }
 
-    /* 권한 체크 */
     const [[room]] = await db.query(
       `
-      SELECT user1_id, user2_id, room_type
+      SELECT user1_id, user2_id
       FROM chat_rooms
       WHERE id = ?
       `,
       [roomId]
     );
 
-    if (!room || room.room_type !== "task") {
+    if (!room) {
       return res.status(403).json({ success: false });
     }
 
+    // ✅ 당사자 체크만 한다 (핵심)
     if (myId !== room.user1_id && myId !== room.user2_id) {
       return res.status(403).json({ success: false });
     }
