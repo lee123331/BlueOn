@@ -222,7 +222,9 @@ body {
 
 <script>
 const API = "https://blueon.up.railway.app";
-const taskKey = new URLSearchParams(location.search).get("taskKey");
+const params = new URLSearchParams(location.search);
+const taskKey = params.get("taskKey") || params.get("task");
+
 
 
 if (!taskKey) {
@@ -306,14 +308,12 @@ function renderTask(t) {
         `<button class="action-btn" onclick="startTask()">작업 시작하기</button>`;
       break;
 
-    case "progress":
+case "progress":
   badge.classList.add("status-progress");
   badge.innerText = "진행중";
 
-  // 안내 문구
   taskGuide.innerHTML = "의뢰인의 수정 요청이 있으면 상단에 표시됩니다.";
 
-  // 채팅 이동 버튼 (taskKey 기반)
   taskAction.innerHTML = `
     <button
       class="action-btn"
@@ -325,8 +325,6 @@ function renderTask(t) {
   `;
   break;
 
-
-      break;
 
     case "done":
       badge.classList.add("status-done");
@@ -372,6 +370,7 @@ function goTaskChat(e) {
     btn.innerText = "이동 중...";
   }
 
+  // ✅ 작업 채팅 페이지로 이동 (정답)
   location.href = `/task-chat.html?taskKey=${encodeURIComponent(taskKey)}`;
 }
 
