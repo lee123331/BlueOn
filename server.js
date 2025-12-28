@@ -3868,6 +3868,98 @@ await db.query(
     return res.status(500).json({ success: false });
   }
 });
+/* ======================================================
+   🔵 유저 작업 상세 조회
+   GET /my/tasks/detail?taskKey=xxx
+====================================================== */
+app.get("/my/tasks/detail", async (req, res) => {
+  try {
+    // 1️⃣ 로그인 체크
+    if (!req.session.user) {
+      return res.status(401).json({ success: false });
+    }
+
+    const userId = req.session.user.id;
+    const { taskKey } = req.query;
+
+    if (!taskKey) {
+      return res.json({
+        success: false,
+        message: "taskKey 누락"
+      });
+    }
+
+    /* ======================================================
+       2️⃣ 주문 기준 단일 진실 조회
+       - orders + services + expert + service_tasks
+    ====================================================== */
+    const [[row]] = await db.query(
+      `
+      SELECT
+        o.task_key,
+        o.created_at,
+
+        COALESCE(t.status, 'pending') AS status,
+        COALESCE(t.phase, 'ready')    AS phase,
+
+        s.title AS service_title,
+
+        COALESCE(
+          t.thumbnail,
+          JSON_UNQUOTE(JSON_EXTRACT(s.main_images, '$[0]')),
+          '/assets/default_service.png'
+        ) AS thumbnail,
+
+        ep.user_id   AS expert_id,
+        ep.nickname  AS expert_nickname,
+
+        o.room_id
+      FROM orders o
+      JOIN services s
+        ON s.id = o.service_id
+      JOIN expert_profiles ep
+        ON ep.user_id = o.expert_id
+      LEFT JOIN service_tasks t
+        ON t.task_key = o.task_key
+      WHERE o.task_key = ?
+        AND o.user_id = ?
+      LIMIT 1
+      `,
+      [taskKey, userId]
+    );
+
+    if (!row) {
+      return res.json({
+        success: false,
+        message: "작업 없음"
+      });
+    }
+
+    /* ======================================================
+       3️⃣ 응답
+    ====================================================== */
+    return res.json({
+      success: true,
+      task: {
+        task_key: row.task_key,
+        status: row.status,
+        phase: row.phase,
+        created_at: row.created_at,
+        service_title: row.service_title,
+        thumbnail: row.thumbnail,
+        expert: {
+          id: row.expert_id,
+          nickname: row.expert_nickname || "전문가"
+        },
+        room_id: row.room_id
+      }
+    });
+
+  } catch (err) {
+    console.error("❌ /my/tasks/detail error:", err);
+    return res.status(500).json({ success: false });
+  }
+});
 
 /* ======================================================
    🔔 알림 단건 읽음 처리
