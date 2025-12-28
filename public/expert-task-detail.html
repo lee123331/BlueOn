@@ -222,7 +222,8 @@ body {
 
 <script>
 const API = "https://blueon.up.railway.app";
-const taskKey = new URLSearchParams(location.search).get("task");
+const taskKey = new URLSearchParams(location.search).get("taskKey");
+
 
 if (!taskKey) {
   alert("잘못된 접근입니다.");
@@ -306,11 +307,25 @@ function renderTask(t) {
       break;
 
     case "progress":
-      badge.classList.add("status-progress");
-      badge.innerText = "진행중";
-      taskGuide.innerHTML = "의뢰인의 수정 요청이 있으면 상단에 표시됩니다.";
-      taskAction.innerHTML =
-        `<button class="action-btn" onclick="goChat(${t.room_id})">채팅으로 이동</button>`;
+  badge.classList.add("status-progress");
+  badge.innerText = "진행중";
+
+  // 안내 문구
+  taskGuide.innerHTML = "의뢰인의 수정 요청이 있으면 상단에 표시됩니다.";
+
+  // 채팅 이동 버튼 (taskKey 기반)
+  taskAction.innerHTML = `
+    <button
+      class="action-btn"
+      id="btnTaskChat"
+      onclick="goTaskChat(event)"
+    >
+      채팅으로 이동
+    </button>
+  `;
+  break;
+
+
       break;
 
     case "done":
@@ -344,9 +359,23 @@ async function startTask() {
 }
 
 
-function goChat(roomId) {
-  location.href = `/chat.html?room=${roomId}`;
+function goTaskChat(e) {
+  if (!taskKey) {
+    alert("taskKey가 없습니다.");
+    return;
+  }
+
+  // 🔒 이중 클릭 방지
+  const btn = e?.target;
+  if (btn) {
+    btn.disabled = true;
+    btn.innerText = "이동 중...";
+  }
+
+  location.href = `/task-chat.html?taskKey=${encodeURIComponent(taskKey)}`;
 }
+
+
 /* ===============================
    상단 진행중 카운트 로드
 ================================ */
