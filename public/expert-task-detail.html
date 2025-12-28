@@ -402,6 +402,14 @@ async function loadProgressCount() {
 loadTaskDetail();
 loadProgressCount();
 
+// 🔥 뒤로가기(bfcache) 시 버튼 상태 복원
+window.addEventListener("pageshow", () => {
+  const btn = document.getElementById("btnTaskChat");
+  if (btn) {
+    btn.disabled = false;
+    btn.innerText = "채팅으로 이동";
+  }
+});
 
 
 </script>
