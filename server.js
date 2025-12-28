@@ -406,45 +406,70 @@ function parseImagesSafe(raw) {
 app.get("/api/task-chat/context", async (req, res) => {
   try {
     if (!req.session.user) {
-      return res.status(401).json({ success: false, message: "로그인 필요" });
+      return res.status(401).json({
+        success: false,
+        message: "로그인 필요"
+      });
     }
 
     const myId = req.session.user.id;
     const { taskKey } = req.query;
+
     if (!taskKey) {
-      return res.status(400).json({ success: false, message: "taskKey 누락" });
+      return res.status(400).json({
+        success: false,
+        message: "taskKey 누락"
+      });
     }
 
-    /* 1️⃣ 주문 기준 단일 진실 */
-    const [[order]] = await db.query(
+    /* ======================================================
+       1️⃣ 주문 + 구매자 + 서비스 정보 (🔥 핵심 JOIN)
+    ====================================================== */
+    const [[row]] = await db.query(
       `
       SELECT
-        o.id        AS order_id,
-        o.user_id  AS buyer_id,
+        o.id           AS order_id,
+        o.user_id      AS buyer_id,
         o.expert_id,
         o.room_id,
-        o.task_key
+        o.task_key,
+
+        u.nickname     AS buyer_nickname,
+
+        s.title        AS service_title
       FROM orders o
+      JOIN users u     ON u.id = o.user_id
+      JOIN services s  ON s.id = o.service_id
       WHERE o.task_key = ?
       LIMIT 1
       `,
       [taskKey]
     );
 
-    if (!order) {
-      return res.status(404).json({ success: false, message: "주문 없음" });
+    if (!row) {
+      return res.status(404).json({
+        success: false,
+        message: "주문 없음"
+      });
     }
 
-    /* 2️⃣ 접근 권한 */
-    const isBuyer  = myId === order.buyer_id;
-    const isExpert = myId === order.expert_id;
+    /* ======================================================
+       2️⃣ 접근 권한 체크
+    ====================================================== */
+    const isBuyer  = myId === row.buyer_id;
+    const isExpert = myId === row.expert_id;
 
     if (!isBuyer && !isExpert) {
-      return res.status(403).json({ success: false, message: "접근 권한 없음" });
+      return res.status(403).json({
+        success: false,
+        message: "접근 권한 없음"
+      });
     }
 
-    /* 3️⃣ 채팅방 생성 보장 (🔥 여기서 확정) */
-    let roomId = order.room_id;
+    /* ======================================================
+       3️⃣ 채팅방 생성 보장
+    ====================================================== */
+    let roomId = row.room_id;
 
     if (!roomId) {
       const now = nowStr();
@@ -456,9 +481,9 @@ app.get("/api/task-chat/context", async (req, res) => {
         VALUES (?, ?, ?, 'task', ?)
         `,
         [
-          order.order_id,
-          order.buyer_id,
-          order.expert_id,
+          row.order_id,
+          row.buyer_id,
+          row.expert_id,
           now
         ]
       );
@@ -467,13 +492,18 @@ app.get("/api/task-chat/context", async (req, res) => {
 
       await db.query(
         `UPDATE orders SET room_id = ? WHERE id = ?`,
-        [roomId, order.order_id]
+        [roomId, row.order_id]
       );
     }
 
-    /* 4️⃣ 상대방 계산 */
-    const targetId = isBuyer ? order.expert_id : order.buyer_id;
+    /* ======================================================
+       4️⃣ 상대방 계산
+    ====================================================== */
+    const targetId = isBuyer ? row.expert_id : row.buyer_id;
 
+    /* ======================================================
+       5️⃣ ✅ 최종 context 응답 (🔥 여기서 해결됨)
+    ====================================================== */
     return res.json({
       success: true,
       context: {
@@ -481,15 +511,26 @@ app.get("/api/task-chat/context", async (req, res) => {
         roomId,
         myId,
         role: isBuyer ? "buyer" : "expert",
-        targetId
+        targetId,
+
+        serviceTitle: row.service_title,
+
+        buyer: {
+          id: row.buyer_id,
+          nickname: row.buyer_nickname
+        }
       }
     });
 
   } catch (err) {
     console.error("❌ task-chat context error:", err);
-    res.status(500).json({ success: false });
+    res.status(500).json({
+      success: false,
+      message: "서버 오류"
+    });
   }
 });
+
 /* ======================================================
    🧩 작업 채팅 메시지 조회
    GET /api/task-chat/messages?roomId=123
