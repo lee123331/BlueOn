@@ -273,29 +273,30 @@ function renderTasks(tasks) {
   let highlightedItem = null;
 
  tasks.forEach(t => {
+  const buyerNickname = t.buyer_nickname || "의뢰인";
   const item = document.createElement("div");
   item.className = "task-item";
   item.dataset.taskKey = t.task_key;
 
   item.innerHTML = `
-    <div class="task-left">
-      <img class="task-thumb" src="${t.thumbnail || '/assets/default_service.png'}" />
-      <div class="task-info">
-        <div class="task-title">${t.service_title}</div>
-        <div class="task-user">의뢰인</div>
-      </div>
+  <div class="task-left">
+    <img class="task-thumb" src="${t.thumbnail || '/assets/default_service.png'}" />
+    <div class="task-info">
+      <div class="task-title">${t.service_title}</div>
+      <div class="task-user">의뢰인 · ${buyerNickname}</div>
     </div>
+  </div>
 
-    <div class="task-status">
-      ${
-        t.status === "pending"
-          ? `<button class="start-btn">작업 시작</button>`
-          : t.status
-      }
-    </div>
+  <div class="task-status">
+    ${
+      t.status === "pending"
+        ? `<button class="start-btn">작업 시작</button>`
+        : t.status
+    }
+  </div>
 
-    <div class="task-date">${t.created_at?.slice(0,10)}</div>
-  `;
+  <div class="task-date">${t.created_at?.slice(0,10)}</div>
+`;
 
 
 
