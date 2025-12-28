@@ -1,40 +1,33 @@
 /* ======================================================
    BlueOn 작업 전용 채팅
    file: public/js/task-chat.js
-   기준: taskKey (서버가 항상 진실)
+   기준: taskKey (서버가 진실)
 ====================================================== */
 
 (() => {
   const API = "https://blueon.up.railway.app";
 
-  /* ===============================
-     DOM
-  ============================== */
-  const chatBox   = document.getElementById("chatBox");
-  const msgInput  = document.getElementById("msgInput");
-  const sendBtn   = document.getElementById("sendBtn");
-  const metaText  = document.getElementById("metaText");
+  /* DOM */
+  const chatMessages = document.getElementById("chatMessages");
+  const chatInput    = document.getElementById("chatInput");
+  const sendBtn      = document.getElementById("sendBtn");
+  const serviceTitle = document.getElementById("serviceTitle");
+  const buyerName    = document.getElementById("buyerName");
 
-  /* ===============================
-     URL 파라미터
-  ============================== */
+  /* URL */
   const taskKey = new URLSearchParams(location.search).get("taskKey");
-
   if (!taskKey) {
     alert("잘못된 접근입니다.");
     location.href = "/";
     return;
   }
 
-  /* ===============================
-     상태 값
-  ============================== */
-  let ctx = null;        // 서버에서 받은 context
-  let socket = null;    // task namespace socket
+  /* State */
+  let roomId = null;
+  let myId   = null;
+  let socket = null;
 
-  /* ===============================
-     유틸
-  ============================== */
+  /* Utils */
   function escapeHTML(str) {
     return String(str)
       .replaceAll("&", "&amp;")
@@ -43,135 +36,127 @@
       .replaceAll('"', "&quot;")
       .replaceAll("'", "&#039;");
   }
-
   function scrollBottom() {
-    chatBox.scrollTop = chatBox.scrollHeight;
+    chatMessages.scrollTop = chatMessages.scrollHeight;
   }
 
-  /* ===============================
-     메시지 렌더
-  ============================== */
+  /* Render */
   function renderMessage(msg) {
-    const isMine = msg.sender_id === ctx.myId || msg.senderId === ctx.myId;
+    const isMine = Number(msg.sender_id) === Number(myId);
 
     const wrap = document.createElement("div");
-    wrap.className = "msg" + (isMine ? " me" : "");
+    wrap.style.display = "flex";
+    wrap.style.justifyContent = isMine ? "flex-end" : "flex-start";
+    wrap.style.marginBottom = "10px";
 
     const bubble = document.createElement("div");
-    bubble.className = "bubble";
+    bubble.style.maxWidth = "70%";
+    bubble.style.padding = "10px 14px";
+    bubble.style.borderRadius = "14px";
+    bubble.style.fontSize = "14px";
+    bubble.style.background = isMine ? "#0056ff" : "#ffffff";
+    bubble.style.color = isMine ? "#ffffff" : "#111827";
+    bubble.style.border = isMine ? "none" : "1px solid #e5e7eb";
 
     bubble.innerHTML = `
       <div>${escapeHTML(msg.message)}</div>
-      <div class="time">
+      <div style="font-size:11px; opacity:.6; margin-top:6px;">
         ${new Date(msg.created_at).toLocaleString()}
       </div>
     `;
 
     wrap.appendChild(bubble);
-    chatBox.appendChild(wrap);
+    chatMessages.appendChild(wrap);
     scrollBottom();
   }
 
-  /* ===============================
-     서버 API
-  ============================== */
-  async function fetchJSON(url) {
-    const res = await fetch(url, { credentials: "include" });
-    const data = await res.json().catch(() => ({}));
-
-    if (!res.ok || data.success === false) {
-      throw new Error(data.message || "요청 실패");
-    }
-    return data;
-  }
-
-  /* ===============================
-     1️⃣ 컨텍스트 로드 (🔥 핵심)
-  ============================== */
+  /* 1️⃣ Context (🔥 핵심) */
   async function loadContext() {
-    const data = await fetchJSON(
-      `${API}/api/task-chat/context?taskKey=${encodeURIComponent(taskKey)}`
+    // 주문 단위 정보
+    const res = await fetch(
+      `${API}/expert/tasks/detail?taskKey=${encodeURIComponent(taskKey)}`,
+      { credentials: "include" }
     );
+    const data = await res.json();
+    if (!data.success) throw new Error("작업 정보를 불러올 수 없습니다.");
 
-    ctx = data.context;
+    const t = data.task;
+    roomId = t.room_id;
+    if (!roomId) throw new Error("채팅방이 아직 생성되지 않았습니다.");
 
-    metaText.innerText =
-      `taskKey=${ctx.taskKey} · roomId=${ctx.roomId} · 역할=${ctx.role}`;
+    // 🔥 UI: 서비스명 + 구매자 1명만 표시
+    serviceTitle.innerText = t.service_title;
+    buyerName.innerText = t.buyer_nickname || "의뢰인";
+
+    // 내 정보
+    const meRes = await fetch(`${API}/auth/me`, { credentials: "include" });
+    const meData = await meRes.json();
+    if (!meData.success) throw new Error("로그인이 필요합니다.");
+    myId = meData.user.id;
   }
 
-  /* ===============================
-     2️⃣ 기존 메시지 로드
-  ============================== */
+  /* 2️⃣ Messages */
   async function loadMessages() {
-    const data = await fetchJSON(
-      `${API}/api/task-chat/messages?roomId=${ctx.roomId}`
-    );
+    const res = await fetch(`${API}/chat/messages?roomId=${roomId}`, {
+      credentials: "include"
+    });
+    const data = await res.json();
+    if (!data.success) return;
 
-    chatBox.innerHTML = "";
+    chatMessages.innerHTML = "";
     data.messages.forEach(renderMessage);
   }
 
-  /* ===============================
-     3️⃣ Socket 연결 (작업 전용)
-  ============================== */
+  /* 3️⃣ Socket */
   function connectSocket() {
-    socket = io(`${API}/task`, {
-      withCredentials: true,
-      transports: ["websocket"]
-    });
+    socket = io(API, { withCredentials: true, transports: ["websocket"] });
 
     socket.on("connect", () => {
-      socket.emit("task:join", { taskKey });
+      socket.emit("chat:join", roomId);
     });
 
-    socket.on("task:new", (msg) => {
-      if (String(msg.roomId) !== String(ctx.roomId)) return;
+    socket.on("chat:message", (msg) => {
+      if (String(msg.roomId) !== String(roomId)) return;
       renderMessage(msg);
-    });
-
-    socket.on("connect_error", (err) => {
-      console.error("socket error:", err);
     });
   }
 
-  /* ===============================
-     4️⃣ 메시지 전송
-  ============================== */
-  function sendMessage() {
-    const text = msgInput.value.trim();
+  /* 4️⃣ Send */
+  async function sendMessage() {
+    const text = chatInput.value.trim();
     if (!text) return;
 
-    msgInput.value = "";
-    msgInput.focus();
+    chatInput.value = "";
 
-    socket.emit("task:send", {
-      taskKey,
-      roomId: ctx.roomId,
-      message: text
+    await fetch(`${API}/chat/send-message`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        roomId,
+        senderId: myId,
+        message: text,
+        message_type: "text"
+      })
     });
   }
 
   sendBtn.addEventListener("click", sendMessage);
-  msgInput.addEventListener("keydown", (e) => {
+  chatInput.addEventListener("keydown", (e) => {
     if (e.key === "Enter") sendMessage();
   });
 
-  /* ===============================
-     초기 실행
-  ============================== */
+  /* Init */
   (async () => {
     try {
       await loadContext();
       await loadMessages();
       connectSocket();
+      chatInput.disabled = false;
       sendBtn.disabled = false;
-    } catch (err) {
-      console.error(err);
-      alert(err.message);
-
-      if (err.message.includes("로그인")) {
-        location.href = "/login.html";
-      }
+    } catch (e) {
+      console.error(e);
+      alert(e.message);
     }
   })();
 })();

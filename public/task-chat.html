@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>BlueOn | 작업 채팅</title>
+
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;600;700;800&display=swap" rel="stylesheet">
+
+<style>
+:root {
+  --primary:#0056ff;
+  --bg:#f4f6fb;
+  --white:#ffffff;
+  --line:#e5e7eb;
+  --text:#111827;
+  --gray:#6b7280;
+}
+
+* { box-sizing:border-box; margin:0; padding:0; }
+
+body {
+  font-family:"Noto Sans KR", sans-serif;
+  background:var(--bg);
+}
+
+/* Header */
+.header {
+  background:#fff;
+  border-bottom:1px solid var(--line);
+  padding:16px 20px;
+  font-size:18px;
+  font-weight:800;
+  color:var(--primary);
+}
+
+/* Container */
+.chat-container {
+  max-width:900px;
+  margin:0 auto;
+  height:calc(100vh - 60px);
+  display:flex;
+  flex-direction:column;
+}
+
+/* Top Info */
+.chat-info {
+  padding:14px 16px;
+  background:#fff;
+  border-bottom:1px solid var(--line);
+}
+.chat-info .service-title {
+  font-weight:800;
+  font-size:15px;
+  color:var(--text);
+}
+.chat-info .buyer {
+  margin-top:4px;
+  font-size:13px;
+  color:var(--gray);
+}
+
+/* Messages */
+.chat-messages {
+  flex:1;
+  padding:16px;
+  overflow-y:auto;
+  background:#f9fafb;
+}
+
+/* Input */
+.chat-input {
+  display:flex;
+  gap:10px;
+  padding:14px;
+  background:#fff;
+  border-top:1px solid var(--line);
+}
+.chat-input input {
+  flex:1;
+  padding:12px 14px;
+  border-radius:12px;
+  border:1px solid var(--line);
+  font-size:14px;
+}
+.chat-input button {
+  padding:12px 18px;
+  border-radius:12px;
+  border:none;
+  background:var(--primary);
+  color:#fff;
+  font-weight:800;
+  cursor:pointer;
+}
+</style>
+</head>
+
+<body>
+
+<div class="header">작업 채팅</div>
+
+<div class="chat-container">
+
+  <!-- 🔥 주문 단위 정보 (서비스 + 구매자 1명) -->
+  <div class="chat-info">
+    <div id="serviceTitle" class="service-title">서비스명</div>
+    <div class="buyer">
+      의뢰인 · <strong id="buyerName">-</strong>
+    </div>
+  </div>
+
+  <!-- Messages -->
+  <div id="chatMessages" class="chat-messages"></div>
+
+  <!-- Input -->
+  <div class="chat-input">
+    <input id="chatInput" type="text" placeholder="메시지를 입력하세요" disabled />
+    <button id="sendBtn" disabled>전송</button>
+  </div>
+
+</div>
+
+<script src="/js/task-chat.js"></script>
+</body>
+</html>
