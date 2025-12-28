@@ -841,19 +841,27 @@ async function loadUserState() {
 
     profileIcon.src = finalAvatar;
 
-    // 🔵 전문가 여부에 따라 드롭다운 출력
-    dropdown.innerHTML = me.user.isExpert
-      ? `
-        <a href="expert-register-step1.html">프로필 관리</a>
-        <a href="service-register.html">서비스 등록</a>
-        <a href="mypage.html">마이페이지</a>
-        <a href="#" id="logout-link">로그아웃</a>
-      `
-      : `
-        <a href="expert-register-step1.html">전문가 등록</a>
-        <a href="profile-edit.html">프로필 관리</a>
-        <a href="#" id="logout-link">로그아웃</a>
-      `;
+   dropdown.innerHTML = me.user.isExpert
+  ? `
+    <a href="expert-register-step1.html">프로필 관리</a>
+    <a href="service-register.html">서비스 등록</a>
+
+    <!-- 🔥 추가 -->
+    <a href="expert-tasks.html">내 작업 현황</a>
+
+    <a href="mypage.html">마이페이지</a>
+    <a href="#" id="logout-link">로그아웃</a>
+  `
+  : `
+    <a href="expert-register-step1.html">전문가 등록</a>
+    <a href="profile-edit.html">프로필 관리</a>
+
+    <!-- 🔥 추가 -->
+    <a href="my-orders.html">내 작업 현황</a>
+
+    <a href="#" id="logout-link">로그아웃</a>
+  `;
+
 
     activateDropdownFeatures();
 
