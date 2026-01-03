@@ -1844,52 +1844,50 @@ if (ADMIN_ID && String(user.id) === ADMIN_ID) {
 ====================================================== */
 const taskNsp = io.of("/task");
 
+/* 세션 연결 */
 taskNsp.use((socket, next) => {
   sessionMiddleware(socket.request, {}, next);
 });
 
+/* ===============================
+   Socket 연결
+=============================== */
 taskNsp.on("connection", (socket) => {
   const user = socket.request.session?.user;
+
   if (!user) {
-    socket.disconnect();
+    console.log("❌ task socket: 비로그인 연결 차단");
+    socket.disconnect(true);
     return;
   }
 
-  console.log("🧩 task socket connected:", socket.id);
+  console.log("🧩 task socket connected:", socket.id, "user:", user.id);
 
-  /* 🔹 작업 채팅 입장 */
+  /* ===============================
+     작업 채팅방 입장
+  =============================== */
   socket.on("task:join", ({ taskKey }) => {
     if (!taskKey) return;
+
     const roomName = `task:${taskKey}`;
     socket.join(roomName);
-    console.log(`➡ task join: ${roomName}`);
+
+    console.log(`➡ task join: ${roomName} | socket=${socket.id}`);
   });
 
-  /* 🔹 메시지 전송 */
-  console.log("🧩 insertTaskMessage args:", args);
+  /* ===============================
+     🔥 메시지 브로드캐스트 전용
+     (DB 저장 ❌ — REST API에서 이미 완료됨)
+  =============================== */
+  socket.on("task:send", ({ taskKey, messageData }) => {
+    if (!taskKey || !messageData) return;
 
-  socket.on("task:send", async ({ taskKey, roomId, message }) => {
-    if (!taskKey || !roomId || !message) return;
-
-    const senderId = user.id;
-    const now = nowStr();
-
-    await db.query(
-      `
-      INSERT INTO chat_messages (room_id, sender_id, message, created_at)
-      VALUES (?, ?, ?, ?)
-      `,
-      [roomId, senderId, message, now]
-    );
-
-    taskNsp.to(`task:${taskKey}`).emit("task:new", {
-      roomId,
-      senderId,
-      message,
-      created_at: now
-    });
+    taskNsp.to(`task:${taskKey}`).emit("task:new", messageData);
   });
 
+  /* ===============================
+     연결 종료
+  =============================== */
   socket.on("disconnect", () => {
     console.log("🧩 task socket disconnected:", socket.id);
   });
