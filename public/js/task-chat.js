@@ -220,33 +220,34 @@
   /* ===============================
      Socket.io (🔥 기본 namespace ONLY)
   ============================== */
-  function connectSocket() {
-socket = io(API, {
-  withCredentials: true,
-});
+ function connectSocket() {
+  socket = io(API, {
+    transports: ["websocket"],   // 🔥 핵심
+    withCredentials: true,
+    path: "/socket.io",
+  });
 
+  socket.on("connect", () => {
+    socket.emit("task:join", { roomId: ctx.roomId });
+  });
 
+  socket.on("task:new", (msg) => {
+    if (String(msg.room_id || msg.roomId) !== String(ctx.roomId)) return;
+    renderMessage(msg);
+    markAsRead();
+  });
 
-    socket.on("connect", () => {
-      socket.emit("task:join", { roomId: ctx.roomId });
+  socket.on("task:read", () => {
+    document.querySelectorAll(".msg.me .time").forEach((t) => {
+      if (!t.innerText.includes("✔✔")) t.innerText += " ✔✔";
     });
+  });
 
-    socket.on("task:new", (msg) => {
-      if (String(msg.room_id || msg.roomId) !== String(ctx.roomId)) return;
-      renderMessage(msg);
-      markAsRead();
-    });
+  socket.on("connect_error", (err) => {
+    console.error("❌ socket error:", err);
+  });
+}
 
-    socket.on("task:read", () => {
-      document.querySelectorAll(".msg.me .time").forEach((t) => {
-        if (!t.innerText.includes("✔✔")) t.innerText += " ✔✔";
-      });
-    });
-
-    socket.on("connect_error", (err) => {
-      console.error("❌ socket error:", err);
-    });
-  }
 
   /* ===============================
      전송
@@ -267,7 +268,9 @@ socket = io(API, {
     if (!file || !ctx) return;
 
     const fd = new FormData();
-    fd.append("file", file);
+fd.append("file", file);
+fd.append("taskKey", taskKey); // 🔥 이 줄 필수
+
 
     const data = await fetchJSON(`${API}/api/task-chat/upload`, {
       method: "POST",

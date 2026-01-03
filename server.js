@@ -627,27 +627,28 @@ app.get("/api/task-chat/messages", async (req, res) => {
 const httpServer = http.createServer(app);
 
 const io = new SocketIOServer(httpServer, {
-  // 🚨 Railway 필수: polling → websocket 업그레이드 허용
-  transports: ["polling", "websocket"],
+  // 🔥 Railway에서 502 방지 핵심
+  transports: ["websocket"],   // polling 완전 제거
+  allowUpgrades: false,        // polling → websocket 업그레이드 차단
 
-  // 🔥 path 명시 (프록시 안정화)
+  // 🔥 기본값이지만 명시 (프록시 안정화)
   path: "/socket.io",
 
   cors: {
     origin: [
       "http://localhost:3000",
       "http://localhost:5173",
-      "https://blueon.up.railway.app"
+      "https://blueon.up.railway.app",
     ],
     credentials: true,
   },
 
-  // 🔥 heartbeat 안정화 (Railway timeout 방어)
-  pingInterval: 25000,
+  // 🔥 heartbeat (너무 공격적이지 않게)
+  pingInterval: 30000,
   pingTimeout: 60000,
 });
 
-// 🔥 Express 세션을 Socket.io에 연결 (Railway 안정 패턴)
+// 🔥 Express 세션을 Socket.io에 연결 (필수)
 io.use((socket, next) => {
   sessionMiddleware(socket.request, {}, next);
 });
