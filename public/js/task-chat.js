@@ -1,7 +1,7 @@
 /* ======================================================
-   BlueOn 작업 전용 채팅 (1단계: DB 저장 검증용)
-   file: public/js/task-chat.js
-   기준: taskKey → context → roomId
+   BlueOn 작업 전용 채팅 (최종 안정 버전)
+   - DB 저장: REST API
+   - 실시간 전파: Socket.io
 ====================================================== */
 
 (() => {
@@ -17,7 +17,7 @@
   const buyerNameEl    = document.getElementById("buyerName");
 
   /* ===============================
-     URL
+     URL 파라미터
   ============================== */
   const taskKey = new URLSearchParams(location.search).get("taskKey");
   if (!taskKey) {
@@ -30,6 +30,7 @@
      상태
   ============================== */
   let ctx = null;
+  let socket = null;
 
   /* ===============================
      유틸
@@ -54,7 +55,6 @@
     });
 
     const data = await res.json().catch(() => ({}));
-
     if (!res.ok || data.success === false) {
       throw new Error(data.message || "요청 실패");
     }
@@ -62,28 +62,30 @@
   }
 
   /* ===============================
-     메시지 렌더
+     메시지 렌더링
   ============================== */
   function renderMessage(msg) {
     const isMine = msg.sender_id === ctx.myId;
 
     const wrap = document.createElement("div");
-    wrap.className = "msg" + (isMine ? " me" : "");
+    wrap.style.display = "flex";
+    wrap.style.justifyContent = isMine ? "flex-end" : "flex-start";
+    wrap.style.marginBottom = "8px";
 
     const bubble = document.createElement("div");
-    bubble.className = "bubble";
-
-    const time = msg.created_at
-      ? new Date(msg.created_at).toLocaleTimeString("ko-KR", {
-          hour: "2-digit",
-          minute: "2-digit",
-          hour12: false,
-        })
-      : "";
+    bubble.style.maxWidth = "70%";
+    bubble.style.padding = "10px 14px";
+    bubble.style.borderRadius = "14px";
+    bubble.style.fontSize = "14px";
+    bubble.style.background = isMine ? "#0056ff" : "#ffffff";
+    bubble.style.color = isMine ? "#fff" : "#111827";
+    bubble.style.border = isMine ? "none" : "1px solid #e5e7eb";
 
     bubble.innerHTML = `
-      <div>${escapeHTML(msg.message || "")}</div>
-      <div class="time">${time}</div>
+      <div>${escapeHTML(msg.message)}</div>
+      <div style="margin-top:4px;font-size:11px;opacity:0.6;">
+        ${new Date(msg.created_at).toLocaleString()}
+      </div>
     `;
 
     wrap.appendChild(bubble);
@@ -101,9 +103,7 @@
 
     ctx = data.context;
 
-    serviceTitleEl.innerText =
-      ctx.serviceTitle || "서비스";
-
+    serviceTitleEl.innerText = ctx.serviceTitle || "서비스";
     buyerNameEl.innerText =
       ctx.buyer?.nickname || "의뢰인";
   }
@@ -121,53 +121,77 @@
   }
 
   /* ===============================
-     3️⃣ 메시지 전송 (🔥 DB 저장 핵심)
+     3️⃣ Socket 연결 (전파 전용)
   ============================== */
-async function sendMessage() {
-  const text = msgInput.value.trim();
-  if (!text) return;
+  function connectSocket() {
+    socket = io(`${API}/task`, {
+      withCredentials: true,
+      transports: ["websocket"],
+    });
 
-  msgInput.value = "";
-  msgInput.focus();
+    socket.on("connect", () => {
+      socket.emit("task:join", { taskKey });
+    });
 
-  const data = await fetchJSON(`${API}/api/task-chat/send`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      taskKey,        // 🔥 핵심: 서버 기준은 taskKey
-      message: text,
-    }),
-  });
+    socket.on("task:new", (msg) => {
+      if (String(msg.room_id) !== String(ctx.roomId)) return;
+      renderMessage(msg);
+    });
 
-  // 서버가 DB에 저장한 메시지를 그대로 렌더
-  renderMessage(data.message);
-}
-
-
-  sendBtn.onclick = sendMessage;
-  msgInput.onkeydown = (e) => {
-    if (e.key === "Enter") {
-      e.preventDefault();
-      sendMessage();
-    }
-  };
+    socket.on("connect_error", (err) => {
+      console.error("socket error:", err);
+    });
+  }
 
   /* ===============================
-     시작
+     4️⃣ 메시지 전송 (🔥 핵심)
+     - API → DB 저장
+     - socket → 전파
+  ============================== */
+  async function sendMessage() {
+    const text = msgInput.value.trim();
+    if (!text) return;
+
+    msgInput.value = "";
+    msgInput.focus();
+
+    // 1️⃣ DB 저장
+    const data = await fetchJSON(`${API}/api/task-chat/send`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        roomId: ctx.roomId,
+        message: text,
+      }),
+    });
+
+    // 2️⃣ 실시간 전파 (DB 저장된 데이터 그대로)
+    socket.emit("task:send", {
+      taskKey,
+      messageData: data.message,
+    });
+  }
+
+  sendBtn.addEventListener("click", sendMessage);
+  msgInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") sendMessage();
+  });
+
+  /* ===============================
+     초기 실행
   ============================== */
   (async () => {
     try {
       await loadContext();
       await loadMessages();
+      connectSocket();
 
       msgInput.disabled = false;
       sendBtn.disabled = false;
       msgInput.focus();
     } catch (err) {
       console.error(err);
-      alert(err.message || "채팅을 불러올 수 없습니다.");
+      alert("채팅을 불러올 수 없습니다.");
     }
   })();
 })();
