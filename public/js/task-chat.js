@@ -66,19 +66,21 @@
      - Date 재파싱 ❌
      - 문자열 기준
   ============================== */
- function formatKST(dateStr) {
+function formatKST(dateStr) {
   if (!dateStr) return "";
 
-  // "2026-01-03 10:21:00"
-  const [date, time] = dateStr.split(" ");
-  const [year, month, day] = date.split("-");
-  const [hour, minute] = time.split(":");
+  // 🔥 UTC 명시 (중요)
+  const utcDate = new Date(dateStr.endsWith("Z") ? dateStr : dateStr + "Z");
 
-  const h = Number(hour);
-  const isPM = h >= 12;
-  const displayHour = h % 12 === 0 ? 12 : h % 12;
-
-  return `${year}.${month}.${day} ${isPM ? "오후" : "오전"} ${displayHour}:${minute}`;
+  return new Intl.DateTimeFormat("ko-KR", {
+    timeZone: "Asia/Seoul",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: true,
+  }).format(utcDate);
 }
 
 
@@ -97,12 +99,13 @@
     const bubble = document.createElement("div");
     bubble.className = "bubble";
 
-    bubble.innerHTML = `
+bubble.innerHTML = `
   <div class="msg-text">${escapeHTML(msg.message)}</div>
   <div class="msg-time">
     ${formatKST(msg.created_at)}
   </div>
 `;
+
 
 
     /* ===============================
