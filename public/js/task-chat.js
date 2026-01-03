@@ -1,9 +1,12 @@
 /* ======================================================
-   BlueOn 작업 전용 채팅 (완성본)
+   BlueOn 작업 전용 채팅 (최종 안정화 버전)
 ====================================================== */
 (() => {
   const API = "https://blueon.up.railway.app";
 
+  /* ===============================
+     DOM
+  ============================== */
   const chatBox   = document.getElementById("chatMessages");
   const msgInput  = document.getElementById("chatInput");
   const sendBtn   = document.getElementById("sendBtn");
@@ -13,63 +16,88 @@
   const serviceTitleEl = document.getElementById("serviceTitle");
   const buyerNameEl    = document.getElementById("buyerName");
 
+  /* ===============================
+     URL
+  ============================== */
   const taskKey = new URLSearchParams(location.search).get("taskKey");
-  if (!taskKey) return alert("잘못된 접근입니다.");
-
-  let ctx = null;
-  let socket = null;
-  const rendered = new Set();
-
-  /* ================= 유틸 ================= */
-  const esc = s => String(s).replace(/[&<>"']/g,m=>({
-    "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"
-  }[m]));
-
-  const scrollBottom = () => chatBox.scrollTop = chatBox.scrollHeight;
-
-  async function fetchJSON(url,opt={}){
-    const r = await fetch(url,{credentials:"include",...opt});
-    const d = await r.json();
-    if(!r.ok||d.success===false) throw new Error(d.message||"실패");
-    return d;
+  if (!taskKey) {
+    alert("잘못된 접근입니다.");
+    return;
   }
 
-  /* ================= 렌더 ================= */
-  function renderMessage(msg){
-    if(rendered.has(msg.id)) return;
-    rendered.add(msg.id);
+  /* ===============================
+     상태
+  ============================== */
+  let ctx = null;
+  let socket = null;
+  const renderedIds = new Set();
+
+  /* ===============================
+     유틸
+  ============================== */
+  const escapeHTML = (str) =>
+    String(str).replace(/[&<>"']/g, (m) => ({
+      "&": "&amp;",
+      "<": "&lt;",
+      ">": "&gt;",
+      '"': "&quot;",
+      "'": "&#039;",
+    }[m]));
+
+  const scrollBottom = () => {
+    chatBox.scrollTop = chatBox.scrollHeight;
+  };
+
+  async function fetchJSON(url, options = {}) {
+    const res = await fetch(url, { credentials: "include", ...options });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || data.success === false) {
+      throw new Error(data.message || "요청 실패");
+    }
+    return data;
+  }
+
+  /* ===============================
+     메시지 렌더
+  ============================== */
+  function renderMessage(msg) {
+    if (!msg || renderedIds.has(msg.id)) return;
+    renderedIds.add(msg.id);
 
     const isMine = msg.sender_id === ctx.myId;
+
     const wrap = document.createElement("div");
-    wrap.className = "msg" + (isMine ? " me":"");
+    wrap.className = "msg" + (isMine ? " me" : "");
     wrap.dataset.id = msg.id;
 
     const bubble = document.createElement("div");
     bubble.className = "bubble";
 
-    if(msg.deleted){
-      bubble.innerHTML = "<em>삭제된 메시지입니다.</em>";
-    }else if(msg.type==="file"){
+    if (msg.deleted) {
+      bubble.innerHTML = `<em>삭제된 메시지입니다.</em>`;
+    } else if (msg.type === "file") {
       bubble.innerHTML = `
-        <a href="${msg.file_url}" target="_blank">📎 ${esc(msg.file_name)}</a>
+        <a href="${msg.file_url}" target="_blank">
+          📁 ${escapeHTML(msg.file_name)}
+        </a>
         <div class="time">${new Date(msg.created_at).toLocaleString()}</div>
       `;
-    }else{
+    } else {
       bubble.innerHTML = `
-        <div>${esc(msg.message)}</div>
+        <div>${escapeHTML(msg.message)}</div>
         <div class="time">
           ${new Date(msg.created_at).toLocaleString()}
-          ${isMine && msg.is_read ? " ✔✔":""}
+          ${isMine && msg.is_read ? " ✔✔" : ""}
         </div>
       `;
     }
 
-    if(isMine && !msg.deleted){
-      const del = document.createElement("button");
-      del.className="msg-delete-btn";
-      del.innerText="삭제";
-      del.onclick=()=>deleteMessage(msg.id);
-      bubble.appendChild(del);
+    if (isMine && !msg.deleted) {
+      const delBtn = document.createElement("button");
+      delBtn.className = "msg-delete-btn";
+      delBtn.innerText = "삭제";
+      delBtn.onclick = () => deleteMessage(msg.id);
+      bubble.appendChild(delBtn);
     }
 
     wrap.appendChild(bubble);
@@ -77,93 +105,145 @@
     scrollBottom();
   }
 
-  /* ================= 로드 ================= */
-  async function loadContext(){
-    const d = await fetchJSON(`${API}/api/task-chat/context?taskKey=${taskKey}`);
-    ctx = d.context;
+  /* ===============================
+     컨텍스트
+  ============================== */
+  async function loadContext() {
+    const data = await fetchJSON(
+      `${API}/api/task-chat/context?taskKey=${encodeURIComponent(taskKey)}`
+    );
+    ctx = data.context;
+
     serviceTitleEl.innerText = ctx.serviceTitle || "서비스";
-    buyerNameEl.innerText = ctx.buyer?.nickname || "의뢰인";
+    buyerNameEl.innerText =
+      ctx.buyer?.nickname || ctx.buyer_nickname || "의뢰인";
   }
 
-  async function loadMessages(){
-    const d = await fetchJSON(`${API}/api/task-chat/messages?roomId=${ctx.roomId}`);
-    chatBox.innerHTML="";
-    rendered.clear();
-    d.messages.forEach(renderMessage);
-    await markRead();
+  /* ===============================
+     메시지 로드
+  ============================== */
+  async function loadMessages() {
+    const data = await fetchJSON(
+      `${API}/api/task-chat/messages?roomId=${ctx.roomId}`
+    );
+
+    chatBox.innerHTML = "";
+    renderedIds.clear();
+
+    data.messages.forEach(renderMessage);
+    await markAsRead();
   }
 
-  async function markRead(){
-    await fetchJSON(`${API}/api/task-chat/read`,{
-      method:"POST",
-      headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({roomId:ctx.roomId})
+  async function markAsRead() {
+    await fetchJSON(`${API}/api/task-chat/read`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ roomId: ctx.roomId }),
     });
   }
 
-  async function deleteMessage(id){
-    if(!confirm("메시지를 삭제할까요?")) return;
-    await fetchJSON(`${API}/api/task-chat/delete`,{
-      method:"POST",
-      headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({messageId:id})
+  async function deleteMessage(messageId) {
+    if (!confirm("메시지를 삭제할까요?")) return;
+
+    await fetchJSON(`${API}/api/task-chat/delete`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ messageId }),
     });
   }
 
-  /* ================= 소켓 ================= */
-  function connectSocket(){
-    socket = io(API, { withCredentials: true });
+  /* ===============================
+     Socket.io (🔥 핵심 수정)
+  ============================== */
+  function connectSocket() {
+    // ✅ 반드시 /task 네임스페이스
+    socket = io(`${API}/task`, { withCredentials: true });
 
-    socket.on("connect",()=>{
-      socket.emit("task:join",{roomId:ctx.roomId});
+    socket.on("connect", () => {
+      socket.emit("task:join", { roomId: ctx.roomId });
     });
 
-    socket.on("task:new",msg=>{
-      if(String(msg.roomId)!==String(ctx.roomId)) return;
+    socket.on("task:new", (msg) => {
+      if (String(msg.roomId) !== String(ctx.roomId)) return;
       renderMessage(msg);
-      markRead();
+      markAsRead();
     });
 
-    socket.on("task:read",()=>{
-      document.querySelectorAll(".msg.me .time").forEach(t=>{
-        if(!t.innerText.includes("✔✔")) t.innerText+=" ✔✔";
+    socket.on("task:read", () => {
+      document.querySelectorAll(".msg.me .time").forEach((t) => {
+        if (!t.innerText.includes("✔✔")) {
+          t.innerText += " ✔✔";
+        }
       });
     });
+
+    socket.on("connect_error", (err) => {
+      console.error("❌ socket error:", err);
+    });
   }
 
-  /* ================= 전송 ================= */
-  function sendMessage(){
+  /* ===============================
+     전송
+  ============================== */
+  function sendMessage() {
     const text = msgInput.value.trim();
-    if(!text) return;
-    msgInput.value="";
-    socket.emit("task:send",{taskKey,roomId:ctx.roomId,message:text});
+    if (!text) return;
+
+    msgInput.value = "";
+    socket.emit("task:send", {
+      taskKey,
+      roomId: ctx.roomId,
+      message: text,
+    });
   }
 
-  async function sendFile(file){
+  async function sendFile(file) {
     const fd = new FormData();
-    fd.append("file",file);
-    fd.append("taskKey",taskKey);
-    const d = await fetchJSON(`${API}/api/task-chat/upload`,{method:"POST",body:fd});
-    socket.emit("task:file",{roomId:ctx.roomId,...d.file});
+    fd.append("file", file);
+    fd.append("taskKey", taskKey);
+
+    const data = await fetchJSON(`${API}/api/task-chat/upload`, {
+      method: "POST",
+      body: fd,
+    });
+
+    socket.emit("task:file", {
+      roomId: ctx.roomId,
+      ...data.file,
+    });
   }
 
-  sendBtn.onclick = sendMessage;
-  msgInput.onkeydown = e=>e.key==="Enter"&&sendMessage();
+  sendBtn.addEventListener("click", sendMessage);
 
-  attachBtn.onclick = ()=>fileInput.click();
-  fileInput.onchange = ()=>{
-    if(fileInput.files[0]) sendFile(fileInput.files[0]);
-    fileInput.value="";
+  // ✅ 엔터 전송 안정화
+  msgInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage();
+    }
+  });
+
+  attachBtn.onclick = () => fileInput.click();
+  fileInput.onchange = () => {
+    if (fileInput.files[0]) sendFile(fileInput.files[0]);
+    fileInput.value = "";
   };
 
-  /* ================= 시작 ================= */
-  (async()=>{
-    await loadContext();
-    await loadMessages();
-    connectSocket();
-    msgInput.disabled=false;
-    sendBtn.disabled=false;
-    msgInput.focus();
-  })();
+  /* ===============================
+     시작
+  ============================== */
+  (async () => {
+    try {
+      await loadContext();
+      await loadMessages();
+      connectSocket();
 
+      msgInput.disabled = false;
+      sendBtn.disabled = false;
+      msgInput.focus();
+    } catch (err) {
+      console.error(err);
+      alert(err.message || "채팅을 불러올 수 없습니다.");
+    }
+  })();
 })();

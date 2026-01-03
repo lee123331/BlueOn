@@ -113,35 +113,72 @@ body{
   font-size:14px;
 }
 
+/* ===============================
+   채팅 입력 영역 버튼 공통
+=============================== */
 .chat-input button{
   height:44px;
+  padding:0 16px;                 /* 🔥 전송 버튼 가로 여유 */
   border-radius:12px;
   border:none;
   background:var(--primary);
   color:#fff;
   font-weight:800;
+  font-size:14px;
   cursor:pointer;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  transition:.15s ease;
+  min-width:72px;                 /* 🔥 전송 버튼 최소 폭 */
 }
 
-/* 업로드 버튼 */
+.chat-input button:hover{
+  filter:brightness(0.95);
+}
+
+.chat-input button:disabled{
+  opacity:.5;
+  cursor:not-allowed;
+}
+
+/* ===============================
+   파일 업로드 버튼 (아이콘용)
+=============================== */
 .attach-btn{
   width:44px;
   height:44px;
+  padding:0;
   background:#f1f5ff;
   border:1px solid var(--line);
+  border-radius:12px;
   display:flex;
   align-items:center;
   justify-content:center;
   cursor:pointer;
-  transition:.15s;
+  transition:.15s ease;
 }
+
+/* hover 효과 */
 .attach-btn:hover{
-  background:#e8f0ff;
+  background:#e7efff;
+  border-color:#cfe0ff;
 }
-.attach-btn svg{
+
+/* 아이콘 크기 통일 (SVG/이미지/폰트아이콘 대비) */
+.attach-btn svg,
+.attach-btn img{
   width:18px;
   height:18px;
+  display:block;
 }
+
+/* 비활성화 대응 */
+.attach-btn:disabled{
+  opacity:.5;
+  cursor:not-allowed;
+}
+
 </style>
 </head>
 
