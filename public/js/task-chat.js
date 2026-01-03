@@ -1,7 +1,7 @@
 /* ======================================================
-   BlueOn 작업 전용 채팅
+   BlueOn 작업 전용 채팅 (1단계: DB 저장 검증용)
    file: public/js/task-chat.js
-   기준: taskKey (서버가 항상 진실)
+   기준: taskKey → context → roomId
 ====================================================== */
 
 (() => {
@@ -17,10 +17,9 @@
   const buyerNameEl    = document.getElementById("buyerName");
 
   /* ===============================
-     URL 파라미터
+     URL
   ============================== */
   const taskKey = new URLSearchParams(location.search).get("taskKey");
-
   if (!taskKey) {
     alert("잘못된 접근입니다.");
     location.href = "/";
@@ -30,8 +29,7 @@
   /* ===============================
      상태
   ============================== */
-  let ctx = null;     // 서버 컨텍스트
-  let socket = null; // socket.io 인스턴스
+  let ctx = null;
 
   /* ===============================
      유틸
@@ -52,7 +50,7 @@
   async function fetchJSON(url, options = {}) {
     const res = await fetch(url, {
       credentials: "include",
-      ...options
+      ...options,
     });
 
     const data = await res.json().catch(() => ({}));
@@ -64,12 +62,10 @@
   }
 
   /* ===============================
-     메시지 렌더링
+     메시지 렌더
   ============================== */
   function renderMessage(msg) {
-    const isMine =
-      msg.sender_id === ctx.myId ||
-      msg.senderId === ctx.myId;
+    const isMine = msg.sender_id === ctx.myId;
 
     const wrap = document.createElement("div");
     wrap.className = "msg" + (isMine ? " me" : "");
@@ -77,11 +73,17 @@
     const bubble = document.createElement("div");
     bubble.className = "bubble";
 
+    const time = msg.created_at
+      ? new Date(msg.created_at).toLocaleTimeString("ko-KR", {
+          hour: "2-digit",
+          minute: "2-digit",
+          hour12: false,
+        })
+      : "";
+
     bubble.innerHTML = `
-      <div>${escapeHTML(msg.message)}</div>
-      <div class="time">
-        ${new Date(msg.created_at).toLocaleString()}
-      </div>
+      <div>${escapeHTML(msg.message || "")}</div>
+      <div class="time">${time}</div>
     `;
 
     wrap.appendChild(bubble);
@@ -90,7 +92,7 @@
   }
 
   /* ===============================
-     1️⃣ 컨텍스트 로드 (🔥 핵심)
+     1️⃣ 컨텍스트 로드
   ============================== */
   async function loadContext() {
     const data = await fetchJSON(
@@ -99,102 +101,72 @@
 
     ctx = data.context;
 
-    // 🔥 상단 정보 세팅
     serviceTitleEl.innerText =
       ctx.serviceTitle || "서비스";
 
     buyerNameEl.innerText =
-      ctx.buyer?.nickname ||
-      ctx.buyer_nickname ||
-      "의뢰인";
+      ctx.buyer?.nickname || "의뢰인";
   }
 
   /* ===============================
      2️⃣ 기존 메시지 로드
   ============================== */
-async function loadMessages() {
-  try {
+  async function loadMessages() {
     const data = await fetchJSON(
       `${API}/api/task-chat/messages?roomId=${ctx.roomId}`
     );
 
     chatBox.innerHTML = "";
     data.messages.forEach(renderMessage);
-  } catch (err) {
-    console.warn("메시지 로드 실패 (권한 문제 가능)", err);
-    chatBox.innerHTML = "";
-  }
-}
-
-
-  /* ===============================
-     3️⃣ Socket 연결 (작업 전용)
-  ============================== */
-  function connectSocket() {
-   socket = io(API, {
-  withCredentials: true,
-  transports: ["websocket"]
-});
-
-
-    socket.on("connect", () => {
-      socket.emit("task:join", { roomId: ctx.roomId });
-
-    });
-
-    socket.on("task:new", (msg) => {
-      if (String(msg.roomId) !== String(ctx.roomId)) return;
-      renderMessage(msg);
-    });
-
-    socket.on("connect_error", (err) => {
-      console.error("socket error:", err);
-    });
   }
 
   /* ===============================
-     4️⃣ 메시지 전송
+     3️⃣ 메시지 전송 (🔥 DB 저장 핵심)
   ============================== */
-  function sendMessage() {
+  async function sendMessage() {
     const text = msgInput.value.trim();
     if (!text) return;
 
     msgInput.value = "";
     msgInput.focus();
 
-    socket.emit("task:send", {
-      taskKey,
-      roomId: ctx.roomId,
-      message: text
+    const data = await fetchJSON(`${API}/api/task-chat/send`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        roomId: ctx.roomId,   // 🔥 반드시 roomId
+        message: text,
+      }),
     });
+
+    // 🔥 서버가 저장한 메시지를 그대로 렌더
+    renderMessage(data.message);
   }
 
-  sendBtn.addEventListener("click", sendMessage);
-  msgInput.addEventListener("keydown", (e) => {
-    if (e.key === "Enter") sendMessage();
-  });
+  sendBtn.onclick = sendMessage;
+  msgInput.onkeydown = (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      sendMessage();
+    }
+  };
 
   /* ===============================
-     초기 실행
+     시작
   ============================== */
   (async () => {
     try {
       await loadContext();
       await loadMessages();
-      connectSocket();
 
-      // 입력 활성화
       msgInput.disabled = false;
       sendBtn.disabled = false;
       msgInput.focus();
-
     } catch (err) {
       console.error(err);
       alert(err.message || "채팅을 불러올 수 없습니다.");
-
-      if (err.message?.includes("로그인")) {
-        location.href = "/login.html";
-      }
     }
   })();
 })();
