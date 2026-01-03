@@ -627,13 +627,8 @@ app.get("/api/task-chat/messages", async (req, res) => {
 const httpServer = http.createServer(app);
 
 const io = new SocketIOServer(httpServer, {
-  // 🔥 Railway에서 502 방지 핵심
-  transports: ["websocket"],   // polling 완전 제거
-  allowUpgrades: false,        // polling → websocket 업그레이드 차단
-
-  // 🔥 기본값이지만 명시 (프록시 안정화)
   path: "/socket.io",
-
+  transports: ["polling", "websocket"], // 🔥 동일
   cors: {
     origin: [
       "http://localhost:3000",
@@ -643,10 +638,10 @@ const io = new SocketIOServer(httpServer, {
     credentials: true,
   },
 
-  // 🔥 heartbeat (너무 공격적이지 않게)
-  pingInterval: 30000,
+  pingInterval: 25000,
   pingTimeout: 60000,
 });
+
 
 // 🔥 Express 세션을 Socket.io에 연결 (필수)
 io.use((socket, next) => {

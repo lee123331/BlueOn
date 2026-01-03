@@ -222,10 +222,11 @@
   ============================== */
  function connectSocket() {
   socket = io(API, {
-    transports: ["websocket"],   // 🔥 핵심
-    withCredentials: true,
-    path: "/socket.io",
-  });
+  transports: ["polling", "websocket"], // 🔥 핵심
+  withCredentials: true,
+  path: "/socket.io",
+});
+
 
   socket.on("connect", () => {
     socket.emit("task:join", { roomId: ctx.roomId });
