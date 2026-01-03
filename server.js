@@ -1809,17 +1809,24 @@ io.on("connection", (socket) => {
 
   // 파일 메시지 전송
   socket.on("task:file", async (payload) => {
-    try {
-      if (!payload?.roomId) return;
+  try {
+    if (!payload?.roomId || !payload.file_url) return;
 
-      io.to(String(payload.roomId)).emit("task:new", {
-        ...payload,
-        type: "file",
-      });
-    } catch (err) {
-      console.error("❌ task:file error:", err);
-    }
-  });
+    const msg = await insertTaskMessage({
+      roomId: payload.roomId,
+      senderId: user.id,
+      message: null,
+      type: "file",
+      fileUrl: payload.file_url,
+      fileName: payload.file_name,
+    });
+
+    io.to(String(payload.roomId)).emit("task:new", msg);
+  } catch (err) {
+    console.error("❌ task:file error:", err);
+  }
+});
+
 
   /* ======================================================
      3️⃣ 연결 종료

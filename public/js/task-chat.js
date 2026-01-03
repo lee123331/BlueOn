@@ -103,7 +103,10 @@
     if (!msg || renderedIds.has(msg.id)) return;
     renderedIds.add(msg.id);
 
-    const isMine = msg.sender_id === ctx.myId;
+    const isMine =
+  msg.sender_id !== undefined &&
+  String(msg.sender_id) === String(ctx.myId);
+
 
     const wrap = document.createElement("div");
     wrap.className = "msg" + (isMine ? " me" : "");
@@ -130,7 +133,8 @@
 
         const time = document.createElement("div");
         time.className = "time";
-        time.textContent = formatTime(msg.created_at);
+        time.textContent = msg.created_at ? formatTime(msg.created_at) : "";
+
 
         bubble.appendChild(img);
         bubble.appendChild(time);
@@ -253,38 +257,78 @@
   /* ===============================
      전송
   ============================== */
-  function sendMessage() {
-    const text = msgInput.value.trim();
-    if (!text || !socket || !ctx) return;
+/* ===============================
+   텍스트 메시지 전송
+=============================== */
+function sendMessage() {
+  const text = msgInput.value.trim();
+  if (!text || !socket || !ctx) return;
 
-    msgInput.value = "";
+  // 🔥 1️⃣ 즉시 임시 메시지 렌더링 (카톡 방식)
+  const tempMsg = {
+    id: "temp-" + Date.now(),
+    room_id: ctx.roomId,
+    sender_id: ctx.myId,
+    message: text,
+    type: "text",
+    created_at: new Date().toISOString(),
+  };
 
-    socket.emit("task:send", {
-      roomId: ctx.roomId,
-      message: text,
-    });
-  }
+  renderMessage(tempMsg);
 
-  async function sendFile(file) {
-    if (!file || !ctx) return;
+  // 입력창 비우기
+  msgInput.value = "";
 
+  // 🔥 2️⃣ 서버로 전송
+  socket.emit("task:send", {
+    roomId: ctx.roomId,
+    message: text,
+  });
+}
+
+/* ===============================
+   파일 메시지 전송
+=============================== */
+async function sendFile(file) {
+  if (!file || !ctx || !socket) return;
+
+  try {
     const fd = new FormData();
-fd.append("file", file);
-fd.append("taskKey", taskKey); // 🔥 이 줄 필수
+    fd.append("file", file);
+    fd.append("taskKey", taskKey); // 🔥 필수
 
-
+    // 🔹 업로드 (HTTP)
     const data = await fetchJSON(`${API}/api/task-chat/upload`, {
       method: "POST",
       body: fd,
     });
 
-    socket.emit("task:file", {
-      roomId: ctx.roomId,
+    // 🔥 1️⃣ 임시 파일 메시지 렌더링
+    const tempFileMsg = {
+      id: "temp-file-" + Date.now(),
+      room_id: ctx.roomId,
+      sender_id: ctx.myId,
       type: "file",
       file_url: data.file.file_url,
       file_name: data.file.file_name,
+      created_at: new Date().toISOString(),
+    };
+
+    renderMessage(tempFileMsg);
+
+    // 🔥 2️⃣ 소켓으로 서버 전송
+    socket.emit("task:file", {
+      roomId: ctx.roomId,
+      file_url: data.file.file_url,
+      file_name: data.file.file_name,
     });
+
+  } catch (err) {
+    console.error("❌ sendFile error:", err);
+    showToast("파일 전송에 실패했습니다");
   }
+}
+
 
   /* ===============================
      이벤트
