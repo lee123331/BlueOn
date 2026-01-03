@@ -157,27 +157,18 @@ const sessionStore = new MySQLStore({
 });
 
 const sessionMiddleware = session({
-  name: "blueon.sid",
+  name: "blueon.sid", // key ❌ → name ⭕
   secret: process.env.SESSION_SECRET || "blueon_secret",
-
   resave: false,
   saveUninitialized: false,
-
   store: sessionStore,
-
   cookie: {
     httpOnly: true,
-
-    // 🔥 Railway는 HTTPS 강제 → 반드시 true
-    secure: true,
-
-    // 🔥 socket.io + fetch(credentials) 안정값
+    secure: false,      // Railway HTTPS면 true로 바꿔도 됨
     sameSite: "lax",
-
-    maxAge: 1000 * 60 * 60 * 24, // 1일
+    maxAge: 1000 * 60 * 60 * 24,
   },
 });
-
 
 app.use(sessionMiddleware);
 
@@ -249,30 +240,6 @@ const servicesUpload = multer({
   limits: {
     fieldSize: 10 * 1024 * 1024,
     fileSize: 10 * 1024 * 1024,
-  },
-});
-/* ======================================================
-   🧩 작업 채팅 파일 업로드용 multer
-====================================================== */
-const chatUploadDir = path.join(process.cwd(), "public/uploads/chat");
-if (!fs.existsSync(chatUploadDir)) {
-  fs.mkdirSync(chatUploadDir, { recursive: true });
-}
-
-const upload = multer({
-  storage: multer.diskStorage({
-    destination(req, file, cb) {
-      cb(null, chatUploadDir);
-    },
-    filename(req, file, cb) {
-      const ext = path.extname(file.originalname);
-      const name =
-        Date.now() + "-" + Math.random().toString(36).slice(2) + ext;
-      cb(null, name);
-    },
-  }),
-  limits: {
-    fileSize: 20 * 1024 * 1024, // 20MB
   },
 });
 
@@ -574,37 +541,22 @@ app.get("/api/task-chat/messages", async (req, res) => {
       return res.status(401).json({ success: false });
     }
 
-    const myId = req.session.user.id;
     const { roomId } = req.query;
-
     if (!roomId) {
       return res.status(400).json({ success: false });
-    }
-
-    const [[room]] = await db.query(
-      `
-      SELECT user1_id, user2_id
-      FROM chat_rooms
-      WHERE id = ?
-      `,
-      [roomId]
-    );
-
-    if (!room) {
-      return res.status(403).json({ success: false });
-    }
-
-    // ✅ 당사자 체크만 한다 (핵심)
-    if (myId !== room.user1_id && myId !== room.user2_id) {
-      return res.status(403).json({ success: false });
     }
 
     const [messages] = await db.query(
       `
       SELECT
         id,
+        room_id,
         sender_id,
         message,
+        type,
+        file_url,
+        file_name,
+        is_read,
         created_at
       FROM chat_messages
       WHERE room_id = ?
@@ -613,13 +565,93 @@ app.get("/api/task-chat/messages", async (req, res) => {
       [roomId]
     );
 
-    return res.json({ success: true, messages });
+    return res.json({
+      success: true,
+      messages,
+      myId: req.session.user.id, // 🔥 프론트용
+    });
 
   } catch (err) {
     console.error("❌ task-chat messages error:", err);
     res.status(500).json({ success: false });
   }
 });
+/* ======================================================
+   🧩 작업 채팅 메시지 전송
+   POST /api/task-chat/send
+====================================================== */
+app.post("/api/task-chat/send", async (req, res) => {
+  try {
+    if (!req.session.user) {
+      return res.status(401).json({ success: false });
+    }
+
+    const senderId = req.session.user.id;
+    const { taskKey, message } = req.body;
+
+    if (!taskKey || !message) {
+      return res.status(400).json({ success: false });
+    }
+
+    const [result] = await db.query(
+      `
+      INSERT INTO chat_messages
+      (
+        room_id,
+        sender_id,
+        message,
+        message_type,
+        type,
+        is_read,
+        created_at
+      )
+      VALUES (?, ?, ?, 'text', 'task', 0, NOW())
+      `,
+      [taskKey, senderId, message]
+    );
+
+    return res.json({
+      success: true,
+      message: {
+        id: result.insertId,
+        room_id: taskKey,
+        sender_id: senderId,
+        message,
+        message_type: "text",
+        type: "task",
+        is_read: 0,
+        created_at: new Date(),
+      },
+    });
+
+  } catch (err) {
+    console.error("❌ task-chat send error:", err);
+    res.status(500).json({ success: false });
+  }
+});
+async function sendMessage() {
+  const text = msgInput.value.trim();
+  if (!text) return;
+
+  msgInput.value = "";
+
+  const res = await fetch(`${API}/api/task-chat/send`, {
+    method: "POST",
+    credentials: "include",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      taskKey,        // 🔥 room_id 역할
+      message: text,
+    }),
+  });
+
+  const data = await res.json();
+  if (!data.success) return;
+
+  renderMessage(data.message);
+}
 
 /* ======================================================
    🔵 Socket.io 서버 생성
@@ -627,26 +659,21 @@ app.get("/api/task-chat/messages", async (req, res) => {
 const httpServer = http.createServer(app);
 
 const io = new SocketIOServer(httpServer, {
-  path: "/socket.io",
-  transports: ["polling", "websocket"], // 🔥 동일
+   transports: ["websocket"], // 🔥 이거 반드시
   cors: {
     origin: [
       "http://localhost:3000",
       "http://localhost:5173",
-      "https://blueon.up.railway.app",
+      "https://blueon.up.railway.app"
     ],
     credentials: true,
   },
-
-  pingInterval: 25000,
-  pingTimeout: 60000,
 });
-
-
-// 🔥 Express 세션을 Socket.io에 연결 (필수)
+// 🔥 Express 세션을 Socket.io에 연결 (핵심)
 io.use((socket, next) => {
   sessionMiddleware(socket.request, {}, next);
 });
+
 
 /* ------------------ 회원가입 ------------------ */
 app.post("/signup", async (req, res) => {
@@ -1749,93 +1776,144 @@ app.get("/users/profile/:id", async (req, res) => {
   }
 });
 /* ======================================================
-   🔵 Socket.IO (통합 최종본 / 기본 namespace ONLY)
-   - Railway 502 방지
-   - DB 에러 시 서버 크래시 방지
+   🔵 Socket.io (보안 강화 + 정상 구조)
 ====================================================== */
 io.on("connection", (socket) => {
-  console.log("🟢 Socket connected:", socket.id);
+  try {
+    console.log("🟢 Socket connected:", socket.id);
 
-  const user = socket.request.session?.user;
+    const session = socket.request.session;
+    const user = session?.user;
+
+    /* ======================================================
+       0️⃣ 비로그인 소켓도 허용 (헤더 알림용)
+       - ❌ 여기서 disconnect 하면 안 됨
+    ====================================================== */
+    if (!user) {
+      console.log("ℹ️ 비로그인/헤더 소켓 허용:", socket.id);
+
+      socket.on("disconnect", () => {
+        console.log("🔴 Header socket disconnected:", socket.id);
+      });
+
+      return; // ⚠️ 여기서 종료 (채팅/관리자 기능은 안 붙임)
+    }
+
+    /* ======================================================
+       1️⃣ 로그인 유저 개인 room
+    ====================================================== */
+    socket.join(`user:${user.id}`);
+    console.log(`➡ user:${user.id} 방 입장`);
 
   /* ======================================================
-     0️⃣ 비로그인 소켓 허용 (헤더 알림 등)
-  ====================================================== */
-  if (!user) {
-    socket.on("disconnect", () => {
-      console.log("🔴 Header socket disconnected:", socket.id);
+   2️⃣ 관리자 room 연결 (서버 세션 기준)
+====================================================== */
+const ADMIN_ID = String(process.env.ADMIN_USER_ID || "");
+
+if (ADMIN_ID && String(user.id) === ADMIN_ID) {
+  socket.join("admin");
+
+  console.log(
+    `👑 관리자 소켓 연결됨 | userId=${user.id} | socket=${socket.id}`
+  );
+}
+
+    /* ======================================================
+       3️⃣ 채팅 관련 이벤트 (로그인 유저만)
+    ====================================================== */
+
+    /* 채팅방 입장 */
+    socket.on("chat:join", (roomId) => {
+      if (!roomId) return;
+      socket.join(String(roomId));
+      console.log(`📌 chat:join → room ${roomId}`);
     });
+
+    /* typing 표시 */
+    socket.on("chat:typing", ({ roomId, userId, isTyping }) => {
+      socket.to(String(roomId)).emit("chat:typing", {
+        roomId,
+        userId,
+        isTyping,
+      });
+    });
+
+    /* 읽음 표시 */
+    socket.on("chat:read", ({ roomId, userId }) => {
+      socket.to(String(roomId)).emit("chat:read", { roomId, userId });
+    });
+
+    /* 메시지 삭제 */
+    socket.on("chat:delete", ({ roomId, messageId }) => {
+      socket.to(String(roomId)).emit("chat:delete", { messageId });
+    });
+
+    /* ======================================================
+       4️⃣ 연결 종료
+    ====================================================== */
+    socket.on("disconnect", () => {
+      console.log("🔴 User socket disconnected:", socket.id);
+    });
+
+  } catch (err) {
+    console.error("❌ Socket connection error:", err);
+    socket.disconnect();
+  }
+});
+/* ======================================================
+   🧩 작업 채팅 전용 Socket Namespace
+   namespace: /task
+====================================================== */
+const taskNsp = io.of("/task");
+
+taskNsp.use((socket, next) => {
+  sessionMiddleware(socket.request, {}, next);
+});
+
+taskNsp.on("connection", (socket) => {
+  const user = socket.request.session?.user;
+  if (!user) {
+    socket.disconnect();
     return;
   }
 
-  /* ======================================================
-     1️⃣ 로그인 유저 개인 room
-  ====================================================== */
-  socket.join(`user:${user.id}`);
-  console.log(`➡ user:${user.id} room joined`);
+  console.log("🧩 task socket connected:", socket.id);
 
-  /* ======================================================
-     2️⃣ 작업 채팅
-  ====================================================== */
-
-  // 작업 채팅방 입장
-  socket.on("task:join", ({ roomId }) => {
-    try {
-      if (!roomId) return;
-      socket.join(String(roomId));
-      console.log(`📌 task:join → room ${roomId}`);
-    } catch (err) {
-      console.error("❌ task:join error:", err);
-    }
+  /* 🔹 작업 채팅 입장 */
+  socket.on("task:join", ({ taskKey }) => {
+    if (!taskKey) return;
+    const roomName = `task:${taskKey}`;
+    socket.join(roomName);
+    console.log(`➡ task join: ${roomName}`);
   });
 
-  // 텍스트 메시지 전송
-  socket.on("task:send", async ({ roomId, message }) => {
-    try {
-      if (!roomId || !message) return;
+  /* 🔹 메시지 전송 */
+  socket.on("task:send", async ({ taskKey, roomId, message }) => {
+    if (!taskKey || !roomId || !message) return;
 
-      const msg = await insertTaskMessage({
-        roomId,
-        senderId: user.id,
-        message,
-        type: "text", // 🔥 DB NOT NULL 컬럼
-      });
+    const senderId = user.id;
+    const now = nowStr();
 
-      io.to(String(roomId)).emit("task:new", msg);
-    } catch (err) {
-      console.error("❌ task:send error:", err);
-    }
-  });
+    await db.query(
+      `
+      INSERT INTO chat_messages (room_id, sender_id, message, created_at)
+      VALUES (?, ?, ?, ?)
+      `,
+      [roomId, senderId, message, now]
+    );
 
-  // 파일 메시지 전송
-  socket.on("task:file", async (payload) => {
-  try {
-    if (!payload?.roomId || !payload.file_url) return;
-
-    const msg = await insertTaskMessage({
-      roomId: payload.roomId,
-      senderId: user.id,
-      message: null,
-      type: "file",
-      fileUrl: payload.file_url,
-      fileName: payload.file_name,
+    taskNsp.to(`task:${taskKey}`).emit("task:new", {
+      roomId,
+      senderId,
+      message,
+      created_at: now
     });
+  });
 
-    io.to(String(payload.roomId)).emit("task:new", msg);
-  } catch (err) {
-    console.error("❌ task:file error:", err);
-  }
-});
-
-
-  /* ======================================================
-     3️⃣ 연결 종료
-  ====================================================== */
   socket.on("disconnect", () => {
-    console.log("🔴 User socket disconnected:", socket.id);
+    console.log("🧩 task socket disconnected:", socket.id);
   });
 });
-
 
 /* ======================================================
    🔵 채팅방 생성
@@ -3408,7 +3486,6 @@ app.get("/expert/tasks/detail", async (req, res) => {
     const [[row]] = await db.query(
       `
 SELECT
-o.id AS order_id,
   o.task_key,
   o.created_at,
 
@@ -3449,7 +3526,6 @@ LIMIT 1
     return res.json({
       success: true,
       task: {
-        order_id: row.order_id,
         task_key: row.task_key,
         status: row.status,
         phase: row.phase,
@@ -3863,43 +3939,33 @@ await db.query(
 ====================================================== */
 app.get("/my/tasks/detail", async (req, res) => {
   try {
-    /* ============================
-       1️⃣ 로그인 체크
-    ============================ */
+    // 1️⃣ 로그인 체크
     if (!req.session.user) {
-      return res.status(401).json({
-        success: false,
-        message: "로그인 필요"
-      });
+      return res.status(401).json({ success: false });
     }
 
     const userId = req.session.user.id;
     const { taskKey } = req.query;
 
     if (!taskKey) {
-      return res.status(400).json({
+      return res.json({
         success: false,
         message: "taskKey 누락"
       });
     }
 
-    /* ============================
+    /* ======================================================
        2️⃣ 주문 기준 단일 진실 조회
-       - orders (주문)
-       - services (서비스)
-       - expert_profiles (전문가)
-       - service_tasks (작업 상태)
-    ============================ */
+       - orders + services + expert + service_tasks
+    ====================================================== */
     const [[row]] = await db.query(
       `
       SELECT
-        o.id         AS order_id,        -- 🔥 주문번호
         o.task_key,
         o.created_at,
-        o.room_id,
 
         COALESCE(t.status, 'pending') AS status,
-        COALESCE(t.phase,  'ready')   AS phase,
+        COALESCE(t.phase, 'ready')    AS phase,
 
         s.title AS service_title,
 
@@ -3909,9 +3975,10 @@ app.get("/my/tasks/detail", async (req, res) => {
           '/assets/default_service.png'
         ) AS thumbnail,
 
-        ep.user_id  AS expert_id,
-        ep.nickname AS expert_nickname
+        ep.user_id   AS expert_id,
+        ep.nickname  AS expert_nickname,
 
+        o.room_id
       FROM orders o
       JOIN services s
         ON s.id = o.service_id
@@ -3919,50 +3986,43 @@ app.get("/my/tasks/detail", async (req, res) => {
         ON ep.user_id = o.expert_id
       LEFT JOIN service_tasks t
         ON t.task_key = o.task_key
-
       WHERE o.task_key = ?
-        AND o.user_id  = ?      -- 🔥 유저 소유 작업만 허용
+        AND o.user_id = ?
       LIMIT 1
       `,
       [taskKey, userId]
     );
 
     if (!row) {
-      return res.status(404).json({
+      return res.json({
         success: false,
         message: "작업 없음"
       });
     }
 
-    /* ============================
-       3️⃣ 응답 (유저 상세 페이지 기준)
-    ============================ */
+    /* ======================================================
+       3️⃣ 응답
+    ====================================================== */
     return res.json({
       success: true,
       task: {
-        order_id: row.order_id,          // ✅ 주문번호
-        task_key: row.task_key,          // (프론트에서 숨김)
+        task_key: row.task_key,
         status: row.status,
         phase: row.phase,
         created_at: row.created_at,
         service_title: row.service_title,
         thumbnail: row.thumbnail,
-
         expert: {
           id: row.expert_id,
           nickname: row.expert_nickname || "전문가"
         },
-
         room_id: row.room_id
       }
     });
 
   } catch (err) {
     console.error("❌ /my/tasks/detail error:", err);
-    return res.status(500).json({
-      success: false,
-      message: "서버 오류"
-    });
+    return res.status(500).json({ success: false });
   }
 });
 
@@ -4130,209 +4190,6 @@ app.get("/chat/rooms", async (req, res) => {
     return res.json({ success: false });
   }
 });
-/* ======================================================
-   작업 채팅 메시지 조회
-   GET /api/task-chat/messages?roomId=xx
-====================================================== */
-app.get("/api/task-chat/messages", async (req, res) => {
-  try {
-    if (!req.session.user) {
-      return res.status(401).json({ success: false, message: "로그인 필요" });
-    }
-
-    const { roomId } = req.query;
-    if (!roomId) {
-      return res.json({ success: false, message: "roomId 누락" });
-    }
-
-    // 🔐 접근 권한 검사 (본인 방만)
-    const [[room]] = await db.query(
-      `
-      SELECT * FROM chat_rooms
-      WHERE id = ?
-        AND (user1_id = ? OR user2_id = ?)
-      `,
-      [roomId, req.session.user.id, req.session.user.id]
-    );
-
-    if (!room) {
-      return res.status(403).json({ success: false, message: "권한 없음" });
-    }
-
-    const [messages] = await db.query(
-      `
-      SELECT
-        id,
-        room_id,
-        sender_id,
-        message,
-        type,
-        file_url,
-        file_name,
-        deleted,
-        is_read,
-        created_at
-      FROM chat_messages
-      WHERE room_id = ?
-      ORDER BY id ASC
-      `,
-      [roomId]
-    );
-
-    res.json({ success: true, messages });
-
-  } catch (err) {
-    console.error("❌ task-chat messages error:", err);
-    res.status(500).json({ success: false });
-  }
-});
-async function insertTaskMessage({
-  roomId,
-  senderId,
-  message,
-  type = "text",
-  fileUrl = null,
-  fileName = null
-}) {
-  const now = nowStr();
-
-  const [result] = await db.query(
-    `
-    INSERT INTO chat_messages
-    (room_id, sender_id, message, type, file_url, file_name, created_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
-    `,
-    [roomId, senderId, message, type, fileUrl, fileName, now]
-  );
-
-  const [[row]] = await db.query(
-    `SELECT * FROM chat_messages WHERE id = ?`,
-    [result.insertId]
-  );
-
-  return row;
-}
-/* ======================================================
-   채팅 읽음 처리
-====================================================== */
-app.post("/api/task-chat/read", async (req, res) => {
-  try {
-    if (!req.session.user) {
-      return res.status(401).json({ success: false });
-    }
-
-    const { roomId } = req.body;
-    if (!roomId) {
-      return res.json({ success: false, message: "roomId 누락" });
-    }
-
-    // 🔹 상대방 메시지 읽음 처리
-    await db.query(
-      `
-      UPDATE chat_messages
-      SET is_read = 1
-      WHERE room_id = ?
-        AND sender_id != ?
-      `,
-      [roomId, req.session.user.id]
-    );
-
-    // 🔥 기본 namespace로 읽음 이벤트 전송
-    io.to(String(roomId)).emit("task:read");
-
-    return res.json({ success: true });
-
-  } catch (err) {
-    console.error("❌ task-chat read error:", err);
-    return res.status(500).json({ success: false });
-  }
-});
-
-
-/* ======================================================
-   메시지 삭제
-====================================================== */
-app.post("/api/task-chat/delete", async (req, res) => {
-  try {
-    if (!req.session.user) {
-      return res.status(401).json({ success: false });
-    }
-
-    const { messageId } = req.body;
-    if (!messageId) {
-      return res.json({ success: false, message: "messageId 누락" });
-    }
-
-    const [[msg]] = await db.query(
-      `SELECT * FROM chat_messages WHERE id = ?`,
-      [messageId]
-    );
-
-    // 🔐 본인 메시지만 삭제 가능
-    if (!msg || msg.sender_id !== req.session.user.id) {
-      return res.status(403).json({ success: false });
-    }
-
-    await db.query(
-      `
-      UPDATE chat_messages
-      SET deleted = 1,
-          message = NULL
-      WHERE id = ?
-      `,
-      [messageId]
-    );
-
-    // 🔥 기본 namespace로 삭제된 메시지 브로드캐스트
-    io.to(String(msg.room_id)).emit("task:new", {
-      ...msg,
-      deleted: true
-    });
-
-    return res.json({ success: true });
-
-  } catch (err) {
-    console.error("❌ task-chat delete error:", err);
-    return res.status(500).json({ success: false });
-  }
-});
-
-
-/* ======================================================
-   채팅 파일 업로드
-====================================================== */
-app.post(
-  "/api/task-chat/upload",
-  upload.single("file"),
-  async (req, res) => {
-    try {
-      if (!req.session.user) {
-        return res.status(401).json({ success: false });
-      }
-
-      if (!req.file) {
-        return res.json({ success: false, message: "파일 없음" });
-      }
-
-      const fileUrl = `/uploads/chat/${req.file.filename}`;
-
-      return res.json({
-        success: true,
-        file: {
-          type: "file",
-          file_url: fileUrl,
-          file_name: req.file.originalname
-        }
-      });
-
-    } catch (err) {
-      console.error("❌ task-chat upload error:", err);
-      return res.status(500).json({ success: false });
-    }
-  }
-);
-
-
 
 /* ======================================================
    🔵 전문가 작업 요약
