@@ -1750,117 +1750,83 @@ app.get("/users/profile/:id", async (req, res) => {
 });
 /* ======================================================
    🔵 Socket.IO (통합 최종본 / 기본 namespace ONLY)
+   - Railway 502 방지
+   - DB 에러 시 서버 크래시 방지
 ====================================================== */
 io.on("connection", (socket) => {
-  try {
-    console.log("🟢 Socket connected:", socket.id);
+  console.log("🟢 Socket connected:", socket.id);
 
-    const session = socket.request.session;
-    const user = session?.user;
+  const user = socket.request.session?.user;
 
-    /* ======================================================
-       0️⃣ 비로그인 소켓 허용 (헤더 알림용)
-       - 채팅 / 작업 기능은 붙이지 않음
-    ====================================================== */
-    if (!user) {
-      console.log("ℹ️ 비로그인 소켓 연결:", socket.id);
-
-      socket.on("disconnect", () => {
-        console.log("🔴 Header socket disconnected:", socket.id);
-      });
-
-      return; // 🔥 여기서 종료
-    }
-
-    /* ======================================================
-       1️⃣ 로그인 유저 개인 room
-    ====================================================== */
-    socket.join(`user:${user.id}`);
-    console.log(`➡ user:${user.id} 방 입장`);
-
-    /* ======================================================
-       2️⃣ 관리자 room (환경변수 기준)
-    ====================================================== */
-    const ADMIN_ID = String(process.env.ADMIN_USER_ID || "");
-
-    if (ADMIN_ID && String(user.id) === ADMIN_ID) {
-      socket.join("admin");
-      console.log(
-        `👑 관리자 소켓 연결 | userId=${user.id} | socket=${socket.id}`
-      );
-    }
-
-    /* ======================================================
-       3️⃣ 일반 채팅 (chat:*)
-    ====================================================== */
-
-    // 채팅방 입장
-    socket.on("chat:join", (roomId) => {
-      if (!roomId) return;
-      socket.join(String(roomId));
-      console.log(`📌 chat:join → room ${roomId}`);
+  /* ======================================================
+     0️⃣ 비로그인 소켓 허용 (헤더 알림 등)
+  ====================================================== */
+  if (!user) {
+    socket.on("disconnect", () => {
+      console.log("🔴 Header socket disconnected:", socket.id);
     });
+    return;
+  }
 
-    // 타이핑 표시
-    socket.on("chat:typing", ({ roomId, userId, isTyping }) => {
-      socket.to(String(roomId)).emit("chat:typing", {
-        roomId,
-        userId,
-        isTyping,
-      });
-    });
+  /* ======================================================
+     1️⃣ 로그인 유저 개인 room
+  ====================================================== */
+  socket.join(`user:${user.id}`);
+  console.log(`➡ user:${user.id} room joined`);
 
-    // 읽음 표시
-    socket.on("chat:read", ({ roomId, userId }) => {
-      socket.to(String(roomId)).emit("chat:read", { roomId, userId });
-    });
+  /* ======================================================
+     2️⃣ 작업 채팅
+  ====================================================== */
 
-    // 메시지 삭제
-    socket.on("chat:delete", ({ roomId, messageId }) => {
-      socket.to(String(roomId)).emit("chat:delete", { messageId });
-    });
-
-    /* ======================================================
-       4️⃣ 작업 채팅 (task:*)
-    ====================================================== */
-
-    // 작업 채팅방 입장
-    socket.on("task:join", ({ roomId }) => {
+  // 작업 채팅방 입장
+  socket.on("task:join", ({ roomId }) => {
+    try {
       if (!roomId) return;
       socket.join(String(roomId));
       console.log(`📌 task:join → room ${roomId}`);
-    });
+    } catch (err) {
+      console.error("❌ task:join error:", err);
+    }
+  });
 
-    // 텍스트 메시지 전송
-    socket.on("task:send", async ({ roomId, message }) => {
+  // 텍스트 메시지 전송
+  socket.on("task:send", async ({ roomId, message }) => {
+    try {
       if (!roomId || !message) return;
 
       const msg = await insertTaskMessage({
         roomId,
         senderId: user.id,
         message,
+        type: "text", // 🔥 DB NOT NULL 컬럼
       });
 
       io.to(String(roomId)).emit("task:new", msg);
-    });
+    } catch (err) {
+      console.error("❌ task:send error:", err);
+    }
+  });
 
-    // 파일 메시지 브로드캐스트
-    socket.on("task:file", (payload) => {
+  // 파일 메시지 전송
+  socket.on("task:file", async (payload) => {
+    try {
       if (!payload?.roomId) return;
-      io.to(String(payload.roomId)).emit("task:new", payload);
-    });
 
-    /* ======================================================
-       5️⃣ 연결 종료
-    ====================================================== */
-    socket.on("disconnect", () => {
-      console.log("🔴 User socket disconnected:", socket.id);
-    });
+      io.to(String(payload.roomId)).emit("task:new", {
+        ...payload,
+        type: "file",
+      });
+    } catch (err) {
+      console.error("❌ task:file error:", err);
+    }
+  });
 
-  } catch (err) {
-    console.error("❌ Socket connection error:", err);
-    socket.disconnect(true);
-  }
+  /* ======================================================
+     3️⃣ 연결 종료
+  ====================================================== */
+  socket.on("disconnect", () => {
+    console.log("🔴 User socket disconnected:", socket.id);
+  });
 });
 
 
