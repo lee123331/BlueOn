@@ -577,7 +577,7 @@ app.get("/api/task-chat/messages", async (req, res) => {
   }
 });
 /* ======================================================
-   🧩 작업 채팅 메시지 전송
+   🧩 작업 채팅 메시지 전송 (정답 버전)
    POST /api/task-chat/send
 ====================================================== */
 app.post("/api/task-chat/send", async (req, res) => {
@@ -587,11 +587,13 @@ app.post("/api/task-chat/send", async (req, res) => {
     }
 
     const senderId = req.session.user.id;
-    const { taskKey, message } = req.body;
+    const { roomId, message } = req.body;
 
-    if (!taskKey || !message) {
+    if (!roomId || !message) {
       return res.status(400).json({ success: false });
     }
+
+    const now = nowStr();
 
     const [result] = await db.query(
       `
@@ -600,28 +602,26 @@ app.post("/api/task-chat/send", async (req, res) => {
         room_id,
         sender_id,
         message,
-        message_type,
         type,
         is_read,
         created_at
       )
-      VALUES (?, ?, ?, 'text', 'task', 0, NOW())
+      VALUES (?, ?, ?, 'task', 0, ?)
       `,
-      [taskKey, senderId, message]
+      [roomId, senderId, message, now]
     );
 
     return res.json({
       success: true,
       message: {
         id: result.insertId,
-        room_id: taskKey,
+        room_id: roomId,
         sender_id: senderId,
         message,
-        message_type: "text",
         type: "task",
         is_read: 0,
-        created_at: new Date(),
-      },
+        created_at: now
+      }
     });
 
   } catch (err) {
@@ -629,29 +629,7 @@ app.post("/api/task-chat/send", async (req, res) => {
     res.status(500).json({ success: false });
   }
 });
-async function sendMessage() {
-  const text = msgInput.value.trim();
-  if (!text) return;
 
-  msgInput.value = "";
-
-  const res = await fetch(`${API}/api/task-chat/send`, {
-    method: "POST",
-    credentials: "include",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      taskKey,        // 🔥 room_id 역할
-      message: text,
-    }),
-  });
-
-  const data = await res.json();
-  if (!data.success) return;
-
-  renderMessage(data.message);
-}
 
 /* ======================================================
    🔵 Socket.io 서버 생성
@@ -1888,6 +1866,8 @@ taskNsp.on("connection", (socket) => {
   });
 
   /* 🔹 메시지 전송 */
+  console.log("🧩 insertTaskMessage args:", args);
+
   socket.on("task:send", async ({ taskKey, roomId, message }) => {
     if (!taskKey || !roomId || !message) return;
 

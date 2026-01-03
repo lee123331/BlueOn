@@ -123,27 +123,28 @@
   /* ===============================
      3️⃣ 메시지 전송 (🔥 DB 저장 핵심)
   ============================== */
-  async function sendMessage() {
-    const text = msgInput.value.trim();
-    if (!text) return;
+async function sendMessage() {
+  const text = msgInput.value.trim();
+  if (!text) return;
 
-    msgInput.value = "";
-    msgInput.focus();
+  msgInput.value = "";
+  msgInput.focus();
 
-    const data = await fetchJSON(`${API}/api/task-chat/send`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        roomId: ctx.roomId,   // 🔥 반드시 roomId
-        message: text,
-      }),
-    });
+  const data = await fetchJSON(`${API}/api/task-chat/send`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      taskKey,        // 🔥 핵심: 서버 기준은 taskKey
+      message: text,
+    }),
+  });
 
-    // 🔥 서버가 저장한 메시지를 그대로 렌더
-    renderMessage(data.message);
-  }
+  // 서버가 DB에 저장한 메시지를 그대로 렌더
+  renderMessage(data.message);
+}
+
 
   sendBtn.onclick = sendMessage;
   msgInput.onkeydown = (e) => {
