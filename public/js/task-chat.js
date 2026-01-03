@@ -1,61 +1,48 @@
 /* ======================================================
-   BlueOn 작업 전용 채팅 (HTML 완전 호환 최종본)
+   BlueOn 작업 전용 채팅
+   file: public/js/task-chat.js
+   기준: taskKey (서버가 항상 진실)
 ====================================================== */
+
 (() => {
   const API = "https://blueon.up.railway.app";
 
   /* ===============================
      DOM
   ============================== */
-  const chatBox   = document.getElementById("chatMessages");
-  const msgInput  = document.getElementById("chatInput");
-  const sendBtn   = document.getElementById("sendBtn");
-  const attachBtn = document.getElementById("attachBtn");
-  const fileInput = document.getElementById("fileInput");
-
+  const chatBox        = document.getElementById("chatMessages");
+  const msgInput       = document.getElementById("chatInput");
+  const sendBtn        = document.getElementById("sendBtn");
   const serviceTitleEl = document.getElementById("serviceTitle");
   const buyerNameEl    = document.getElementById("buyerName");
 
-  const toastEl        = document.getElementById("toast");
-  const lightboxEl     = document.getElementById("lightbox");
-  const lightboxImgEl  = document.getElementById("lightboxImg");
-
   /* ===============================
-     URL
+     URL 파라미터
   ============================== */
   const taskKey = new URLSearchParams(location.search).get("taskKey");
+
   if (!taskKey) {
     alert("잘못된 접근입니다.");
+    location.href = "/";
     return;
   }
 
   /* ===============================
      상태
   ============================== */
-  let ctx = null;
-  let socket = null;
-  const renderedIds = new Set();
+  let ctx = null;     // 서버 컨텍스트
+  let socket = null; // socket.io 인스턴스
 
   /* ===============================
      유틸
   ============================== */
-  const escapeHTML = (str) =>
-    String(str).replace(/[&<>"']/g, (m) => ({
-      "&": "&amp;",
-      "<": "&lt;",
-      ">": "&gt;",
-      '"': "&quot;",
-      "'": "&#039;",
-    }[m]));
-
-  // 🔥 HH:MM 형식만
-  function formatTime(ts) {
-    const d = new Date(ts);
-    return d.toLocaleTimeString("ko-KR", {
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: false,
-    });
+  function escapeHTML(str) {
+    return String(str)
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#039;");
   }
 
   function scrollBottom() {
@@ -63,8 +50,13 @@
   }
 
   async function fetchJSON(url, options = {}) {
-    const res = await fetch(url, { credentials: "include", ...options });
+    const res = await fetch(url, {
+      credentials: "include",
+      ...options
+    });
+
     const data = await res.json().catch(() => ({}));
+
     if (!res.ok || data.success === false) {
       throw new Error(data.message || "요청 실패");
     }
@@ -72,103 +64,25 @@
   }
 
   /* ===============================
-     Toast
-  ============================== */
-  function showToast(msg) {
-    if (!toastEl) return;
-    toastEl.innerText = msg;
-    toastEl.classList.add("show");
-    setTimeout(() => toastEl.classList.remove("show"), 2000);
-  }
-
-  /* ===============================
-     Lightbox
-  ============================== */
-  function openLightbox(src) {
-    lightboxImgEl.src = src;
-    lightboxEl.classList.add("show");
-    lightboxEl.setAttribute("aria-hidden", "false");
-  }
-
-  lightboxEl.onclick = () => {
-    lightboxEl.classList.remove("show");
-    lightboxEl.setAttribute("aria-hidden", "true");
-    lightboxImgEl.src = "";
-  };
-
-  /* ===============================
-     메시지 렌더
+     메시지 렌더링
   ============================== */
   function renderMessage(msg) {
-    if (!msg || renderedIds.has(msg.id)) return;
-    renderedIds.add(msg.id);
-
     const isMine =
-  msg.sender_id !== undefined &&
-  String(msg.sender_id) === String(ctx.myId);
-
+      msg.sender_id === ctx.myId ||
+      msg.senderId === ctx.myId;
 
     const wrap = document.createElement("div");
     wrap.className = "msg" + (isMine ? " me" : "");
-    wrap.dataset.id = msg.id;
 
     const bubble = document.createElement("div");
     bubble.className = "bubble";
 
-    // 삭제된 메시지
-    if (msg.deleted) {
-      bubble.innerHTML = `<em>삭제된 메시지입니다.</em>`;
-
-    // 파일 메시지
-    } else if (msg.type === "file") {
-      const isImage =
-        msg.file_url &&
-        /\.(png|jpe?g|gif|webp)$/i.test(msg.file_url);
-
-      if (isImage) {
-        const img = document.createElement("img");
-        img.src = msg.file_url;
-        img.className = "chat-image";
-        img.onclick = () => openLightbox(msg.file_url);
-
-        const time = document.createElement("div");
-        time.className = "time";
-        time.textContent = msg.created_at ? formatTime(msg.created_at) : "";
-
-
-        bubble.appendChild(img);
-        bubble.appendChild(time);
-      } else {
-        bubble.innerHTML = `
-          <a href="${msg.file_url}" target="_blank">
-            📄 ${escapeHTML(msg.file_name || "파일")}
-          </a>
-          <div class="time">${formatTime(msg.created_at)}</div>
-        `;
-      }
-
-    // 텍스트 메시지
-    } else {
-      bubble.innerHTML = `
-        <div>${escapeHTML(msg.message)}</div>
-        <div class="time">
-          ${formatTime(msg.created_at)}
-          ${isMine && msg.is_read ? " ✔✔" : ""}
-        </div>
-      `;
-    }
-
-    // 삭제 버튼 (내 메시지)
-    if (isMine && !msg.deleted) {
-      const delBtn = document.createElement("button");
-      delBtn.className = "msg-delete-btn";
-      delBtn.innerText = "삭제";
-      delBtn.onclick = async () => {
-        await deleteMessage(msg.id);
-        showToast("메시지가 삭제되었습니다");
-      };
-      bubble.appendChild(delBtn);
-    }
+    bubble.innerHTML = `
+      <div>${escapeHTML(msg.message)}</div>
+      <div class="time">
+        ${new Date(msg.created_at).toLocaleString()}
+      </div>
+    `;
 
     wrap.appendChild(bubble);
     chatBox.appendChild(wrap);
@@ -176,7 +90,7 @@
   }
 
   /* ===============================
-     컨텍스트
+     1️⃣ 컨텍스트 로드 (🔥 핵심)
   ============================== */
   async function loadContext() {
     const data = await fetchJSON(
@@ -185,171 +99,83 @@
 
     ctx = data.context;
 
-    serviceTitleEl.innerText = ctx.serviceTitle || "서비스";
+    // 🔥 상단 정보 세팅
+    serviceTitleEl.innerText =
+      ctx.serviceTitle || "서비스";
+
     buyerNameEl.innerText =
-      ctx.buyer?.nickname || "의뢰인";
+      ctx.buyer?.nickname ||
+      ctx.buyer_nickname ||
+      "의뢰인";
   }
 
   /* ===============================
-     메시지 로드
+     2️⃣ 기존 메시지 로드
   ============================== */
-  async function loadMessages() {
+async function loadMessages() {
+  try {
     const data = await fetchJSON(
       `${API}/api/task-chat/messages?roomId=${ctx.roomId}`
     );
 
     chatBox.innerHTML = "";
-    renderedIds.clear();
-
     data.messages.forEach(renderMessage);
-    await markAsRead();
+  } catch (err) {
+    console.warn("메시지 로드 실패 (권한 문제 가능)", err);
+    chatBox.innerHTML = "";
   }
+}
 
-  async function markAsRead() {
-    await fetchJSON(`${API}/api/task-chat/read`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ roomId: ctx.roomId }),
-    });
-  }
-
-  async function deleteMessage(messageId) {
-    await fetchJSON(`${API}/api/task-chat/delete`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ messageId }),
-    });
-  }
 
   /* ===============================
-     Socket.io (🔥 기본 namespace ONLY)
+     3️⃣ Socket 연결 (작업 전용)
   ============================== */
- function connectSocket() {
-  socket = io(API, {
-  transports: ["polling", "websocket"], // 🔥 핵심
+  function connectSocket() {
+   socket = io(API, {
   withCredentials: true,
-  path: "/socket.io",
+  transports: ["websocket"]
 });
 
 
-  socket.on("connect", () => {
-    socket.emit("task:join", { roomId: ctx.roomId });
-  });
+    socket.on("connect", () => {
+      socket.emit("task:join", { roomId: ctx.roomId });
 
-  socket.on("task:new", (msg) => {
-    if (String(msg.room_id || msg.roomId) !== String(ctx.roomId)) return;
-    renderMessage(msg);
-    markAsRead();
-  });
-
-  socket.on("task:read", () => {
-    document.querySelectorAll(".msg.me .time").forEach((t) => {
-      if (!t.innerText.includes("✔✔")) t.innerText += " ✔✔";
-    });
-  });
-
-  socket.on("connect_error", (err) => {
-    console.error("❌ socket error:", err);
-  });
-}
-
-
-  /* ===============================
-     전송
-  ============================== */
-/* ===============================
-   텍스트 메시지 전송
-=============================== */
-function sendMessage() {
-  const text = msgInput.value.trim();
-  if (!text || !socket || !ctx) return;
-
-  // 🔥 1️⃣ 즉시 임시 메시지 렌더링 (카톡 방식)
-  const tempMsg = {
-    id: "temp-" + Date.now(),
-    room_id: ctx.roomId,
-    sender_id: ctx.myId,
-    message: text,
-    type: "text",
-    created_at: new Date().toISOString(),
-  };
-
-  renderMessage(tempMsg);
-
-  // 입력창 비우기
-  msgInput.value = "";
-
-  // 🔥 2️⃣ 서버로 전송
-  socket.emit("task:send", {
-    roomId: ctx.roomId,
-    message: text,
-  });
-}
-
-/* ===============================
-   파일 메시지 전송
-=============================== */
-async function sendFile(file) {
-  if (!file || !ctx || !socket) return;
-
-  try {
-    const fd = new FormData();
-    fd.append("file", file);
-    fd.append("taskKey", taskKey); // 🔥 필수
-
-    // 🔹 업로드 (HTTP)
-    const data = await fetchJSON(`${API}/api/task-chat/upload`, {
-      method: "POST",
-      body: fd,
     });
 
-    // 🔥 1️⃣ 임시 파일 메시지 렌더링
-    const tempFileMsg = {
-      id: "temp-file-" + Date.now(),
-      room_id: ctx.roomId,
-      sender_id: ctx.myId,
-      type: "file",
-      file_url: data.file.file_url,
-      file_name: data.file.file_name,
-      created_at: new Date().toISOString(),
-    };
-
-    renderMessage(tempFileMsg);
-
-    // 🔥 2️⃣ 소켓으로 서버 전송
-    socket.emit("task:file", {
-      roomId: ctx.roomId,
-      file_url: data.file.file_url,
-      file_name: data.file.file_name,
+    socket.on("task:new", (msg) => {
+      if (String(msg.roomId) !== String(ctx.roomId)) return;
+      renderMessage(msg);
     });
 
-  } catch (err) {
-    console.error("❌ sendFile error:", err);
-    showToast("파일 전송에 실패했습니다");
+    socket.on("connect_error", (err) => {
+      console.error("socket error:", err);
+    });
   }
-}
-
 
   /* ===============================
-     이벤트
+     4️⃣ 메시지 전송
   ============================== */
-  sendBtn.onclick = sendMessage;
+  function sendMessage() {
+    const text = msgInput.value.trim();
+    if (!text) return;
 
-  msgInput.onkeydown = (e) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      sendMessage();
-    }
-  };
+    msgInput.value = "";
+    msgInput.focus();
 
-  attachBtn.onclick = () => fileInput.click();
-  fileInput.onchange = () => {
-    if (fileInput.files[0]) sendFile(fileInput.files[0]);
-    fileInput.value = "";
-  };
+    socket.emit("task:send", {
+      taskKey,
+      roomId: ctx.roomId,
+      message: text
+    });
+  }
+
+  sendBtn.addEventListener("click", sendMessage);
+  msgInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") sendMessage();
+  });
 
   /* ===============================
-     시작
+     초기 실행
   ============================== */
   (async () => {
     try {
@@ -357,12 +183,18 @@ async function sendFile(file) {
       await loadMessages();
       connectSocket();
 
+      // 입력 활성화
       msgInput.disabled = false;
       sendBtn.disabled = false;
       msgInput.focus();
+
     } catch (err) {
       console.error(err);
       alert(err.message || "채팅을 불러올 수 없습니다.");
+
+      if (err.message?.includes("로그인")) {
+        location.href = "/login.html";
+      }
     }
   })();
 })();
