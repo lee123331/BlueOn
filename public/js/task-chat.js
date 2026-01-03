@@ -155,79 +155,111 @@
   /* ===============================
      Socket.io (🔥 핵심 수정)
   ============================== */
-  function connectSocket() {
-    // ✅ 반드시 /task 네임스페이스
-    socket = io(`${API}/task`, { withCredentials: true });
-
-    socket.on("connect", () => {
-      socket.emit("task:join", { roomId: ctx.roomId });
-    });
-
-    socket.on("task:new", (msg) => {
-      if (String(msg.roomId) !== String(ctx.roomId)) return;
-      renderMessage(msg);
-      markAsRead();
-    });
-
-    socket.on("task:read", () => {
-      document.querySelectorAll(".msg.me .time").forEach((t) => {
-        if (!t.innerText.includes("✔✔")) {
-          t.innerText += " ✔✔";
-        }
-      });
-    });
-
-    socket.on("connect_error", (err) => {
-      console.error("❌ socket error:", err);
-    });
-  }
-
-  /* ===============================
-     전송
-  ============================== */
-  function sendMessage() {
-    const text = msgInput.value.trim();
-    if (!text) return;
-
-    msgInput.value = "";
-    socket.emit("task:send", {
-      taskKey,
-      roomId: ctx.roomId,
-      message: text,
-    });
-  }
-
-  async function sendFile(file) {
-    const fd = new FormData();
-    fd.append("file", file);
-    fd.append("taskKey", taskKey);
-
-    const data = await fetchJSON(`${API}/api/task-chat/upload`, {
-      method: "POST",
-      body: fd,
-    });
-
-    socket.emit("task:file", {
-      roomId: ctx.roomId,
-      ...data.file,
-    });
-  }
-
-  sendBtn.addEventListener("click", sendMessage);
-
-  // ✅ 엔터 전송 안정화
-  msgInput.addEventListener("keydown", (e) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      sendMessage();
-    }
+  function connectSocket(){
+  socket = io(`${API}/task`, {
+    withCredentials: true,
+    transports: ["websocket"] // 🔥 polling 완전 차단
   });
 
-  attachBtn.onclick = () => fileInput.click();
-  fileInput.onchange = () => {
-    if (fileInput.files[0]) sendFile(fileInput.files[0]);
-    fileInput.value = "";
+  socket.on("connect", () => {
+    socket.emit("task:join", { roomId: ctx.roomId });
+  });
+
+  socket.on("task:new", msg => {
+    if (String(msg.roomId) !== String(ctx.roomId)) return;
+    renderMessage(msg);
+    markRead();
+  });
+
+  socket.on("task:read", () => {
+    document.querySelectorAll(".msg.me .time").forEach(t => {
+      if (!t.innerText.includes("✔✔")) t.innerText += " ✔✔";
+    });
+  });
+
+  socket.on("connect_error", err => {
+    console.error("❌ socket error:", err);
+  });
+}
+
+
+  /* ===============================
+   전송 (수정 완료)
+============================== */
+function sendMessage() {
+  const text = msgInput.value.trim();
+  if (!text || !socket || !ctx) return;
+
+  // 🔥 1. 즉시 화면에 표시 (임시 메시지)
+  const tempMsg = {
+    id: "temp-" + Date.now(),
+    sender_id: ctx.myId,
+    message: text,
+    created_at: new Date().toISOString(),
+    is_read: false
   };
+  renderMessage(tempMsg);
+
+  msgInput.value = "";
+
+  // 🔥 2. 서버 전송
+  socket.emit("task:send", {
+    taskKey,
+    roomId: ctx.roomId,
+    message: text
+  });
+}
+
+/* ===============================
+   파일 전송
+============================== */
+async function sendFile(file) {
+  if (!file || !ctx) return;
+
+  const fd = new FormData();
+  fd.append("file", file);
+  fd.append("taskKey", taskKey);
+
+  const data = await fetchJSON(`${API}/api/task-chat/upload`, {
+    method: "POST",
+    body: fd
+  });
+
+  // 🔥 즉시 렌더
+  renderMessage({
+    id: "temp-file-" + Date.now(),
+    sender_id: ctx.myId,
+    type: "file",
+    file_url: data.file.file_url,
+    file_name: data.file.file_name,
+    created_at: new Date().toISOString()
+  });
+
+  socket.emit("task:file", {
+    roomId: ctx.roomId,
+    ...data.file
+  });
+}
+
+/* ===============================
+   이벤트 바인딩
+============================== */
+sendBtn.addEventListener("click", sendMessage);
+
+// ✅ 엔터 전송 (Shift+Enter 줄바꿈)
+msgInput.addEventListener("keydown", (e) => {
+  if (e.key === "Enter" && !e.shiftKey) {
+    e.preventDefault();
+    sendMessage();
+  }
+});
+
+attachBtn.onclick = () => fileInput.click();
+fileInput.onchange = () => {
+  if (fileInput.files[0]) sendFile(fileInput.files[0]);
+  fileInput.value = "";
+};
+
 
   /* ===============================
      시작
