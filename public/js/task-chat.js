@@ -1,5 +1,5 @@
 /* ======================================================
-   BlueOn 작업 전용 채팅 (최종 안정 버전)
+   BlueOn 작업 전용 채팅 (최종 완성본)
    - DB 저장: REST API
    - 실시간 전파: Socket.io
 ====================================================== */
@@ -62,11 +62,15 @@
   }
 
   /* ===============================
-     🔥 한국 시간 포맷 (초 제거)
+     🔥 KST 시간 포맷 (초 제거)
+     - Date 재파싱 ❌
+     - 문자열 기준
   ============================== */
   function formatKST(dateStr) {
-    return new Date(dateStr).toLocaleString("ko-KR", {
-      timeZone: "Asia/Seoul",
+    if (!dateStr) return "";
+    // "2026-01-03 10:12:00" → "2026.01.03 오전 10:12"
+    const d = dateStr.replace(" ", "T");
+    return new Date(d + "+09:00").toLocaleString("ko-KR", {
       year: "numeric",
       month: "2-digit",
       day: "2-digit",
@@ -79,30 +83,21 @@
   /* ===============================
      메시지 렌더링
   ============================== */
-  function renderMessage(msg) {
+  function renderMessage(msg, fromSocket = false) {
+    // 🔥 socket으로 들어온 내 메시지는 무시 (중복 방지)
+    if (fromSocket && msg.sender_id === ctx.myId) return;
+
     const isMine = msg.sender_id === ctx.myId;
 
     const wrap = document.createElement("div");
-    wrap.style.display = "flex";
-    wrap.style.justifyContent = isMine ? "flex-end" : "flex-start";
-    wrap.style.marginBottom = "10px";
-    wrap.style.position = "relative";
+    wrap.className = "msg" + (isMine ? " me" : "");
 
     const bubble = document.createElement("div");
-    bubble.style.maxWidth = "70%";
-    bubble.style.padding = "10px 14px";
-    bubble.style.borderRadius = "14px";
-    bubble.style.fontSize = "14px";
-    bubble.style.background = isMine ? "#0056ff" : "#ffffff";
-    bubble.style.color = isMine ? "#fff" : "#111827";
-    bubble.style.border = isMine ? "none" : "1px solid #e5e7eb";
-    bubble.style.position = "relative";
+    bubble.className = "bubble";
 
     bubble.innerHTML = `
-      <div>${escapeHTML(msg.message)}</div>
-      <div style="margin-top:4px;font-size:11px;opacity:0.6;">
-        ${formatKST(msg.created_at)}
-      </div>
+      <div class="msg-text">${escapeHTML(msg.message)}</div>
+      <div class="msg-time">${formatKST(msg.created_at)}</div>
     `;
 
     /* ===============================
@@ -110,28 +105,19 @@
     ============================== */
     if (isMine && msg.id) {
       const deleteBtn = document.createElement("button");
+      deleteBtn.className = "msg-delete-btn";
       deleteBtn.textContent = "삭제";
-      deleteBtn.style.position = "absolute";
-      deleteBtn.style.top = "-26px";
-      deleteBtn.style.right = "0";
-      deleteBtn.style.fontSize = "12px";
-      deleteBtn.style.padding = "4px 8px";
-      deleteBtn.style.border = "1px solid #e5e7eb";
-      deleteBtn.style.borderRadius = "6px";
-      deleteBtn.style.background = "#fff";
-      deleteBtn.style.cursor = "pointer";
-      deleteBtn.style.display = "none";
-      deleteBtn.style.zIndex = "10";
 
       deleteBtn.onclick = async (e) => {
         e.stopPropagation();
-        if (!confirm("이 메시지를 삭제할까요?")) return;
-
-        await fetchJSON(`${API}/chat/message/${msg.id}`, {
-          method: "DELETE",
-        });
-
-        wrap.remove();
+        try {
+          await fetchJSON(`${API}/chat/message/${msg.id}`, {
+            method: "DELETE",
+          });
+          wrap.remove();
+        } catch {
+          alert("메시지 삭제 실패");
+        }
       };
 
       bubble.appendChild(deleteBtn);
@@ -160,7 +146,6 @@
     );
 
     ctx = data.context;
-
     serviceTitleEl.innerText = ctx.serviceTitle || "서비스";
     buyerNameEl.innerText = ctx.buyer?.nickname || "의뢰인";
   }
@@ -174,7 +159,7 @@
     );
 
     chatBox.innerHTML = "";
-    data.messages.forEach(renderMessage);
+    data.messages.forEach((m) => renderMessage(m));
   }
 
   /* ===============================
@@ -193,7 +178,7 @@
     socket.on("task:new", (msg) => {
       const roomId = msg.room_id || msg.roomId;
       if (String(roomId) !== String(ctx.roomId)) return;
-      renderMessage(msg);
+      renderMessage(msg, true);
     });
 
     socket.on("connect_error", (err) => {
@@ -208,11 +193,6 @@
     const text = msgInput.value.trim();
     if (!text) return;
 
-    if (!ctx || !ctx.roomId || !taskKey) {
-      alert("채팅 정보를 불러오지 못했습니다.");
-      return;
-    }
-
     msgInput.value = "";
     msgInput.focus();
 
@@ -226,10 +206,10 @@
         }),
       });
 
-      // 🔥 즉시 렌더 (내 메시지)
+      // 🔥 내 메시지는 REST 응답으로만 렌더
       renderMessage(data.message);
 
-      // 🔥 실시간 전파
+      // 🔥 상대방에게만 socket 전파
       if (socket?.connected) {
         socket.emit("task:send", {
           taskKey,
@@ -264,7 +244,7 @@
       msgInput.disabled = false;
       sendBtn.disabled = false;
       msgInput.focus();
-    } catch (err) {
+    } catch {
       alert("채팅을 불러올 수 없습니다.");
     }
   })();
