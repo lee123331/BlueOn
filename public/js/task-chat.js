@@ -62,103 +62,79 @@
   }
 
   /* ===============================
-   메시지 렌더링 (우클릭 삭제 포함)
+   메시지 렌더링 (최종 안정)
 ============================== */
 function renderMessage(msg) {
   const isMine = msg.sender_id === ctx.myId;
 
-  /* wrapper */
   const wrap = document.createElement("div");
   wrap.style.display = "flex";
   wrap.style.justifyContent = isMine ? "flex-end" : "flex-start";
   wrap.style.marginBottom = "10px";
+  wrap.style.position = "relative";
 
-  /* bubble */
   const bubble = document.createElement("div");
-  bubble.style.position = "relative"; // 🔥 삭제 버튼 기준점
   bubble.style.maxWidth = "70%";
-  bubble.style.padding = "10px 14px 22px 14px"; // 🔥 아래 여백 확보
+  bubble.style.padding = "10px 14px";
   bubble.style.borderRadius = "14px";
   bubble.style.fontSize = "14px";
-  bubble.style.lineHeight = "1.4";
   bubble.style.background = isMine ? "#0056ff" : "#ffffff";
-  bubble.style.color = isMine ? "#ffffff" : "#111827";
+  bubble.style.color = isMine ? "#fff" : "#111827";
   bubble.style.border = isMine ? "none" : "1px solid #e5e7eb";
+  bubble.style.position = "relative";
 
-  /* 메시지 내용 */
-  const textEl = document.createElement("div");
-  textEl.innerHTML = escapeHTML(msg.message);
-
-  /* 시간 */
-  const timeEl = document.createElement("div");
-  timeEl.style.marginTop = "6px";
-  timeEl.style.fontSize = "11px";
-  timeEl.style.opacity = "0.6";
-  timeEl.style.textAlign = "right";
-  timeEl.style.color = isMine ? "rgba(255,255,255,0.7)" : "#6b7280";
-  timeEl.innerText = new Date(msg.created_at).toLocaleString("ko-KR", {
-    timeZone: "Asia/Seoul",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: true,
-  });
-
-  bubble.appendChild(textEl);
-  bubble.appendChild(timeEl);
+  bubble.innerHTML = `
+    <div>${escapeHTML(msg.message)}</div>
+    <div style="margin-top:4px;font-size:11px;opacity:0.6;">
+      ${formatKST(msg.created_at)}
+    </div>
+  `;
 
   /* ===============================
-     🔥 삭제 버튼 (내 메시지 전용)
+     🔥 내 메시지 삭제 (우클릭)
   ============================== */
   if (isMine) {
     const deleteBtn = document.createElement("button");
-    deleteBtn.innerText = "삭제";
+    deleteBtn.textContent = "삭제";
     deleteBtn.style.position = "absolute";
-    deleteBtn.style.top = "-8px";
-    deleteBtn.style.right = "-8px";
-    deleteBtn.style.fontSize = "11px";
-    deleteBtn.style.padding = "4px 6px";
+    deleteBtn.style.top = "-26px";
+    deleteBtn.style.right = "0";
+    deleteBtn.style.fontSize = "12px";
+    deleteBtn.style.padding = "4px 8px";
+    deleteBtn.style.border = "1px solid #e5e7eb";
     deleteBtn.style.borderRadius = "6px";
-    deleteBtn.style.border = "none";
-    deleteBtn.style.background = "#ff4d4f";
-    deleteBtn.style.color = "#fff";
+    deleteBtn.style.background = "#fff";
     deleteBtn.style.cursor = "pointer";
     deleteBtn.style.display = "none";
     deleteBtn.style.zIndex = "10";
 
     deleteBtn.onclick = async (e) => {
       e.stopPropagation();
-      if (!confirm("이 메시지를 삭제할까요?")) return;
 
-      await fetchJSON(`${API}/api/task-chat/delete`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messageId: msg.id }),
+      await fetchJSON(`${API}/chat/message/${msg.id}`, {
+        method: "DELETE",
       });
 
       wrap.remove();
     };
 
-    // 🔥 우클릭 시 삭제 버튼 표시
+    bubble.appendChild(deleteBtn);
+
     bubble.addEventListener("contextmenu", (e) => {
       e.preventDefault();
       deleteBtn.style.display = "block";
     });
 
-    // 다른 곳 클릭 시 숨김
     document.addEventListener("click", () => {
       deleteBtn.style.display = "none";
     });
-
-    bubble.appendChild(deleteBtn);
   }
 
   wrap.appendChild(bubble);
   chatBox.appendChild(wrap);
   scrollBottom();
 }
+
 
 
   /* ===============================
