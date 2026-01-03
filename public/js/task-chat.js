@@ -1,5 +1,5 @@
 /* ======================================================
-   BlueOn 작업 전용 채팅 (최종 안정화 버전)
+   BlueOn 작업 전용 채팅 (HTML 완전 호환 최종본)
 ====================================================== */
 (() => {
   const API = "https://blueon.up.railway.app";
@@ -15,6 +15,10 @@
 
   const serviceTitleEl = document.getElementById("serviceTitle");
   const buyerNameEl    = document.getElementById("buyerName");
+
+  const toastEl        = document.getElementById("toast");
+  const lightboxEl     = document.getElementById("lightbox");
+  const lightboxImgEl  = document.getElementById("lightboxImg");
 
   /* ===============================
      URL
@@ -44,9 +48,19 @@
       "'": "&#039;",
     }[m]));
 
-  const scrollBottom = () => {
+  // 🔥 HH:MM 형식만
+  function formatTime(ts) {
+    const d = new Date(ts);
+    return d.toLocaleTimeString("ko-KR", {
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    });
+  }
+
+  function scrollBottom() {
     chatBox.scrollTop = chatBox.scrollHeight;
-  };
+  }
 
   async function fetchJSON(url, options = {}) {
     const res = await fetch(url, { credentials: "include", ...options });
@@ -56,6 +70,31 @@
     }
     return data;
   }
+
+  /* ===============================
+     Toast
+  ============================== */
+  function showToast(msg) {
+    if (!toastEl) return;
+    toastEl.innerText = msg;
+    toastEl.classList.add("show");
+    setTimeout(() => toastEl.classList.remove("show"), 2000);
+  }
+
+  /* ===============================
+     Lightbox
+  ============================== */
+  function openLightbox(src) {
+    lightboxImgEl.src = src;
+    lightboxEl.classList.add("show");
+    lightboxEl.setAttribute("aria-hidden", "false");
+  }
+
+  lightboxEl.onclick = () => {
+    lightboxEl.classList.remove("show");
+    lightboxEl.setAttribute("aria-hidden", "true");
+    lightboxImgEl.src = "";
+  };
 
   /* ===============================
      메시지 렌더
@@ -73,30 +112,57 @@
     const bubble = document.createElement("div");
     bubble.className = "bubble";
 
+    // 삭제된 메시지
     if (msg.deleted) {
       bubble.innerHTML = `<em>삭제된 메시지입니다.</em>`;
+
+    // 파일 메시지
     } else if (msg.type === "file") {
-      bubble.innerHTML = `
-        <a href="${msg.file_url}" target="_blank">
-          📁 ${escapeHTML(msg.file_name)}
-        </a>
-        <div class="time">${new Date(msg.created_at).toLocaleString()}</div>
-      `;
+      const isImage =
+        msg.file_url &&
+        /\.(png|jpe?g|gif|webp)$/i.test(msg.file_url);
+
+      if (isImage) {
+        const img = document.createElement("img");
+        img.src = msg.file_url;
+        img.className = "chat-image";
+        img.onclick = () => openLightbox(msg.file_url);
+
+        const time = document.createElement("div");
+        time.className = "time";
+        time.textContent = formatTime(msg.created_at);
+
+        bubble.appendChild(img);
+        bubble.appendChild(time);
+      } else {
+        bubble.innerHTML = `
+          <a href="${msg.file_url}" target="_blank">
+            📄 ${escapeHTML(msg.file_name || "파일")}
+          </a>
+          <div class="time">${formatTime(msg.created_at)}</div>
+        `;
+      }
+
+    // 텍스트 메시지
     } else {
       bubble.innerHTML = `
         <div>${escapeHTML(msg.message)}</div>
         <div class="time">
-          ${new Date(msg.created_at).toLocaleString()}
+          ${formatTime(msg.created_at)}
           ${isMine && msg.is_read ? " ✔✔" : ""}
         </div>
       `;
     }
 
+    // 삭제 버튼 (내 메시지)
     if (isMine && !msg.deleted) {
       const delBtn = document.createElement("button");
       delBtn.className = "msg-delete-btn";
       delBtn.innerText = "삭제";
-      delBtn.onclick = () => deleteMessage(msg.id);
+      delBtn.onclick = async () => {
+        await deleteMessage(msg.id);
+        showToast("메시지가 삭제되었습니다");
+      };
       bubble.appendChild(delBtn);
     }
 
@@ -112,11 +178,12 @@
     const data = await fetchJSON(
       `${API}/api/task-chat/context?taskKey=${encodeURIComponent(taskKey)}`
     );
+
     ctx = data.context;
 
     serviceTitleEl.innerText = ctx.serviceTitle || "서비스";
     buyerNameEl.innerText =
-      ctx.buyer?.nickname || ctx.buyer_nickname || "의뢰인";
+      ctx.buyer?.nickname || "의뢰인";
   }
 
   /* ===============================
@@ -143,8 +210,6 @@
   }
 
   async function deleteMessage(messageId) {
-    if (!confirm("메시지를 삭제할까요?")) return;
-
     await fetchJSON(`${API}/api/task-chat/delete`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -153,113 +218,86 @@
   }
 
   /* ===============================
-     Socket.io (🔥 핵심 수정)
+     Socket.io (🔥 기본 namespace ONLY)
   ============================== */
-  function connectSocket(){
-  socket = io(`${API}/task`, {
-    withCredentials: true,
-    transports: ["websocket"] // 🔥 polling 완전 차단
-  });
-
-  socket.on("connect", () => {
-    socket.emit("task:join", { roomId: ctx.roomId });
-  });
-
-  socket.on("task:new", msg => {
-    if (String(msg.roomId) !== String(ctx.roomId)) return;
-    renderMessage(msg);
-    markRead();
-  });
-
-  socket.on("task:read", () => {
-    document.querySelectorAll(".msg.me .time").forEach(t => {
-      if (!t.innerText.includes("✔✔")) t.innerText += " ✔✔";
+  function connectSocket() {
+    socket = io(API, {
+      withCredentials: true,
+      transports: ["websocket"],
     });
-  });
 
-  socket.on("connect_error", err => {
-    console.error("❌ socket error:", err);
-  });
-}
+    socket.on("connect", () => {
+      socket.emit("task:join", { roomId: ctx.roomId });
+    });
 
+    socket.on("task:new", (msg) => {
+      if (String(msg.room_id || msg.roomId) !== String(ctx.roomId)) return;
+      renderMessage(msg);
+      markAsRead();
+    });
+
+    socket.on("task:read", () => {
+      document.querySelectorAll(".msg.me .time").forEach((t) => {
+        if (!t.innerText.includes("✔✔")) t.innerText += " ✔✔";
+      });
+    });
+
+    socket.on("connect_error", (err) => {
+      console.error("❌ socket error:", err);
+    });
+  }
 
   /* ===============================
-   전송 (수정 완료)
-============================== */
-function sendMessage() {
-  const text = msgInput.value.trim();
-  if (!text || !socket || !ctx) return;
+     전송
+  ============================== */
+  function sendMessage() {
+    const text = msgInput.value.trim();
+    if (!text || !socket || !ctx) return;
 
-  // 🔥 1. 즉시 화면에 표시 (임시 메시지)
-  const tempMsg = {
-    id: "temp-" + Date.now(),
-    sender_id: ctx.myId,
-    message: text,
-    created_at: new Date().toISOString(),
-    is_read: false
-  };
-  renderMessage(tempMsg);
+    msgInput.value = "";
 
-  msgInput.value = "";
-
-  // 🔥 2. 서버 전송
-  socket.emit("task:send", {
-    taskKey,
-    roomId: ctx.roomId,
-    message: text
-  });
-}
-
-/* ===============================
-   파일 전송
-============================== */
-async function sendFile(file) {
-  if (!file || !ctx) return;
-
-  const fd = new FormData();
-  fd.append("file", file);
-  fd.append("taskKey", taskKey);
-
-  const data = await fetchJSON(`${API}/api/task-chat/upload`, {
-    method: "POST",
-    body: fd
-  });
-
-  // 🔥 즉시 렌더
-  renderMessage({
-    id: "temp-file-" + Date.now(),
-    sender_id: ctx.myId,
-    type: "file",
-    file_url: data.file.file_url,
-    file_name: data.file.file_name,
-    created_at: new Date().toISOString()
-  });
-
-  socket.emit("task:file", {
-    roomId: ctx.roomId,
-    ...data.file
-  });
-}
-
-/* ===============================
-   이벤트 바인딩
-============================== */
-sendBtn.addEventListener("click", sendMessage);
-
-// ✅ 엔터 전송 (Shift+Enter 줄바꿈)
-msgInput.addEventListener("keydown", (e) => {
-  if (e.key === "Enter" && !e.shiftKey) {
-    e.preventDefault();
-    sendMessage();
+    socket.emit("task:send", {
+      roomId: ctx.roomId,
+      message: text,
+    });
   }
-});
 
-attachBtn.onclick = () => fileInput.click();
-fileInput.onchange = () => {
-  if (fileInput.files[0]) sendFile(fileInput.files[0]);
-  fileInput.value = "";
-};
+  async function sendFile(file) {
+    if (!file || !ctx) return;
 
+    const fd = new FormData();
+    fd.append("file", file);
+
+    const data = await fetchJSON(`${API}/api/task-chat/upload`, {
+      method: "POST",
+      body: fd,
+    });
+
+    socket.emit("task:file", {
+      roomId: ctx.roomId,
+      type: "file",
+      file_url: data.file.file_url,
+      file_name: data.file.file_name,
+    });
+  }
+
+  /* ===============================
+     이벤트
+  ============================== */
+  sendBtn.onclick = sendMessage;
+
+  msgInput.onkeydown = (e) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage();
+    }
+  };
+
+  attachBtn.onclick = () => fileInput.click();
+  fileInput.onchange = () => {
+    if (fileInput.files[0]) sendFile(fileInput.files[0]);
+    fileInput.value = "";
+  };
 
   /* ===============================
      시작
