@@ -3421,6 +3421,7 @@ app.get("/expert/tasks/detail", async (req, res) => {
     const [[row]] = await db.query(
       `
 SELECT
+o.id AS order_id,
   o.task_key,
   o.created_at,
 
@@ -3461,6 +3462,7 @@ LIMIT 1
     return res.json({
       success: true,
       task: {
+        order_id: row.order_id,
         task_key: row.task_key,
         status: row.status,
         phase: row.phase,
@@ -3874,33 +3876,43 @@ await db.query(
 ====================================================== */
 app.get("/my/tasks/detail", async (req, res) => {
   try {
-    // 1️⃣ 로그인 체크
+    /* ============================
+       1️⃣ 로그인 체크
+    ============================ */
     if (!req.session.user) {
-      return res.status(401).json({ success: false });
+      return res.status(401).json({
+        success: false,
+        message: "로그인 필요"
+      });
     }
 
     const userId = req.session.user.id;
     const { taskKey } = req.query;
 
     if (!taskKey) {
-      return res.json({
+      return res.status(400).json({
         success: false,
         message: "taskKey 누락"
       });
     }
 
-    /* ======================================================
+    /* ============================
        2️⃣ 주문 기준 단일 진실 조회
-       - orders + services + expert + service_tasks
-    ====================================================== */
+       - orders (주문)
+       - services (서비스)
+       - expert_profiles (전문가)
+       - service_tasks (작업 상태)
+    ============================ */
     const [[row]] = await db.query(
       `
       SELECT
+        o.id         AS order_id,        -- 🔥 주문번호
         o.task_key,
         o.created_at,
+        o.room_id,
 
         COALESCE(t.status, 'pending') AS status,
-        COALESCE(t.phase, 'ready')    AS phase,
+        COALESCE(t.phase,  'ready')   AS phase,
 
         s.title AS service_title,
 
@@ -3910,10 +3922,9 @@ app.get("/my/tasks/detail", async (req, res) => {
           '/assets/default_service.png'
         ) AS thumbnail,
 
-        ep.user_id   AS expert_id,
-        ep.nickname  AS expert_nickname,
+        ep.user_id  AS expert_id,
+        ep.nickname AS expert_nickname
 
-        o.room_id
       FROM orders o
       JOIN services s
         ON s.id = o.service_id
@@ -3921,43 +3932,50 @@ app.get("/my/tasks/detail", async (req, res) => {
         ON ep.user_id = o.expert_id
       LEFT JOIN service_tasks t
         ON t.task_key = o.task_key
+
       WHERE o.task_key = ?
-        AND o.user_id = ?
+        AND o.user_id  = ?      -- 🔥 유저 소유 작업만 허용
       LIMIT 1
       `,
       [taskKey, userId]
     );
 
     if (!row) {
-      return res.json({
+      return res.status(404).json({
         success: false,
         message: "작업 없음"
       });
     }
 
-    /* ======================================================
-       3️⃣ 응답
-    ====================================================== */
+    /* ============================
+       3️⃣ 응답 (유저 상세 페이지 기준)
+    ============================ */
     return res.json({
       success: true,
       task: {
-        task_key: row.task_key,
+        order_id: row.order_id,          // ✅ 주문번호
+        task_key: row.task_key,          // (프론트에서 숨김)
         status: row.status,
         phase: row.phase,
         created_at: row.created_at,
         service_title: row.service_title,
         thumbnail: row.thumbnail,
+
         expert: {
           id: row.expert_id,
           nickname: row.expert_nickname || "전문가"
         },
+
         room_id: row.room_id
       }
     });
 
   } catch (err) {
     console.error("❌ /my/tasks/detail error:", err);
-    return res.status(500).json({ success: false });
+    return res.status(500).json({
+      success: false,
+      message: "서버 오류"
+    });
   }
 });
 
