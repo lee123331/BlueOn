@@ -149,33 +149,68 @@
      - socket → 전파
   ============================== */
   async function sendMessage() {
-    const text = msgInput.value.trim();
-    if (!text) return;
+  const text = msgInput.value.trim();
+  if (!text) return;
 
-    msgInput.value = "";
-    msgInput.focus();
+  // 🔒 필수 컨텍스트 방어
+  if (!ctx || !ctx.roomId || !taskKey) {
+    console.error("❌ 필수 값 누락", { ctx, taskKey });
+    alert("채팅 정보를 불러오지 못했습니다. 새로고침 해주세요.");
+    return;
+  }
 
-    // 1️⃣ DB 저장
+  // 입력창 즉시 비우기
+  msgInput.value = "";
+  msgInput.focus();
+
+  try {
+    /* ===============================
+       1️⃣ DB 저장 (HTTP API)
+       서버는 taskKey + message만 받음
+    ============================== */
     const data = await fetchJSON(`${API}/api/task-chat/send`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+      },
       body: JSON.stringify({
-        roomId: ctx.roomId,
+        taskKey: taskKey,   // 🔥 핵심
         message: text,
       }),
     });
 
-    // 2️⃣ 실시간 전파 (DB 저장된 데이터 그대로)
-    socket.emit("task:send", {
-      taskKey,
-      messageData: data.message,
-    });
-  }
+    /* ===============================
+       2️⃣ 실시간 전파 (Socket)
+       - 서버에서 저장된 message 그대로 전달
+    ============================== */
+    if (socket && socket.connected) {
+      socket.emit("task:send", {
+        taskKey: taskKey,
+        messageData: data.message,
+      });
+    }
 
-  sendBtn.addEventListener("click", sendMessage);
-  msgInput.addEventListener("keydown", (e) => {
-    if (e.key === "Enter") sendMessage();
-  });
+    // 🔥 내가 보낸 메시지는 즉시 화면에 렌더
+    renderMessage(data.message);
+
+  } catch (err) {
+    console.error("❌ 메시지 전송 실패:", err);
+    alert(err.message || "메시지 전송에 실패했습니다.");
+  }
+}
+
+/* ===============================
+   이벤트 바인딩
+============================== */
+sendBtn.addEventListener("click", sendMessage);
+
+msgInput.addEventListener("keydown", (e) => {
+  if (e.key === "Enter") {
+    e.preventDefault();
+    sendMessage();
+  }
+});
+
 
   /* ===============================
      초기 실행
