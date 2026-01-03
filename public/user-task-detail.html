@@ -211,52 +211,101 @@ const API = "https://blueon.up.railway.app";
 const taskKey = new URLSearchParams(location.search).get("task");
 
 function mapStatus(status){
-  if(status==="progress") return {label:"진행중", cls:"pill primary"};
-  if(status==="done") return {label:"작업 완료", cls:"pill good"};
-  return {label:"작업 준비중", cls:"pill warn"};
+  if(status === "progress") return { label:"진행중", cls:"pill primary" };
+  if(status === "done") return { label:"작업 완료", cls:"pill good" };
+  return { label:"작업 준비중", cls:"pill warn" };
 }
 
 async function init(){
-  const res = await fetch(`${API}/my/tasks/detail?taskKey=${encodeURIComponent(taskKey)}`, {
-    credentials:"include"
-  });
-  const data = await res.json();
-  if(!data.success){
-    alert("작업 정보를 불러올 수 없습니다.");
-    location.href="my-orders.html";
-    return;
-  }
+  try {
+    const res = await fetch(
+      `${API}/my/tasks/detail?taskKey=${encodeURIComponent(taskKey)}`,
+      { credentials:"include" }
+    );
+    const data = await res.json();
 
-  const t = data.task;
-  const s = mapStatus(t.status);
+    if(!data.success){
+      alert("작업 정보를 불러올 수 없습니다.");
+      location.href = "my-orders.html";
+      return;
+    }
 
-  document.getElementById("thumb").src = t.thumbnail;
-  document.getElementById("serviceTitle").innerText = t.service_title;
-  document.getElementById("expertNickname").innerText = t.expert.nickname;
-  document.getElementById("expertPill").innerText = `전문가: ${t.expert.nickname}`;
-  document.getElementById("orderPill").innerText = `주문번호: ${t.order_id}`;
-  document.getElementById("statusText").innerText = s.label;
-  document.getElementById("phaseText").innerText = t.phase;
-  document.getElementById("serviceText").innerText = t.service_title;
-  document.getElementById("createdAt").innerText =
-    new Date(t.created_at).toLocaleDateString();
+    const t = data.task;
+    const s = mapStatus(t.status);
 
-  const pill = document.getElementById("statusPill");
-  pill.className = s.cls;
-  pill.innerText = s.label;
+    /* ===============================
+       기본 정보
+    ============================== */
+    document.getElementById("thumb").src =
+      t.thumbnail || "/assets/default_service.png";
 
-  const chatBtn = document.getElementById("chatBtn");
-  if(t.status === "pending"){
-    chatBtn.disabled = true;
-    chatBtn.innerText = "⏳ 전문가 작업 시작 대기중";
-  } else {
-    chatBtn.onclick = () =>
-      location.href = `task-chat.html?taskKey=${encodeURIComponent(taskKey)}`;
+    document.getElementById("serviceTitle").innerText =
+      t.service_title || "-";
+
+    document.getElementById("expertNickname").innerText =
+      t.expert?.nickname || "전문가";
+
+    document.getElementById("expertPill").innerText =
+      `전문가: ${t.expert?.nickname || "전문가"}`;
+
+    // 🔥 주문번호 undefined 방지
+    document.getElementById("orderPill").innerText =
+      `주문번호: ${t.order_id || t.task_key || "-"}`;
+
+    document.getElementById("statusText").innerText = s.label;
+    document.getElementById("phaseText").innerText = t.phase || "-";
+    document.getElementById("serviceText").innerText = t.service_title || "-";
+
+    document.getElementById("createdAt").innerText =
+      t.created_at
+        ? new Date(t.created_at).toLocaleDateString()
+        : "-";
+
+    const pill = document.getElementById("statusPill");
+    pill.className = s.cls;
+    pill.innerText = s.label;
+
+    /* ===============================
+       요청 사항 처리 (🔥 핵심 수정)
+    ============================== */
+    const requestBox = document.getElementById("requestBox");
+
+    if (!t.request_message || t.request_message.trim() === "") {
+      requestBox.className = "empty";
+      requestBox.innerHTML = `
+        현재 추가로 전달된 요청 사항은 없어요.<br>
+        작업 관련 내용은 <b>채팅</b>을 통해 언제든지 전달할 수 있어요.
+      `;
+    } else {
+      requestBox.className = "";
+      requestBox.innerText = t.request_message;
+    }
+
+    /* ===============================
+       채팅 버튼
+    ============================== */
+    const chatBtn = document.getElementById("chatBtn");
+    if(t.status === "pending"){
+      chatBtn.disabled = true;
+      chatBtn.innerText = "⏳ 전문가 작업 시작 대기중";
+    } else {
+      chatBtn.disabled = false;
+      chatBtn.innerText = "💬 채팅으로 이동";
+      chatBtn.onclick = () => {
+        location.href = `task-chat.html?taskKey=${encodeURIComponent(taskKey)}`;
+      };
+    }
+
+  } catch (err) {
+    console.error(err);
+    alert("작업 정보를 불러오는 중 오류가 발생했습니다.");
+    location.href = "my-orders.html";
   }
 }
 
 init();
 </script>
+
 
 </body>
 </html>
