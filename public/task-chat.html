@@ -68,6 +68,53 @@ body {
   background:#f9fafb;
 }
 
+/* Message */
+.msg {
+  display:flex;
+  margin-bottom:10px;
+}
+.msg.me {
+  justify-content:flex-end;
+}
+
+.bubble {
+  position: relative;
+  padding:12px 14px 20px;
+  border-radius:14px;
+  background:#fff;
+  max-width:70%;
+  border:1px solid var(--line);
+}
+.msg.me .bubble {
+  background:#eaf1ff;
+}
+
+.msg-text {
+  font-size:14px;
+  line-height:1.4;
+}
+.msg-time {
+  margin-top:6px;
+  font-size:11px;
+  opacity:0.6;
+  text-align:right;
+}
+
+/* Delete button */
+.msg-delete-btn {
+  position:absolute;
+  top:-8px;
+  right:-8px;
+  font-size:11px;
+  padding:4px 6px;
+  border-radius:6px;
+  border:none;
+  background:#ff4d4f;
+  color:#fff;
+  cursor:pointer;
+  display:none;
+}
+
 /* Input */
 .chat-input {
   display:flex;
@@ -81,7 +128,6 @@ body {
   padding:12px 14px;
   border-radius:12px;
   border:1px solid var(--line);
-  font-size:14px;
 }
 .chat-input button {
   padding:12px 18px;
@@ -95,53 +141,7 @@ body {
 .chat-input button:disabled,
 .chat-input input:disabled {
   opacity:0.5;
-  cursor:not-allowed;
 }
-.bubble {
-  position: relative;
-  padding: 12px 14px 20px 14px; /* 아래 여백 확보 */
-  border-radius: 14px;
-  background: #fff;
-  max-width: 70%;
-}
-
-.msg.me .bubble {
-  background: #eaf1ff;
-  margin-left: auto;
-}
-
-.msg-text {
-  font-size: 14px;
-  line-height: 1.4;
-}
-
-.msg-time {
-  margin-top: 6px;
-  font-size: 11px;
-  opacity: 0.6;
-  text-align: right;
-}
-
-/* 🔥 삭제 버튼 */
-.msg-delete-btn {
-  position: absolute;
-  top: -8px;
-  right: -8px;
-  font-size: 11px;
-  padding: 4px 6px;
-  border-radius: 6px;
-  border: none;
-  background: #ff4d4f;
-  color: #fff;
-  cursor: pointer;
-  display: none;
-  z-index: 10;
-}
-
-.msg-delete-btn:hover {
-  background: #d9363e;
-}
-
 </style>
 </head>
 
@@ -150,35 +150,20 @@ body {
 <div class="header">작업 채팅</div>
 
 <div class="chat-container">
-
-  <!-- 🔥 주문 단위 정보 -->
   <div class="chat-info">
     <div id="serviceTitle" class="service-title">서비스명</div>
-    <div class="buyer">
-      의뢰인 · <strong id="buyerName">-</strong>
-    </div>
+    <div class="buyer">의뢰인 · <strong id="buyerName">-</strong></div>
   </div>
 
-  <!-- Messages -->
   <div id="chatMessages" class="chat-messages"></div>
 
-  <!-- Input -->
   <div class="chat-input">
-    <input
-      id="chatInput"
-      type="text"
-      placeholder="메시지를 입력하세요"
-      disabled
-    />
+    <input id="chatInput" type="text" placeholder="메시지를 입력하세요" disabled />
     <button id="sendBtn" disabled>전송</button>
   </div>
-
 </div>
 
-<!-- 🔥 socket.io client -->
 <script src="/socket.io/socket.io.js"></script>
-
-<!-- 🔥 작업 채팅 로직 (여기만 수정 대상) -->
 <script src="/js/task-chat.js"></script>
 
 </body>
