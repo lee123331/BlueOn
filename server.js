@@ -242,6 +242,30 @@ const servicesUpload = multer({
     fileSize: 10 * 1024 * 1024,
   },
 });
+/* ======================================================
+   🧩 작업 채팅 파일 업로드용 multer
+====================================================== */
+const chatUploadDir = path.join(process.cwd(), "public/uploads/chat");
+if (!fs.existsSync(chatUploadDir)) {
+  fs.mkdirSync(chatUploadDir, { recursive: true });
+}
+
+const upload = multer({
+  storage: multer.diskStorage({
+    destination(req, file, cb) {
+      cb(null, chatUploadDir);
+    },
+    filename(req, file, cb) {
+      const ext = path.extname(file.originalname);
+      const name =
+        Date.now() + "-" + Math.random().toString(36).slice(2) + ext;
+      cb(null, name);
+    },
+  }),
+  limits: {
+    fileSize: 20 * 1024 * 1024, // 20MB
+  },
+});
 
 /* ======================================================
    전문가 아바타 업로드 (Step1 전용)

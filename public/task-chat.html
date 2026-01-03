@@ -8,7 +8,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;600;700;800&display=swap" rel="stylesheet">
 
 <style>
-:root {
+:root{
   --primary:#0056ff;
   --bg:#f4f6fb;
   --white:#ffffff;
@@ -17,15 +17,15 @@
   --gray:#6b7280;
 }
 
-* { box-sizing:border-box; margin:0; padding:0; }
+*{box-sizing:border-box;margin:0;padding:0}
 
-body {
-  font-family:"Noto Sans KR", sans-serif;
+body{
+  font-family:"Noto Sans KR",sans-serif;
   background:var(--bg);
 }
 
 /* Header */
-.header {
+.header{
   background:#fff;
   border-bottom:1px solid var(--line);
   padding:16px 20px;
@@ -35,7 +35,7 @@ body {
 }
 
 /* Container */
-.chat-container {
+.chat-container{
   max-width:900px;
   margin:0 auto;
   height:calc(100vh - 60px);
@@ -43,54 +43,89 @@ body {
   flex-direction:column;
 }
 
-/* Top Info */
-.chat-info {
+/* Info */
+.chat-info{
   padding:14px 16px;
   background:#fff;
   border-bottom:1px solid var(--line);
 }
-.chat-info .service-title {
-  font-weight:800;
-  font-size:15px;
-  color:var(--text);
-}
-.chat-info .buyer {
-  margin-top:4px;
-  font-size:13px;
-  color:var(--gray);
-}
+.service-title{font-weight:800;font-size:15px}
+.buyer{margin-top:4px;font-size:13px;color:var(--gray)}
 
 /* Messages */
-.chat-messages {
+.chat-messages{
   flex:1;
   padding:16px;
   overflow-y:auto;
   background:#f9fafb;
 }
 
+.msg{margin-bottom:10px;display:flex}
+.msg.me{justify-content:flex-end}
+
+.bubble{
+  max-width:70%;
+  padding:12px 14px;
+  border-radius:14px;
+  background:#fff;
+  border:1px solid var(--line);
+  font-size:14px;
+  position:relative;
+}
+.msg.me .bubble{
+  background:#eef4ff;
+  border-color:#cfe0ff;
+}
+
+.time{
+  margin-top:6px;
+  font-size:11px;
+  color:#6b7280;
+  text-align:right;
+}
+
+.msg-delete-btn{
+  position:absolute;
+  top:6px;
+  right:8px;
+  border:none;
+  background:none;
+  font-size:11px;
+  color:#ef4444;
+  cursor:pointer;
+}
+
 /* Input */
-.chat-input {
+.chat-input{
   display:flex;
-  gap:10px;
+  gap:8px;
   padding:14px;
   background:#fff;
   border-top:1px solid var(--line);
 }
-.chat-input input {
+
+.chat-input input[type="text"]{
   flex:1;
   padding:12px 14px;
   border-radius:12px;
   border:1px solid var(--line);
   font-size:14px;
 }
-.chat-input button {
-  padding:12px 18px;
+
+.chat-input button{
+  padding:12px 16px;
   border-radius:12px;
   border:none;
   background:var(--primary);
   color:#fff;
   font-weight:800;
   cursor:pointer;
+}
+
+.attach-btn{
+  background:#f1f5ff;
+  border:1px solid var(--line);
+  color:#111;
 }
 </style>
 </head>
@@ -101,29 +136,23 @@ body {
 
 <div class="chat-container">
 
-  <!-- 🔥 주문 단위 정보 (서비스 + 구매자 1명) -->
   <div class="chat-info">
     <div id="serviceTitle" class="service-title">서비스명</div>
-    <div class="buyer">
-      의뢰인 · <strong id="buyerName">-</strong>
-    </div>
+    <div class="buyer">의뢰인 · <strong id="buyerName">-</strong></div>
   </div>
 
-  <!-- Messages -->
   <div id="chatMessages" class="chat-messages"></div>
 
-  <!-- Input -->
   <div class="chat-input">
+    <input id="fileInput" type="file" hidden />
+    <button id="attachBtn" class="attach-btn">📎</button>
     <input id="chatInput" type="text" placeholder="메시지를 입력하세요" disabled />
     <button id="sendBtn" disabled>전송</button>
   </div>
 
 </div>
 
-<!-- 🔥 socket.io client (필수) -->
 <script src="/socket.io/socket.io.js"></script>
-
-<!-- 🔥 작업 채팅 로직 -->
 <script src="/js/task-chat.js"></script>
 
 </body>

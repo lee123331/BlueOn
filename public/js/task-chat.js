@@ -1,198 +1,169 @@
 /* ======================================================
-   BlueOn 작업 전용 채팅
-   file: public/js/task-chat.js
-   기준: taskKey (서버가 항상 진실)
+   BlueOn 작업 전용 채팅 (완성본)
 ====================================================== */
-
 (() => {
   const API = "https://blueon.up.railway.app";
 
-  /* ===============================
-     DOM
-  ============================== */
-  const chatBox        = document.getElementById("chatMessages");
-  const msgInput       = document.getElementById("chatInput");
-  const sendBtn        = document.getElementById("sendBtn");
+  const chatBox   = document.getElementById("chatMessages");
+  const msgInput  = document.getElementById("chatInput");
+  const sendBtn   = document.getElementById("sendBtn");
+  const attachBtn = document.getElementById("attachBtn");
+  const fileInput = document.getElementById("fileInput");
+
   const serviceTitleEl = document.getElementById("serviceTitle");
   const buyerNameEl    = document.getElementById("buyerName");
 
-  /* ===============================
-     URL 파라미터
-  ============================== */
   const taskKey = new URLSearchParams(location.search).get("taskKey");
+  if (!taskKey) return alert("잘못된 접근입니다.");
 
-  if (!taskKey) {
-    alert("잘못된 접근입니다.");
-    location.href = "/";
-    return;
+  let ctx = null;
+  let socket = null;
+  const rendered = new Set();
+
+  /* ================= 유틸 ================= */
+  const esc = s => String(s).replace(/[&<>"']/g,m=>({
+    "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"
+  }[m]));
+
+  const scrollBottom = () => chatBox.scrollTop = chatBox.scrollHeight;
+
+  async function fetchJSON(url,opt={}){
+    const r = await fetch(url,{credentials:"include",...opt});
+    const d = await r.json();
+    if(!r.ok||d.success===false) throw new Error(d.message||"실패");
+    return d;
   }
 
-  /* ===============================
-     상태
-  ============================== */
-  let ctx = null;     // 서버 컨텍스트
-  let socket = null; // socket.io 인스턴스
+  /* ================= 렌더 ================= */
+  function renderMessage(msg){
+    if(rendered.has(msg.id)) return;
+    rendered.add(msg.id);
 
-  /* ===============================
-     유틸
-  ============================== */
-  function escapeHTML(str) {
-    return String(str)
-      .replaceAll("&", "&amp;")
-      .replaceAll("<", "&lt;")
-      .replaceAll(">", "&gt;")
-      .replaceAll('"', "&quot;")
-      .replaceAll("'", "&#039;");
-  }
-
-  function scrollBottom() {
-    chatBox.scrollTop = chatBox.scrollHeight;
-  }
-
-  async function fetchJSON(url, options = {}) {
-    const res = await fetch(url, {
-      credentials: "include",
-      ...options
-    });
-
-    const data = await res.json().catch(() => ({}));
-
-    if (!res.ok || data.success === false) {
-      throw new Error(data.message || "요청 실패");
-    }
-    return data;
-  }
-
-  /* ===============================
-     메시지 렌더링
-  ============================== */
-  function renderMessage(msg) {
-    const isMine =
-      msg.sender_id === ctx.myId ||
-      msg.senderId === ctx.myId;
-
+    const isMine = msg.sender_id === ctx.myId;
     const wrap = document.createElement("div");
-    wrap.className = "msg" + (isMine ? " me" : "");
+    wrap.className = "msg" + (isMine ? " me":"");
+    wrap.dataset.id = msg.id;
 
     const bubble = document.createElement("div");
     bubble.className = "bubble";
 
-    bubble.innerHTML = `
-      <div>${escapeHTML(msg.message)}</div>
-      <div class="time">
-        ${new Date(msg.created_at).toLocaleString()}
-      </div>
-    `;
+    if(msg.deleted){
+      bubble.innerHTML = "<em>삭제된 메시지입니다.</em>";
+    }else if(msg.type==="file"){
+      bubble.innerHTML = `
+        <a href="${msg.file_url}" target="_blank">📎 ${esc(msg.file_name)}</a>
+        <div class="time">${new Date(msg.created_at).toLocaleString()}</div>
+      `;
+    }else{
+      bubble.innerHTML = `
+        <div>${esc(msg.message)}</div>
+        <div class="time">
+          ${new Date(msg.created_at).toLocaleString()}
+          ${isMine && msg.is_read ? " ✔✔":""}
+        </div>
+      `;
+    }
+
+    if(isMine && !msg.deleted){
+      const del = document.createElement("button");
+      del.className="msg-delete-btn";
+      del.innerText="삭제";
+      del.onclick=()=>deleteMessage(msg.id);
+      bubble.appendChild(del);
+    }
 
     wrap.appendChild(bubble);
     chatBox.appendChild(wrap);
     scrollBottom();
   }
 
-  /* ===============================
-     1️⃣ 컨텍스트 로드 (🔥 핵심)
-  ============================== */
-  async function loadContext() {
-    const data = await fetchJSON(
-      `${API}/api/task-chat/context?taskKey=${encodeURIComponent(taskKey)}`
-    );
-
-    ctx = data.context;
-
-    // 🔥 상단 정보 세팅
-    serviceTitleEl.innerText =
-      ctx.serviceTitle || "서비스";
-
-    buyerNameEl.innerText =
-      ctx.buyer?.nickname ||
-      ctx.buyer_nickname ||
-      "의뢰인";
+  /* ================= 로드 ================= */
+  async function loadContext(){
+    const d = await fetchJSON(`${API}/api/task-chat/context?taskKey=${taskKey}`);
+    ctx = d.context;
+    serviceTitleEl.innerText = ctx.serviceTitle || "서비스";
+    buyerNameEl.innerText = ctx.buyer?.nickname || "의뢰인";
   }
 
-  /* ===============================
-     2️⃣ 기존 메시지 로드
-  ============================== */
-async function loadMessages() {
-  try {
-    const data = await fetchJSON(
-      `${API}/api/task-chat/messages?roomId=${ctx.roomId}`
-    );
-
-    chatBox.innerHTML = "";
-    data.messages.forEach(renderMessage);
-  } catch (err) {
-    console.warn("메시지 로드 실패 (권한 문제 가능)", err);
-    chatBox.innerHTML = "";
+  async function loadMessages(){
+    const d = await fetchJSON(`${API}/api/task-chat/messages?roomId=${ctx.roomId}`);
+    chatBox.innerHTML="";
+    rendered.clear();
+    d.messages.forEach(renderMessage);
+    await markRead();
   }
-}
 
+  async function markRead(){
+    await fetchJSON(`${API}/api/task-chat/read`,{
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({roomId:ctx.roomId})
+    });
+  }
 
-  /* ===============================
-     3️⃣ Socket 연결 (작업 전용)
-  ============================== */
-  function connectSocket() {
-    socket = io(`${API}/task`, {
-      withCredentials: true,
-      transports: ["websocket"]
+  async function deleteMessage(id){
+    if(!confirm("메시지를 삭제할까요?")) return;
+    await fetchJSON(`${API}/api/task-chat/delete`,{
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({messageId:id})
+    });
+  }
+
+  /* ================= 소켓 ================= */
+  function connectSocket(){
+    socket = io(`${API}/task`,{withCredentials:true});
+
+    socket.on("connect",()=>{
+      socket.emit("task:join",{roomId:ctx.roomId});
     });
 
-    socket.on("connect", () => {
-      socket.emit("task:join", { taskKey });
-    });
-
-    socket.on("task:new", (msg) => {
-      if (String(msg.roomId) !== String(ctx.roomId)) return;
+    socket.on("task:new",msg=>{
+      if(String(msg.roomId)!==String(ctx.roomId)) return;
       renderMessage(msg);
+      markRead();
     });
 
-    socket.on("connect_error", (err) => {
-      console.error("socket error:", err);
+    socket.on("task:read",()=>{
+      document.querySelectorAll(".msg.me .time").forEach(t=>{
+        if(!t.innerText.includes("✔✔")) t.innerText+=" ✔✔";
+      });
     });
   }
 
-  /* ===============================
-     4️⃣ 메시지 전송
-  ============================== */
-  function sendMessage() {
+  /* ================= 전송 ================= */
+  function sendMessage(){
     const text = msgInput.value.trim();
-    if (!text) return;
-
-    msgInput.value = "";
-    msgInput.focus();
-
-    socket.emit("task:send", {
-      taskKey,
-      roomId: ctx.roomId,
-      message: text
-    });
+    if(!text) return;
+    msgInput.value="";
+    socket.emit("task:send",{taskKey,roomId:ctx.roomId,message:text});
   }
 
-  sendBtn.addEventListener("click", sendMessage);
-  msgInput.addEventListener("keydown", (e) => {
-    if (e.key === "Enter") sendMessage();
-  });
+  async function sendFile(file){
+    const fd = new FormData();
+    fd.append("file",file);
+    fd.append("taskKey",taskKey);
+    const d = await fetchJSON(`${API}/api/task-chat/upload`,{method:"POST",body:fd});
+    socket.emit("task:file",{roomId:ctx.roomId,...d.file});
+  }
 
-  /* ===============================
-     초기 실행
-  ============================== */
-  (async () => {
-    try {
-      await loadContext();
-      await loadMessages();
-      connectSocket();
+  sendBtn.onclick = sendMessage;
+  msgInput.onkeydown = e=>e.key==="Enter"&&sendMessage();
 
-      // 입력 활성화
-      msgInput.disabled = false;
-      sendBtn.disabled = false;
-      msgInput.focus();
+  attachBtn.onclick = ()=>fileInput.click();
+  fileInput.onchange = ()=>{
+    if(fileInput.files[0]) sendFile(fileInput.files[0]);
+    fileInput.value="";
+  };
 
-    } catch (err) {
-      console.error(err);
-      alert(err.message || "채팅을 불러올 수 없습니다.");
-
-      if (err.message?.includes("로그인")) {
-        location.href = "/login.html";
-      }
-    }
+  /* ================= 시작 ================= */
+  (async()=>{
+    await loadContext();
+    await loadMessages();
+    connectSocket();
+    msgInput.disabled=false;
+    sendBtn.disabled=false;
+    msgInput.focus();
   })();
+
 })();
