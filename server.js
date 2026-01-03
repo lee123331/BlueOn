@@ -576,41 +576,68 @@ app.get("/api/task-chat/messages", async (req, res) => {
     res.status(500).json({ success: false });
   }
 });
+
 /* ======================================================
-   🧩 작업 채팅 메시지 전송 (정답 버전)
+   🧩 작업 채팅 메시지 전송 (REST API)
    POST /api/task-chat/send
 ====================================================== */
 app.post("/api/task-chat/send", async (req, res) => {
   try {
     if (!req.session.user) {
-      return res.status(401).json({ success: false });
+      return res.status(401).json({
+        success: false,
+        message: "로그인 필요",
+      });
     }
 
     const senderId = req.session.user.id;
-    const { roomId, message } = req.body;
+    const { taskKey, message } = req.body;
 
-    if (!roomId || !message) {
-      return res.status(400).json({ success: false });
+    if (!taskKey || !message) {
+      return res.status(400).json({
+        success: false,
+        message: "파라미터 누락",
+      });
     }
 
+    /* ===============================
+       1️⃣ taskKey → room_id 조회
+    =============================== */
+    const [[order]] = await db.query(
+      `
+      SELECT room_id
+      FROM orders
+      WHERE task_key = ?
+      LIMIT 1
+      `,
+      [taskKey]
+    );
+
+    if (!order || !order.room_id) {
+      return res.status(404).json({
+        success: false,
+        message: "채팅방 없음",
+      });
+    }
+
+    const roomId = order.room_id;
     const now = nowStr();
 
+    /* ===============================
+       2️⃣ 메시지 저장
+    =============================== */
     const [result] = await db.query(
       `
       INSERT INTO chat_messages
-      (
-        room_id,
-        sender_id,
-        message,
-        type,
-        is_read,
-        created_at
-      )
-      VALUES (?, ?, ?, 'task', 0, ?)
+      (room_id, sender_id, message, message_type, is_read, created_at)
+      VALUES (?, ?, ?, 'text', 0, ?)
       `,
       [roomId, senderId, message, now]
     );
 
+    /* ===============================
+       3️⃣ 성공 응답
+    =============================== */
     return res.json({
       success: true,
       message: {
@@ -618,18 +645,20 @@ app.post("/api/task-chat/send", async (req, res) => {
         room_id: roomId,
         sender_id: senderId,
         message,
-        type: "task",
+        message_type: "text",
         is_read: 0,
-        created_at: now
-      }
+        created_at: now,
+      },
     });
 
   } catch (err) {
     console.error("❌ task-chat send error:", err);
-    res.status(500).json({ success: false });
+    res.status(500).json({
+      success: false,
+      message: "서버 오류",
+    });
   }
 });
-
 
 /* ======================================================
    🔵 Socket.io 서버 생성
