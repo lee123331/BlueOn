@@ -49,7 +49,7 @@ body{
   background:#fff;
   border-bottom:1px solid var(--line);
 }
-.service-title{font-weight:800;font-size:15px}
+.service-title{font-weight:800;font-size:15px;color:var(--text)}
 .buyer{margin-top:4px;font-size:13px;color:var(--gray)}
 
 /* Messages */
@@ -70,7 +70,10 @@ body{
   background:#fff;
   border:1px solid var(--line);
   font-size:14px;
+  color:var(--text);
   position:relative;
+  word-break:break-word;
+  overflow-wrap:anywhere;
 }
 .msg.me .bubble{
   background:#eef4ff;
@@ -82,6 +85,7 @@ body{
   font-size:11px;
   color:#6b7280;
   text-align:right;
+  user-select:none;
 }
 
 .msg-delete-btn{
@@ -111,6 +115,11 @@ body{
   border-radius:12px;
   border:1px solid var(--line);
   font-size:14px;
+  outline:none;
+}
+.chat-input input[type="text"]:focus{
+  border-color:#cfe0ff;
+  box-shadow:0 0 0 4px rgba(0,86,255,.08);
 }
 
 /* ===============================
@@ -130,16 +139,22 @@ body{
   align-items:center;
   justify-content:center;
   transition:.15s ease;
-  min-width:72px;                 /* 🔥 전송 버튼 최소 폭 */
+  min-width:84px;                 /* 🔥 전송 버튼 최소 폭(조금 더 넓게) */
+  box-shadow:0 6px 16px rgba(0,86,255,.18);
 }
 
 .chat-input button:hover{
   filter:brightness(0.95);
 }
 
+.chat-input button:active{
+  transform:translateY(1px);
+}
+
 .chat-input button:disabled{
   opacity:.5;
   cursor:not-allowed;
+  box-shadow:none;
 }
 
 /* ===============================
@@ -148,6 +163,7 @@ body{
 .attach-btn{
   width:44px;
   height:44px;
+  min-width:44px;                 /* ✅ 공통 버튼 min-width 영향 방지 */
   padding:0;
   background:#f1f5ff;
   border:1px solid var(--line);
@@ -157,6 +173,7 @@ body{
   justify-content:center;
   cursor:pointer;
   transition:.15s ease;
+  box-shadow:none;
 }
 
 /* hover 효과 */
@@ -179,6 +196,62 @@ body{
   cursor:not-allowed;
 }
 
+/* ===============================
+   이미지 메시지
+=============================== */
+.chat-image{
+  max-width:240px;
+  border-radius:12px;
+  cursor:pointer;
+  display:block;
+  border:1px solid rgba(0,0,0,.05);
+}
+
+/* ===============================
+   Toast (삭제/알림용)
+=============================== */
+.toast{
+  position:fixed;
+  bottom:28px;
+  right:28px;
+  background:#111827;
+  color:#fff;
+  padding:14px 18px;
+  border-radius:12px;
+  font-size:14px;
+  font-weight:700;
+  opacity:0;
+  transform:translateY(10px);
+  transition:.25s ease;
+  z-index:9999;
+  pointer-events:none;
+}
+.toast.show{
+  opacity:1;
+  transform:translateY(0);
+}
+
+/* ===============================
+   Lightbox (이미지 확대)
+=============================== */
+.lightbox{
+  position:fixed;
+  inset:0;
+  background:rgba(0,0,0,.75);
+  display:none;
+  align-items:center;
+  justify-content:center;
+  z-index:9998;
+  padding:18px;
+}
+.lightbox.show{ display:flex; }
+.lightbox img{
+  max-width:92%;
+  max-height:92%;
+  border-radius:14px;
+  box-shadow:0 20px 60px rgba(0,0,0,.45);
+  background:#fff;
+}
 </style>
 </head>
 
@@ -198,32 +271,31 @@ body{
   <div class="chat-input">
     <input id="fileInput" type="file" hidden />
 
-    <!-- 🔥 업로드 SVG 아이콘 버튼 -->
-    <button id="attachBtn" class="attach-btn" aria-label="파일 첨부">
+    <!-- ✅ 업로드 SVG 아이콘 버튼 (더 예쁜 클립 아이콘) -->
+    <button id="attachBtn" class="attach-btn" aria-label="파일 첨부" type="button">
       <svg viewBox="0 0 24 24" fill="none">
         <path
-          d="M12 3v12m0 0l-4-4m4 4l4-4"
+          d="M21 11.5L12.8 19.7a6 6 0 1 1-8.5-8.5l9.2-9.2a4 4 0 1 1 5.7 5.7l-9.2 9.2a2 2 0 1 1-2.8-2.8l8.6-8.6"
           stroke="#0056ff"
           stroke-width="2"
           stroke-linecap="round"
           stroke-linejoin="round"
         />
-        <rect
-          x="4"
-          y="15"
-          width="16"
-          height="6"
-          rx="2"
-          stroke="#0056ff"
-          stroke-width="2"
-        />
       </svg>
     </button>
 
     <input id="chatInput" type="text" placeholder="메시지를 입력하세요" disabled />
-    <button id="sendBtn" disabled>전송</button>
+    <button id="sendBtn" type="button" disabled>전송</button>
   </div>
 
+</div>
+
+<!-- ✅ Toast -->
+<div id="toast" class="toast"></div>
+
+<!-- ✅ Lightbox -->
+<div id="lightbox" class="lightbox" aria-hidden="true">
+  <img id="lightboxImg" alt="첨부 이미지 미리보기" />
 </div>
 
 <script src="/socket.io/socket.io.js"></script>
