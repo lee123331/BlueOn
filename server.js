@@ -577,12 +577,17 @@ app.get("/api/task-chat/messages", async (req, res) => {
   }
 });
 
+
 /* ======================================================
-   🧩 작업 채팅 메시지 전송 (REST API)
+   🧩 작업 채팅 메시지 전송 (최종)
    POST /api/task-chat/send
+   body: { taskKey, roomId(optional), message }
 ====================================================== */
 app.post("/api/task-chat/send", async (req, res) => {
   try {
+    /* ===============================
+       0️⃣ 로그인 체크
+    =============================== */
     if (!req.session.user) {
       return res.status(401).json({
         success: false,
@@ -591,7 +596,7 @@ app.post("/api/task-chat/send", async (req, res) => {
     }
 
     const senderId = req.session.user.id;
-    const { taskKey, message } = req.body;
+    const { taskKey, roomId: bodyRoomId, message } = req.body;
 
     if (!taskKey || !message) {
       return res.status(400).json({
@@ -601,64 +606,80 @@ app.post("/api/task-chat/send", async (req, res) => {
     }
 
     /* ===============================
-       1️⃣ taskKey → room_id 조회
+       1️⃣ taskKey → room_id 결정
+       - body.roomId가 와도 서버가 항상 진실
     =============================== */
-    const [[order]] = await db.query(
-      `
-      SELECT room_id
-      FROM orders
-      WHERE task_key = ?
-      LIMIT 1
-      `,
-      [taskKey]
-    );
+    let roomId = bodyRoomId;
 
-    if (!order || !order.room_id) {
-      return res.status(404).json({
-        success: false,
-        message: "채팅방 없음",
-      });
+    if (!roomId) {
+      const [[order]] = await db.query(
+        `
+        SELECT room_id
+        FROM orders
+        WHERE task_key = ?
+        LIMIT 1
+        `,
+        [taskKey]
+      );
+
+      if (!order || !order.room_id) {
+        return res.status(404).json({
+          success: false,
+          message: "채팅방 없음",
+        });
+      }
+
+      roomId = order.room_id;
     }
 
-    const roomId = order.room_id;
+    /* ===============================
+       2️⃣ 메시지 DB 저장
+    =============================== */
     const now = nowStr();
 
-    /* ===============================
-       2️⃣ 메시지 저장
-    =============================== */
     const [result] = await db.query(
       `
       INSERT INTO chat_messages
-      (room_id, sender_id, message, message_type, is_read, created_at)
+      (
+        room_id,
+        sender_id,
+        message,
+        message_type,
+        is_read,
+        created_at
+      )
       VALUES (?, ?, ?, 'text', 0, ?)
       `,
       [roomId, senderId, message, now]
     );
 
     /* ===============================
-       3️⃣ 성공 응답
+       3️⃣ 프론트 & socket 공용 응답
     =============================== */
+    const savedMessage = {
+      id: result.insertId,
+      roomId: roomId,
+      sender_id: senderId,
+      message: message,
+      message_type: "text",
+      is_read: 0,
+      created_at: now,
+    };
+
     return res.json({
       success: true,
-      message: {
-        id: result.insertId,
-        room_id: roomId,
-        sender_id: senderId,
-        message,
-        message_type: "text",
-        is_read: 0,
-        created_at: now,
-      },
+      message: savedMessage,
     });
 
   } catch (err) {
     console.error("❌ task-chat send error:", err);
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: "서버 오류",
     });
   }
 });
+
 
 /* ======================================================
    🔵 Socket.io 서버 생성
