@@ -221,10 +221,10 @@
      Socket.io (🔥 기본 namespace ONLY)
   ============================== */
   function connectSocket() {
-    socket = io(API, {
+socket = io(API, {
   withCredentials: true,
-  transports: ["polling", "websocket"]
 });
+
 
 
     socket.on("connect", () => {

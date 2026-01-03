@@ -618,7 +618,6 @@ app.get("/api/task-chat/messages", async (req, res) => {
 const httpServer = http.createServer(app);
 
 const io = new SocketIOServer(httpServer, {
-   transports: ["websocket"], // 🔥 이거 반드시
   cors: {
     origin: [
       "http://localhost:3000",
@@ -628,6 +627,7 @@ const io = new SocketIOServer(httpServer, {
     credentials: true,
   },
 });
+
 // 🔥 Express 세션을 Socket.io에 연결 (핵심)
 io.use((socket, next) => {
   sessionMiddleware(socket.request, {}, next);
