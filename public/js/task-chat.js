@@ -112,7 +112,7 @@
 
   /* ================= 소켓 ================= */
   function connectSocket(){
-    socket = io(`${API}/task`,{withCredentials:true});
+    socket = io(API, { withCredentials: true });
 
     socket.on("connect",()=>{
       socket.emit("task:join",{roomId:ctx.roomId});

@@ -1819,60 +1819,6 @@ if (ADMIN_ID && String(user.id) === ADMIN_ID) {
     socket.disconnect();
   }
 });
-/* ======================================================
-   🧩 작업 채팅 전용 Socket Namespace
-   namespace: /task
-====================================================== */
-const taskNsp = io.of("/task");
-
-taskNsp.use((socket, next) => {
-  sessionMiddleware(socket.request, {}, next);
-});
-
-taskNsp.on("connection", (socket) => {
-  const user = socket.request.session?.user;
-  if (!user) {
-    socket.disconnect();
-    return;
-  }
-
-  console.log("🧩 task socket connected:", socket.id);
-
-  /* 🔹 작업 채팅 입장 */
-  socket.on("task:join", ({ taskKey }) => {
-    if (!taskKey) return;
-    const roomName = `task:${taskKey}`;
-    socket.join(roomName);
-    console.log(`➡ task join: ${roomName}`);
-  });
-
-  /* 🔹 메시지 전송 */
-  socket.on("task:send", async ({ taskKey, roomId, message }) => {
-    if (!taskKey || !roomId || !message) return;
-
-    const senderId = user.id;
-    const now = nowStr();
-
-    await db.query(
-      `
-      INSERT INTO chat_messages (room_id, sender_id, message, created_at)
-      VALUES (?, ?, ?, ?)
-      `,
-      [roomId, senderId, message, now]
-    );
-
-    taskNsp.to(`task:${taskKey}`).emit("task:new", {
-      roomId,
-      senderId,
-      message,
-      created_at: now
-    });
-  });
-
-  socket.on("disconnect", () => {
-    console.log("🧩 task socket disconnected:", socket.id);
-  });
-});
 
 /* ======================================================
    🔵 채팅방 생성
@@ -4263,6 +4209,7 @@ app.post("/api/task-chat/read", async (req, res) => {
       return res.json({ success: false, message: "roomId 누락" });
     }
 
+    // 🔹 상대방 메시지 읽음 처리
     await db.query(
       `
       UPDATE chat_messages
@@ -4273,16 +4220,18 @@ app.post("/api/task-chat/read", async (req, res) => {
       [roomId, req.session.user.id]
     );
 
-    // 🔥 상대방에게 읽음 알림
-    io.of("/task").to(String(roomId)).emit("task:read");
+    // 🔥 기본 namespace로 읽음 이벤트 전송
+    io.to(String(roomId)).emit("task:read");
 
-    res.json({ success: true });
+    return res.json({ success: true });
 
   } catch (err) {
     console.error("❌ task-chat read error:", err);
-    res.status(500).json({ success: false });
+    return res.status(500).json({ success: false });
   }
 });
+
+
 /* ======================================================
    메시지 삭제
 ====================================================== */
@@ -4302,6 +4251,7 @@ app.post("/api/task-chat/delete", async (req, res) => {
       [messageId]
     );
 
+    // 🔐 본인 메시지만 삭제 가능
     if (!msg || msg.sender_id !== req.session.user.id) {
       return res.status(403).json({ success: false });
     }
@@ -4316,24 +4266,27 @@ app.post("/api/task-chat/delete", async (req, res) => {
       [messageId]
     );
 
-    io.of("/task").to(String(msg.room_id)).emit("task:new", {
+    // 🔥 기본 namespace로 삭제된 메시지 브로드캐스트
+    io.to(String(msg.room_id)).emit("task:new", {
       ...msg,
       deleted: true
     });
 
-    res.json({ success: true });
+    return res.json({ success: true });
 
   } catch (err) {
     console.error("❌ task-chat delete error:", err);
-    res.status(500).json({ success: false });
+    return res.status(500).json({ success: false });
   }
 });
+
+
 /* ======================================================
    채팅 파일 업로드
 ====================================================== */
 app.post(
   "/api/task-chat/upload",
-  upload.single("file"), // multer
+  upload.single("file"),
   async (req, res) => {
     try {
       if (!req.session.user) {
@@ -4346,7 +4299,7 @@ app.post(
 
       const fileUrl = `/uploads/chat/${req.file.filename}`;
 
-      res.json({
+      return res.json({
         success: true,
         file: {
           type: "file",
@@ -4357,19 +4310,31 @@ app.post(
 
     } catch (err) {
       console.error("❌ task-chat upload error:", err);
-      res.status(500).json({ success: false });
+      return res.status(500).json({ success: false });
     }
   }
 );
-io.of("/task").on("connection", (socket) => {
 
+
+/* ======================================================
+   🔵 작업 채팅 Socket.IO (기본 namespace ONLY)
+====================================================== */
+io.on("connection", (socket) => {
+  const user = socket.request.session?.user;
+  if (!user) return;
+
+  console.log("🟢 task-chat socket connected:", socket.id);
+
+  /* 🔹 작업 채팅방 입장 */
   socket.on("task:join", ({ roomId }) => {
+    if (!roomId) return;
     socket.join(String(roomId));
+    console.log(`📌 task:join → room ${roomId}`);
   });
 
-  socket.on("task:send", async ({ taskKey, roomId, message }) => {
-    const user = socket.request.session?.user;
-    if (!user) return;
+  /* 🔹 텍스트 메시지 전송 */
+  socket.on("task:send", async ({ roomId, message }) => {
+    if (!roomId || !message) return;
 
     const msg = await insertTaskMessage({
       roomId,
@@ -4377,14 +4342,20 @@ io.of("/task").on("connection", (socket) => {
       message
     });
 
-    io.of("/task").to(String(roomId)).emit("task:new", msg);
+    io.to(String(roomId)).emit("task:new", msg);
   });
 
-  socket.on("task:file", async (payload) => {
-    io.of("/task").to(String(payload.roomId)).emit("task:new", payload);
+  /* 🔹 파일 메시지 브로드캐스트 */
+  socket.on("task:file", (payload) => {
+    if (!payload?.roomId) return;
+    io.to(String(payload.roomId)).emit("task:new", payload);
   });
 
+  socket.on("disconnect", () => {
+    console.log("🔴 task-chat socket disconnected:", socket.id);
+  });
 });
+
 
 /* ======================================================
    🔵 전문가 작업 요약
