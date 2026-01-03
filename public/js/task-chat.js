@@ -222,9 +222,10 @@
   ============================== */
   function connectSocket() {
     socket = io(API, {
-      withCredentials: true,
-      transports: ["websocket"],
-    });
+  withCredentials: true,
+  transports: ["polling", "websocket"]
+});
+
 
     socket.on("connect", () => {
       socket.emit("task:join", { roomId: ctx.roomId });
