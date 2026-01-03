@@ -1,287 +1,208 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>BlueOn | 작업 상세</title>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>BlueOn | 작업 상세</title>
 
-  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;600;700;800&display=swap" rel="stylesheet">
 
-  <style>
-    :root{
-      --primary:#0056ff;
-      --bg:#f4f6fb;
-      --white:#ffffff;
-      --line:#e5e7eb;
-      --text:#111827;
-      --gray:#6b7280;
-      --soft:#eef4ff;
-      --good:#16a34a;
-      --warn:#f59e0b;
-    }
-    *{box-sizing:border-box;margin:0;padding:0}
-    body{
-      font-family:"Noto Sans KR", sans-serif;
-      background:var(--bg);
-      color:var(--text);
-    }
+<style>
+:root{
+  --primary:#0056ff;
+  --bg:#f4f6fb;
+  --white:#ffffff;
+  --line:#e5e7eb;
+  --text:#111827;
+  --gray:#6b7280;
+  --soft:#eef4ff;
+  --good:#16a34a;
+  --warn:#f59e0b;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{
+  font-family:"Noto Sans KR", sans-serif;
+  background:var(--bg);
+  color:var(--text);
+}
 
-    header{
-      background:#fff;
-      border-bottom:1px solid var(--line);
-      padding:16px 60px;
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:12px;
-      position:sticky;
-      top:0;
-      z-index:10;
-    }
-    .logo{
-      font-size:22px;
-      font-weight:800;
-      color:var(--primary);
-      cursor:pointer;
-    }
-    .top-actions{
-      display:flex;
-      gap:10px;
-      align-items:center;
-    }
-    .btn{
-      border:1px solid var(--line);
-      background:#fff;
-      color:#111;
-      padding:10px 14px;
-      border-radius:10px;
-      cursor:pointer;
-      font-weight:700;
-      font-size:14px;
-      transition:.2s;
-      display:inline-flex;
-      align-items:center;
-      gap:8px;
-      text-decoration:none;
-    }
-    .btn:hover{border-color:var(--primary); color:var(--primary); background:var(--soft)}
-    .btn-primary{
-      border:1px solid var(--primary);
-      background:var(--primary);
-      color:#fff;
-    }
-    .btn-primary:hover{filter:brightness(.95); background:var(--primary); color:#fff}
-    .btn[disabled]{
-      opacity:.55;
-      cursor:not-allowed;
-      filter:grayscale(30%);
-    }
+header{
+  background:#fff;
+  border-bottom:1px solid var(--line);
+  padding:16px 60px;
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+}
+.logo{
+  font-size:22px;
+  font-weight:800;
+  color:var(--primary);
+  cursor:pointer;
+}
+.btn{
+  border:1px solid var(--line);
+  background:#fff;
+  padding:10px 14px;
+  border-radius:10px;
+  font-weight:800;
+  cursor:pointer;
+}
+.btn-primary{
+  background:var(--primary);
+  color:#fff;
+  border-color:var(--primary);
+}
+.btn[disabled]{opacity:.55;cursor:not-allowed}
 
-    .container{
-      max-width:1100px;
-      margin:30px auto;
-      padding:0 20px 80px;
-    }
+.container{
+  max-width:1100px;
+  margin:30px auto;
+  padding:0 20px 80px;
+}
 
-    .grid{
-      display:grid;
-      grid-template-columns: 1.1fr .9fr;
-      gap:18px;
-    }
-    @media (max-width: 980px){
-      .grid{grid-template-columns:1fr}
-      header{padding:16px 18px}
-    }
+.grid{
+  display:grid;
+  grid-template-columns:1.1fr .9fr;
+  gap:18px;
+}
+@media (max-width:980px){
+  .grid{grid-template-columns:1fr}
+  header{padding:16px 18px}
+}
 
-    .card{
-      background:#fff;
-      border:1px solid var(--line);
-      border-radius:16px;
-      padding:18px;
-    }
+.card{
+  background:#fff;
+  border:1px solid var(--line);
+  border-radius:16px;
+  padding:18px;
+}
 
-    /* 상단 요약 */
-    .summary{
-      display:flex;
-      gap:16px;
-      align-items:center;
-    }
-    .thumb{
-      width:92px;
-      height:92px;
-      border-radius:14px;
-      border:1px solid var(--line);
-      object-fit:cover;
-      background:#eef2ff;
-      flex:0 0 auto;
-    }
-    .sum-info{
-      flex:1;
-      min-width:0;
-    }
-    .title{
-      font-weight:900;
-      font-size:20px;
-      line-height:1.25;
-      margin-bottom:8px;
-      word-break:keep-all;
-    }
-    .meta{
-      display:flex;
-      flex-wrap:wrap;
-      gap:10px 16px;
-      color:var(--gray);
-      font-size:14px;
-      align-items:center;
-    }
-    .pill{
-      padding:6px 10px;
-      border-radius:999px;
-      font-size:12px;
-      font-weight:900;
-      border:1px solid var(--line);
-      background:#fff;
-      color:#111;
-    }
-    .pill.primary{border-color:#cfe0ff; background:#eef4ff; color:var(--primary)}
-    .pill.good{border-color:#cdeed7; background:#ecfdf3; color:var(--good)}
-    .pill.warn{border-color:#fde7c4; background:#fffbeb; color:var(--warn)}
+.summary{
+  display:flex;
+  gap:16px;
+}
+.thumb{
+  width:92px;
+  height:92px;
+  border-radius:14px;
+  border:1px solid var(--line);
+  object-fit:cover;
+  background:#eef2ff;
+}
+.title{
+  font-size:20px;
+  font-weight:900;
+  margin-bottom:6px;
+}
+.meta{
+  display:flex;
+  gap:10px;
+  flex-wrap:wrap;
+  font-size:14px;
+  color:var(--gray);
+}
+.pill{
+  padding:6px 10px;
+  border-radius:999px;
+  font-size:12px;
+  font-weight:900;
+  border:1px solid var(--line);
+}
+.pill.primary{background:#eef4ff;color:var(--primary)}
+.pill.good{background:#ecfdf3;color:var(--good)}
+.pill.warn{background:#fffbeb;color:var(--warn)}
 
-    /* 섹션 타이틀 */
-    .sec-title{
-      font-weight:900;
-      font-size:16px;
-      margin-bottom:12px;
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:10px;
-    }
-    .sec-title small{
-      font-weight:700;
-      color:var(--gray);
-    }
+.sec-title{
+  font-size:16px;
+  font-weight:900;
+  margin-bottom:12px;
+}
 
-    /* 정보 리스트 */
-    .info-list{
-      display:grid;
-      grid-template-columns: 130px 1fr;
-      gap:10px 12px;
-      font-size:14px;
-    }
-    .label{color:var(--gray); font-weight:800}
-    .value{font-weight:700; word-break:break-word}
+.info-list{
+  display:grid;
+  grid-template-columns:120px 1fr;
+  gap:10px 12px;
+  font-size:14px;
+}
+.label{color:var(--gray);font-weight:800}
+.value{font-weight:700}
 
-    /* 빈 내용 */
-    .empty{
-      padding:18px;
-      background:#fafbff;
-      border:1px dashed #dbe6ff;
-      border-radius:14px;
-      color:#6b7280;
-      font-weight:700;
-      line-height:1.6;
-    }
+.empty{
+  padding:18px;
+  background:#fafbff;
+  border:1px dashed #dbe6ff;
+  border-radius:14px;
+  color:#6b7280;
+  font-weight:700;
+  line-height:1.6;
+}
 
-    /* 하단 고정 액션(모바일 느낌) */
-    .action-bar{
-      margin-top:16px;
-      display:flex;
-      gap:10px;
-      flex-wrap:wrap;
-    }
-    .action-bar .btn{
-      flex:1;
-      justify-content:center;
-      min-width:200px;
-    }
-
-    /* 로딩 */
-    .loading{
-      padding:24px;
-      color:var(--gray);
-      font-weight:800;
-    }
-  </style>
+.action-bar{
+  margin-top:16px;
+  display:flex;
+  gap:10px;
+}
+</style>
 </head>
 
 <body>
 
 <header>
   <div class="logo" onclick="location.href='index.html'">BlueOn</div>
-  <div class="top-actions">
-    <a class="btn" href="my-orders.html">← 내 작업 현황</a>
-  </div>
+  <button class="btn" onclick="location.href='my-orders.html'">← 내 작업 현황</button>
 </header>
 
 <div class="container">
-  <div id="loading" class="loading">불러오는 중...</div>
 
-  <div id="content" style="display:none;">
-    <div class="grid">
+  <div class="grid">
 
-      <!-- 좌측: 요약 + 요청사항 -->
-      <div class="card">
-        <div class="summary">
-          <img id="thumb" class="thumb" src="/assets/default_service.png" alt="서비스 썸네일">
-          <div class="sum-info">
-            <div id="serviceTitle" class="title">-</div>
-            <div class="meta">
-              <span id="statusPill" class="pill primary">-</span>
-              <span class="pill" id="expertPill">전문가: -</span>
-              <span class="pill" id="orderPill">주문번호: -</span>
-            </div>
+    <!-- 좌측 -->
+    <div class="card">
+      <div class="summary">
+        <img id="thumb" class="thumb" src="/assets/default_service.png">
+        <div>
+          <div id="serviceTitle" class="title">-</div>
+          <div class="meta">
+            <span id="statusPill" class="pill">-</span>
+            <span class="pill" id="expertPill">전문가: -</span>
+            <span class="pill" id="orderPill">주문번호: -</span>
           </div>
         </div>
-
-        <div style="height:14px"></div>
-
-        <div class="sec-title">
-          <span>요청 정보</span>
-          <small id="createdAt">-</small>
-        </div>
-
-        <div id="requestBox" class="empty">
-          요청 사항이 없습니다.
-        </div>
-
-        <div class="action-bar">
-          <button id="chatBtn" class="btn btn-primary">💬 채팅으로 이동</button>
-          <button id="refreshBtn" class="btn">🔄 새로고침</button>
-        </div>
       </div>
 
-      <!-- 우측: 상세 정보 -->
-      <div class="card">
-        <div class="sec-title">
-          <span>상세 정보</span>
-          <small id="taskKeyText">taskKey: -</small>
-        </div>
+      <div style="height:16px"></div>
 
-        <div class="info-list" style="margin-bottom:14px;">
-          <div class="label">상태</div>
-          <div class="value" id="statusText">-</div>
+      <div class="sec-title">요청 정보</div>
+      <div id="requestBox" class="empty">요청 사항이 없습니다.</div>
 
-          <div class="label">전문가 닉네임</div>
-          <div class="value" id="expertNickname">-</div>
-
-          <div class="label">진행 단계</div>
-          <div class="value" id="phaseText">-</div>
-
-          <div class="label">서비스</div>
-          <div class="value" id="serviceText">-</div>
-        </div>
-
-        <div class="sec-title">
-          <span>안내</span>
-        </div>
-        <div class="empty" id="guideBox">
-          진행중 상태에서는 채팅으로 작업을 진행할 수 있어요.<br>
-          완료 상태에서는 결과물을 확인한 뒤 필요한 경우 추가 요청을 남길 수 있어요.
-        </div>
+      <div class="action-bar">
+        <button id="chatBtn" class="btn btn-primary">💬 채팅으로 이동</button>
       </div>
-
     </div>
+
+    <!-- 우측 -->
+    <div class="card">
+      <div class="sec-title">상세 정보</div>
+
+      <div class="info-list">
+        <div class="label">상태</div>
+        <div class="value" id="statusText">-</div>
+
+        <div class="label">전문가</div>
+        <div class="value" id="expertNickname">-</div>
+
+        <div class="label">진행 단계</div>
+        <div class="value" id="phaseText">-</div>
+
+        <div class="label">서비스</div>
+        <div class="value" id="serviceText">-</div>
+
+        <div class="label">주문일</div>
+        <div class="value" id="createdAt">-</div>
+      </div>
+    </div>
+
   </div>
 </div>
 
@@ -289,190 +210,50 @@
 const API = "https://blueon.up.railway.app";
 const taskKey = new URLSearchParams(location.search).get("task");
 
-if (!taskKey) {
-  alert("잘못된 접근입니다. (task 누락)");
-  location.href = "my-orders.html";
+function mapStatus(status){
+  if(status==="progress") return {label:"진행중", cls:"pill primary"};
+  if(status==="done") return {label:"작업 완료", cls:"pill good"};
+  return {label:"작업 준비중", cls:"pill warn"};
 }
 
-/* ======================================================
-   유저 기준 상태 매핑/표시
-====================================================== */
-function mapUserStatus(status) {
-  if (status === "progress") return "progress";
-  if (status === "done") return "done";
-  return "pending"; // start/ready/pending 등
-}
-
-function statusLabel(userStatus) {
-  if (userStatus === "pending") return "작업 준비중";
-  if (userStatus === "progress") return "진행중";
-  return "작업 완료";
-}
-
-function pillClass(userStatus) {
-  if (userStatus === "pending") return "pill warn";
-  if (userStatus === "progress") return "pill primary";
-  return "pill good";
-}
-
-/* ======================================================
-   상세 불러오기 (여러 엔드포인트 fallback)
-   - 네 서버가 어떤 라우트를 쓰는지 100% 확정이 아니라서
-     "한 번에 성공하는 구조"로 안전하게 해둠.
-====================================================== */
-async function fetchDetailByTaskKey(taskKey) {
-  const candidates = [
-    `${API}/my/tasks/detail?taskKey=${encodeURIComponent(taskKey)}`,
-    `${API}/tasks/detail?taskKey=${encodeURIComponent(taskKey)}`,
-    `${API}/user/tasks/detail?taskKey=${encodeURIComponent(taskKey)}`,
-    `${API}/orders/detail?taskKey=${encodeURIComponent(taskKey)}`
-  ];
-
-  for (const url of candidates) {
-    try {
-      const res = await fetch(url, { credentials:"include" });
-      const data = await res.json();
-      if (data && data.success) return { data, used:url };
-    } catch (e) {}
-  }
-  return null;
-}
-
-/* ======================================================
-   렌더
-====================================================== */
-function safe(v, fallback="-") {
-  if (v === null || v === undefined || v === "") return fallback;
-  return v;
-}
-
-function render(detail) {
-  // detail.data 내부 구조가 서버마다 다를 수 있어
-  // 가장 흔한 키들로 흡수 처리
-  const d = detail.data;
-
-  const row = d.task || d.order || d.detail || d.data || d; // 최대한 흡수
-  const serviceTitle = row.service_title || row.title || row.serviceName;
-  const thumbnail = row.thumbnail || row.service_thumbnail || row.thumb;
-  const expertNickname = row.expert_nickname || row.expertNickname || row.expert_name;
-  const statusRaw = row.status || row.task_status;
-  const userStatus = mapUserStatus(statusRaw);
-
-  const createdAt = row.created_at || row.createdAt || row.ordered_at || row.order_created_at;
-  const phase = row.phase || row.task_phase || row.main_category || row.category;
-
-  const orderId = row.order_id || row.id || row.orderId;
-  const requestText =
-    row.request_message ||
-    row.requirements ||
-    row.user_request ||
-    row.message ||
-    "";
-
-  // DOM
-  document.getElementById("thumb").src = thumbnail || "/assets/default_service.png";
-  document.getElementById("serviceTitle").innerText = safe(serviceTitle, "서비스");
-  document.getElementById("expertNickname").innerText = safe(expertNickname, "전문가");
-  document.getElementById("expertPill").innerText = `전문가: ${safe(expertNickname, "전문가")}`;
-  document.getElementById("orderPill").innerText = `주문번호: ${safe(orderId, "-")}`;
-  document.getElementById("taskKeyText").innerText = `taskKey: ${taskKey}`;
-
-  // 상태
-  const label = statusLabel(userStatus);
-  const pill = document.getElementById("statusPill");
-  pill.className = pillClass(userStatus);
-  pill.innerText = label;
-  document.getElementById("statusText").innerText = `${label} (${safe(statusRaw,"-")})`;
-
-  // 단계/서비스
-  document.getElementById("phaseText").innerText = safe(phase, "-");
-  document.getElementById("serviceText").innerText = safe(serviceTitle, "-");
-
-  // 날짜
-  document.getElementById("createdAt").innerText = createdAt ? formatDate(createdAt) : "-";
-
-  // 요청사항
-  const box = document.getElementById("requestBox");
-  if (requestText && String(requestText).trim().length > 0) {
-    box.className = "";
-    box.style.padding = "0";
-    box.style.border = "0";
-    box.style.background = "transparent";
-    box.innerHTML = `
-      <div style="
-        padding:18px;
-        border:1px solid var(--line);
-        border-radius:14px;
-        background:#fafbff;
-        line-height:1.7;
-        font-weight:700;
-        color:#111827;
-        white-space:pre-line;
-      ">${escapeHtml(String(requestText).trim())}</div>
-    `;
-  } else {
-    box.className = "empty";
-    box.innerHTML = `요청 사항이 없습니다.`;
-  }
-
-  // 채팅 버튼 상태
-  const chatBtn = document.getElementById("chatBtn");
-  if (userStatus === "pending") {
-    chatBtn.disabled = true;
-    chatBtn.innerText = "⏳ 전문가 작업 시작 대기중";
-  } else {
-    chatBtn.disabled = false;
-    chatBtn.innerText = "💬 채팅으로 이동";
-  }
-}
-
-/* ======================================================
-   유틸
-====================================================== */
-function formatDate(dateString) {
-  const d = new Date(dateString);
-  const yyyy = d.getFullYear();
-  const mm = String(d.getMonth()+1).padStart(2,"0");
-  const dd = String(d.getDate()).padStart(2,"0");
-  return `${yyyy}-${mm}-${dd}`;
-}
-
-function escapeHtml(str) {
-  return str
-    .replaceAll("&","&amp;")
-    .replaceAll("<","&lt;")
-    .replaceAll(">","&gt;")
-    .replaceAll('"',"&quot;")
-    .replaceAll("'","&#039;");
-}
-
-/* ======================================================
-   초기 실행
-====================================================== */
-async function init() {
-  document.getElementById("loading").style.display = "block";
-  document.getElementById("content").style.display = "none";
-
-  const detail = await fetchDetailByTaskKey(taskKey);
-
-  if (!detail) {
-    alert("작업 상세를 불러올 수 없습니다. (API 라우트 확인 필요)");
-    location.href = "my-orders.html";
+async function init(){
+  const res = await fetch(`${API}/my/tasks/detail?taskKey=${encodeURIComponent(taskKey)}`, {
+    credentials:"include"
+  });
+  const data = await res.json();
+  if(!data.success){
+    alert("작업 정보를 불러올 수 없습니다.");
+    location.href="my-orders.html";
     return;
   }
 
-  render(detail);
+  const t = data.task;
+  const s = mapStatus(t.status);
 
-  document.getElementById("loading").style.display = "none";
-  document.getElementById("content").style.display = "block";
+  document.getElementById("thumb").src = t.thumbnail;
+  document.getElementById("serviceTitle").innerText = t.service_title;
+  document.getElementById("expertNickname").innerText = t.expert.nickname;
+  document.getElementById("expertPill").innerText = `전문가: ${t.expert.nickname}`;
+  document.getElementById("orderPill").innerText = `주문번호: ${t.order_id}`;
+  document.getElementById("statusText").innerText = s.label;
+  document.getElementById("phaseText").innerText = t.phase;
+  document.getElementById("serviceText").innerText = t.service_title;
+  document.getElementById("createdAt").innerText =
+    new Date(t.created_at).toLocaleDateString();
+
+  const pill = document.getElementById("statusPill");
+  pill.className = s.cls;
+  pill.innerText = s.label;
+
+  const chatBtn = document.getElementById("chatBtn");
+  if(t.status === "pending"){
+    chatBtn.disabled = true;
+    chatBtn.innerText = "⏳ 전문가 작업 시작 대기중";
+  } else {
+    chatBtn.onclick = () =>
+      location.href = `task-chat.html?taskKey=${encodeURIComponent(taskKey)}`;
+  }
 }
-
-document.getElementById("refreshBtn").onclick = () => init();
-
-document.getElementById("chatBtn").onclick = () => {
-  // 네가 만든 task 기준 채팅 페이지로 보내기
-  location.href = `task-chat.html?taskKey=${encodeURIComponent(taskKey)}`;
-};
 
 init();
 </script>
