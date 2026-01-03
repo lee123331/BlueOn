@@ -157,18 +157,27 @@ const sessionStore = new MySQLStore({
 });
 
 const sessionMiddleware = session({
-  name: "blueon.sid", // key ❌ → name ⭕
+  name: "blueon.sid",
   secret: process.env.SESSION_SECRET || "blueon_secret",
+
   resave: false,
   saveUninitialized: false,
+
   store: sessionStore,
+
   cookie: {
     httpOnly: true,
-    secure: false,      // Railway HTTPS면 true로 바꿔도 됨
+
+    // 🔥 Railway는 HTTPS 강제 → 반드시 true
+    secure: true,
+
+    // 🔥 socket.io + fetch(credentials) 안정값
     sameSite: "lax",
-    maxAge: 1000 * 60 * 60 * 24,
+
+    maxAge: 1000 * 60 * 60 * 24, // 1일
   },
 });
+
 
 app.use(sessionMiddleware);
 
@@ -618,6 +627,12 @@ app.get("/api/task-chat/messages", async (req, res) => {
 const httpServer = http.createServer(app);
 
 const io = new SocketIOServer(httpServer, {
+  // 🚨 Railway 필수: polling → websocket 업그레이드 허용
+  transports: ["polling", "websocket"],
+
+  // 🔥 path 명시 (프록시 안정화)
+  path: "/socket.io",
+
   cors: {
     origin: [
       "http://localhost:3000",
@@ -626,13 +641,16 @@ const io = new SocketIOServer(httpServer, {
     ],
     credentials: true,
   },
+
+  // 🔥 heartbeat 안정화 (Railway timeout 방어)
+  pingInterval: 25000,
+  pingTimeout: 60000,
 });
 
-// 🔥 Express 세션을 Socket.io에 연결 (핵심)
+// 🔥 Express 세션을 Socket.io에 연결 (Railway 안정 패턴)
 io.use((socket, next) => {
   sessionMiddleware(socket.request, {}, next);
 });
-
 
 /* ------------------ 회원가입 ------------------ */
 app.post("/signup", async (req, res) => {
