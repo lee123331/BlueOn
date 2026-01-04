@@ -1,6 +1,11 @@
 console.log("🔵 header-chat.js loaded");
 
-const API = "https://blueon.up.railway.app";
+/* =========================================================
+   ✅ 공통 설정
+   - HTTPS / 로컬 / 도메인 변경에도 안전하게:
+     Socket.IO는 "상대 경로 연결"이 정석 (Mixed Content 방지)
+========================================================= */
+const API_URL = "https://blueon.up.railway.app";
 
 const chatBadge = document.getElementById("chatBadge");
 if (chatBadge) chatBadge.style.display = "none";
@@ -12,12 +17,10 @@ let CURRENT_USER = null;
 ============================ */
 async function loadHeaderUser() {
   try {
-    const res = await fetch(`${API}/auth/me`, {
-      credentials: "include"
-    });
+    const res = await fetch(`${API_URL}/auth/me`, { credentials: "include" });
     const data = await res.json();
 
-    if (data.success && data.user) {
+    if (data?.success && data?.user) {
       CURRENT_USER = data.user;
       console.log("🟢 로그인된 사용자:", CURRENT_USER);
       return true;
@@ -35,12 +38,13 @@ async function syncChatBadge() {
   if (!chatBadge || !CURRENT_USER) return;
 
   try {
-    const res = await fetch(`${API}/chat/unread-count`, {
-      credentials: "include"
+    const res = await fetch(`${API_URL}/chat/unread-count`, {
+      credentials: "include",
+      cache: "no-store",
     });
     const data = await res.json();
 
-    if (data.success && data.total > 0) {
+    if (data?.success && Number(data.total) > 0) {
       chatBadge.style.display = "block";
     } else {
       chatBadge.style.display = "none";
@@ -63,10 +67,13 @@ async function initHeaderChat() {
   // ✅ 소켓이 죽어도 배지는 유지 (보조 안전장치)
   setInterval(syncChatBadge, 5000);
 
-  // ✅ 서버 설정과 완전히 동일하게 맞춤
-  const socket = io(API, {
-    transports: ["websocket"],   // 🔥 핵심
-    withCredentials: true
+  // ✅ 핵심: URL(API_URL) 넘기지 말고 "상대 연결"로 붙기 (Mixed Content 방지)
+  // - /socket.io/socket.io.js 를 같은 도메인에서 로딩하고 있으니 이게 정답
+  const socket = io({
+    path: "/socket.io",
+    withCredentials: true,
+    transports: ["polling"], // Railway/프록시 환경에서 가장 안정적
+    upgrade: false,
   });
 
   socket.on("connect", () => {
@@ -78,13 +85,12 @@ async function initHeaderChat() {
   });
 
   socket.on("connect_error", (err) => {
-    console.warn("⚠️ header socket 오류:", err.message);
+    console.warn("⚠️ header socket 오류:", err?.message || err);
   });
 
   // 📩 채팅 알림 수신
   socket.on("chat:notify", (data) => {
-    if (!data) return;
-    if (!CURRENT_USER) return;
+    if (!data || !CURRENT_USER) return;
     if (Number(data.targetId) !== Number(CURRENT_USER.id)) return;
 
     console.log("📩 채팅 알림 수신");
