@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>로고 디자인 전문가 추천 | BlueOn</title>
+<title>로고·브랜드 이미지 제작 전문가 추천 | BlueOn</title>
 
 <style>
 body {
@@ -23,48 +23,82 @@ header {
   cursor: pointer;
 }
 
-/* ─────────────────────────────── */
+/* 제목 */
+.page-title {
+  max-width:1200px;
+  margin:30px auto 10px;
+  font-size:22px;
+  font-weight:800;
+  padding-left:60px;
+}
+
+/* 하위 카테고리 필터 */
+.sub-filter-wrap {
+  display:flex;
+  gap:12px;
+  margin:20px auto;
+  max-width:1200px;
+  padding-left:60px;
+}
+
+.sub-btn {
+  padding:10px 18px;
+  background:#f5f7fa;
+  border:1px solid #e5e7eb;
+  border-radius:25px;
+  font-size:14px;
+  cursor:pointer;
+  transition:0.2s;
+}
+.sub-btn.active {
+  background:#eaf1ff;
+  border-color:#3b82f6;
+  color:#2563eb;
+  font-weight:700;
+}
+
 /* SERVICE CARD */
-/* ─────────────────────────────── */
 .service-card {
-  width: 100%;
-  background: white;
-  border-radius: 14px;
-  border: 1px solid #e5e7eb;
-  padding: 20px;
-  margin: 20px auto;
-  max-width: 1200px;
-  cursor: pointer;
-  transition: 0.2s;
+  width:100%;
+  background:white;
+  border-radius:14px;
+  border:1px solid #e5e7eb;
+  padding:20px;
+  margin:20px auto;
+  max-width:1200px;
+  cursor:pointer;
+  transition:0.2s;
 }
 .service-card:hover {
-  border-color: #b0c8ff;
+  border-color:#b0c8ff;
 }
 
 .service-top {
-  display: flex;
-  gap: 20px;
+  display:flex;
+  gap:20px;
 }
 
 .service-thumb {
-  width: 180px;
-  height: 140px;
-  border-radius: 12px;
-  object-fit: cover;
-  background: #eee;
+  width:180px;
+  height:140px;
+  border-radius:12px;
+  object-fit:cover;
+  background:#eee;
 }
 
+.service-info { flex:1; }
+
 .service-title {
-  font-size: 20px;
-  font-weight: 800;
-  margin-bottom: 6px;
+  font-size:20px;
+  font-weight:800;
+  margin-bottom:6px;
 }
 
 .service-price {
-  font-size: 16px;
-  color: #0056ff;
-  font-weight: 700;
-  margin-top: 4px;
+  font-size:16px;
+  color:#0056ff;
+  font-weight:700;
+  margin-top:4px;
 }
 </style>
 </head>
@@ -73,9 +107,17 @@ header {
 
 <header onclick="location.href='index.html'">BlueOn</header>
 
-<h2 style="max-width:1200px;margin:30px auto 10px;font-size:22px;font-weight:800; padding-left:60px;">
-  로고 디자인 전문가 추천
+<h2 class="page-title">
+  로고·브랜드 이미지 제작 전문가 추천
 </h2>
+
+<!-- 🔵 하위 카테고리 필터 -->
+<div class="sub-filter-wrap">
+  <button class="sub-btn active" data-sub="로고 디자인">로고 디자인</button>
+  <button class="sub-btn" data-sub="브랜드 키비주얼">브랜드 키비주얼</button>
+  <button class="sub-btn" data-sub="배너 디자인">배너 디자인</button>
+  <button class="sub-btn" data-sub="SNS 카드 뉴스">SNS 카드 뉴스</button>
+</div>
 
 <div id="serviceList"></div>
 
@@ -98,16 +140,16 @@ function parseImages(raw) {
   return [];
 }
 
-/* 🔵 로고 디자인 서비스 불러오기 */
-async function loadServices() {
+/* 🔵 서비스 불러오기 */
+async function loadServices(sub) {
   try {
-    const res = await fetch(`${API}/services/list?sub=${encodeURIComponent("로고 디자인")}`);
+    const res = await fetch(`${API}/services/list?sub=${encodeURIComponent(sub)}`);
     const data = await res.json();
 
     if (!data.success || !data.services.length) {
       document.getElementById("serviceList").innerHTML = `
         <p style="text-align:center;color:#777;margin-top:40px;">
-          등록된 로고 디자인 서비스가 없습니다.
+          해당 카테고리의 서비스가 없습니다.
         </p>`;
       return;
     }
@@ -138,7 +180,7 @@ function renderServices(list) {
 
     card.innerHTML = `
       <div class="service-top">
-        <img src="${thumb}" class="service-thumb" alt="대표 이미지" />
+        <img src="${thumb}" class="service-thumb" />
         <div class="service-info">
           <div class="service-title">${svc.title}</div>
           <div class="service-price">${priceBasic}</div>
@@ -146,7 +188,6 @@ function renderServices(list) {
       </div>
     `;
 
-    /* 🔥 클릭 → 상세 페이지 이동 */
     card.addEventListener("click", () => {
       location.href = `service-detail.html?id=${svc.id}`;
     });
@@ -155,8 +196,22 @@ function renderServices(list) {
   });
 }
 
-/* 시작 */
-document.addEventListener("DOMContentLoaded", loadServices);
+/* 🔵 필터 버튼 클릭 */
+document.addEventListener("click", (e) => {
+  if (!e.target.classList.contains("sub-btn")) return;
+
+  document.querySelectorAll(".sub-btn").forEach(btn =>
+    btn.classList.remove("active")
+  );
+  e.target.classList.add("active");
+
+  loadServices(e.target.dataset.sub);
+});
+
+/* 초기 로딩 */
+document.addEventListener("DOMContentLoaded", () => {
+  loadServices("로고 디자인");
+});
 </script>
 
 </body>
