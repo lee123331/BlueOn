@@ -176,31 +176,22 @@ console.log("✅ 세션 스토어 적용 완료");
 
 
 function getTaskKey(main, sub) {
-  if (!main && !sub) return null;
+  if (!main || !sub) return null;
 
-  // 1) 브랜드 디자인 → 로고
-  if (main === "brand_design" && ["로고 디자인", "브랜드 키비주얼"].includes(sub)) {
+  if (main === "brand_design" && ["logo", "brand_keyvisual"].includes(sub)) {
     return "task_logo";
   }
 
-  // 2) 브랜드 디자인 → 상세페이지/배너/이미지
-  if (main === "brand_design" && 
-     ["상세페이지 제작", "배너 디자인", "브랜드 이미지 제작", "SNS 카드 뉴스"].includes(sub)) {
+  if (main === "brand_design" && ["detail_page", "banner", "brand_image", "sns_card"].includes(sub)) {
     return "task_visual";
   }
 
-  // 3) 마케팅 범주
-  if (main === "marketing") {
-    return "task_story";
-  }
-
-  // 4) 쇼핑몰·웹 구축 범주
-  if (main === "shop_build") {
-    return "task_programming";
-  }
+  if (main === "marketing") return "task_story";
+  if (main === "shop_build") return "task_programming";
 
   return null;
 }
+
 
 /* ======================================================
    업로드 디렉토리 생성
@@ -911,6 +902,19 @@ app.post(
          🔥 1) taskKey 계산
       ========================================================== */
       const taskKey = getTaskKey(b.mainCategory, b.subCategory);
+
+      if (!taskKey) {
+  console.error("❌ task_key 생성 실패", {
+    mainCategory: b.mainCategory,
+    subCategory: b.subCategory,
+  });
+
+  return res.status(400).json({
+    success: false,
+    message: "서비스 카테고리에 맞는 task_key를 찾을 수 없습니다.",
+  });
+}
+
 
 
 
