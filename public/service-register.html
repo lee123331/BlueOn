@@ -906,119 +906,135 @@ document.querySelectorAll(".menu-item").forEach(item => {
 
 
 /* ========================================================= */
-/* 카테고리 연동 */
+/* 카테고리 연동 (BlueOn 단계 기반 정렬) */
 /* ========================================================= */
 const mainCategory = document.getElementById("mainCategory");
 const subCategory = document.getElementById("subCategory");
 
 const categoryMap = {
+
+  /* =========================
+     1️⃣ 브랜드 설계 단계
+  ========================= */
+
   brand_design: [
-    "상세페이지 제작",
-    "배너 디자인",
     "로고 디자인",
-    "브랜드 키비주얼",
-    "SNS 카드 뉴스"
+    "브랜드 키비주얼 제작",
+    "배너 디자인",
+    "상세페이지 제작",
+    "SNS 카드뉴스 디자인"
   ],
+
   shop_build: [
     "스마트스토어 커스터마이징",
     "자사몰 구축",
     "랜딩페이지 제작",
     "홈페이지 개발"
   ],
+
   marketing: [
-    "인스타그램 운영 대행",
+    "브랜드 스토리 카피라이팅",
     "네이버 블로그 최적화",
-    "SEO 상위노출",
-    "광고 집행",
-    "틱톡 마케팅"
+    "SEO 검색 노출 설계",
+    "광고 집행 전략 설계"
   ],
+
   development: [
-    "API 연동",
-    "백엔드 개발",
+    "쇼핑몰 기능 커스터마이징 개발",
     "관리자 페이지 개발",
-    "자동화·봇 시스템 개발",
-    "쇼핑몰 커스터마이징 기능 개발"
+    "API 연동 개발",
+    "자동화 시스템 기초 개발"
   ],
- brand_spread: [
-  "숏폼 영상 제작",
-  "제품 촬영",
-  "리뷰 영상 제작",
-  "브랜드 스토리 영상 제작",
-  "제품 소개 영상 제작",
-],
-brand_setting: [
-  "SNS 계정 브랜딩",
-  "브랜드 계정 세팅",
-  "SNS 계정 활성화 서비스",
-  "인플루언서 마케팅"
-],
-template: [
-  "카드뉴스 템플릿",
-  "피드 디자인 템플릿",
-  "SNS 이벤트 디자인",  
-  "SNS 디자인 템플릿 패키지"
-],
 
-brand_SEO : [
-  "검색 상위노출 패키지",
-  "키워드 상위노출 서비스",
-  "네이버·구글 검색 노출 최적화",
-  "SEO 트래픽 상승 서비스"
-],
+  /* =========================
+     2️⃣ 브랜드 확산 단계
+  ========================= */
 
-youtube_channel: [
-  "유튜브 영상 편집",
-  "유튜브 영상 커버 디자인",
-  "유튜브 썸네일 패키지",
-  "유튜브 영상 오프닝 · 엔딩 디자인"
-],
+  brand_spread: [
+    "숏폼 영상 제작",
+    "제품 촬영",
+    "바이럴 영상 제작",
+    "브랜드 스토리 영상 제작",
+    "제품 소개 영상 제작"
+  ],
 
-SNS_design: [
-  "SNS 랜딩 페이지 제작",
-  "SNS 바이럴 마케팅",
-  "SNS 활용 이벤트 기획",
-],
+  brand_setting: [
+    "SNS 계정 브랜딩 세팅",
+    "브랜드 계정 프로필·피드 통합 구성",
+    "SNS 운영 기본 세팅",
+    "인플루언서 마케팅 연계"
+  ],
 
-expand_channel: [
-"네이버 플레이스 운영 · 리뷰 관리 ",
-"유튜브 채널 운영 · 쇼츠 제작",
-"자사몰 CRO",
-"네이버 카페 마케팅"
-],
+  template: [
+    "SNS 카드뉴스 템플릿",
+    "피드 디자인 템플릿",
+    "SNS 이벤트 디자인",
+    "SNS 콘텐츠 템플릿 패키지"
+  ],
 
-auto_system: [
-  "고객 세그먼트 자동 분류(신규·이탈·재구매 고객)",
-  "SNS 게시물/광고 자동 예약·발행",
-  "주문/재고 변동 시 자동 기록·자동 업데이트",
-  "실시간 문의 → 상담원(전문가) 자동 연결"
-],
+  brand_SEO: [
+    "검색 노출 최적화 패키지",
+    "키워드 상위노출 전략",
+    "네이버·구글 SEO 최적화",
+    "SEO 기반 트래픽 증대 설계"
+  ],
 
+  youtube_channel: [
+    "유튜브 쇼츠 영상 편집",
+    "유튜브 썸네일 패키지",
+    "채널 아트 디자인",
+    "영상 오프닝·엔딩 브랜딩"
+  ],
 
-expand_brand_model: [
-  "시즌 한정/테마 제품 개발",
-  "브랜드 멤버십/포인트 시스템 구축",
-  "오프라인 팝업스토어 기획",
-  "전문가/기업 대상 제품 기획"
-],
+  SNS_design: [
+    "SNS 전용 랜딩 페이지 제작",
+    "SNS 바이럴 확산 기획",
+    "SNS 이벤트·캠페인 기획"
+  ],
 
-data_marketing: [
-  "고객 데이터 분석",
-  "CRM 세팅 · 자동화 구축",
-  "리텐션 마케팅 설계",
-  "데이터 기반 광고 최적화"
-]
+  /* =========================
+     3️⃣ 브랜드 확장 단계
+  ========================= */
+
+  expand_channel: [
+    "국내 채널 확장 전략 설계",
+    "네이버 플레이스 운영·리뷰 관리",
+    "유튜브 채널 운영·쇼츠 확장",
+    "자사몰 전환율(CRO) 개선"
+  ],
+
+  auto_system: [
+    "고객 세그먼트 자동 분류 시스템",
+    "SNS 게시물·광고 자동 예약 발행",
+    "주문·재고 자동 기록 및 연동",
+    "실시간 문의 자동 분배 시스템"
+  ],
+
+  expand_brand_model: [
+    "브랜드 확장 모델 설계",
+    "멤버십·구독·포인트 시스템 구축",
+    "오프라인 팝업스토어 기획",
+    "B2B·파트너십 제품 기획"
+  ],
+
+  data_marketing: [
+    "고객 데이터 분석",
+    "CRM 세팅 및 자동화 구축",
+    "재구매·리텐션 마케팅 설계",
+    "데이터 기반 광고 최적화"
+  ]
 };
 
 mainCategory.addEventListener("change", () => {
   subCategory.innerHTML = `<option disabled selected>하위 카테고리를 선택하세요</option>`;
   (categoryMap[mainCategory.value] || []).forEach(c => {
-  const opt = document.createElement("option");
-  opt.value = c.trim();        // ← 추가!!!
-  opt.textContent = c.trim();  // ← 추가!!!
-  subCategory.appendChild(opt);
+    const opt = document.createElement("option");
+    opt.value = c.trim();
+    opt.textContent = c.trim();
+    subCategory.appendChild(opt);
+  });
 });
 
-});
 
 
 
@@ -1541,27 +1557,43 @@ function loadSubCategories(mainKey) {
   });
 }
 
-// key → 한국어 이름
+// key → 한국어 이름 (구체적 작업명 · 중복 없음)
 function convertKeyName(key) {
   const map = {
-    brand_design: "브랜드 디자인",
-    shop_build:   "쇼핑몰 구축",
-    marketing:    "브랜드 마케팅",
-    development:  "개발·커스터마이징",
-    brand_spread: "브랜드 스케일업",
-    brand_setting: "브랜드 세팅",
-    template: "템플릿",
-    brand_SEO: "SEO 최적화",
-    youtube_channel: "유튜브 채널 브랜딩",
-    SNS_design:" SNS 디자인",
-    expand_channel:"국내 채널 확장 전략",
-    auto_system:"자동화 시스템 구축",
-    expand_brand_model:"브랜드 확장 모델 개발",
-    data_marketing : "데이터 마케팅"
 
+    /* =========================
+       브랜드 설계 단계
+    ========================= */
+
+    brand_design: "로고·상세페이지 디자인",
+    shop_build:   "스마트스토어·자사몰 제작",
+    marketing:    "블로그·광고 운영",
+    development:  "쇼핑몰 기능 개발",
+
+    /* =========================
+       브랜드 확산 단계
+    ========================= */
+
+    brand_spread:    "숏폼·바이럴 영상 제작",
+    brand_setting:   "SNS 계정 운영",
+    template:        "카드뉴스·피드 디자인",
+    brand_SEO:       "검색 상위노출 작업",
+    youtube_channel: "유튜브 영상·쇼츠 제작",
+    SNS_design:      "SNS 랜딩페이지 제작",
+
+    /* =========================
+       브랜드 확장 단계
+    ========================= */
+
+    expand_channel:     "채널 운영 대행",
+    auto_system:        "업무 자동화 구축",
+    expand_brand_model: "신규 상품 출시",
+    data_marketing:    "고객 데이터 분석"
   };
+
   return map[key] || key;
 }
+
 
 // 초기 실행
 loadMainCategories();

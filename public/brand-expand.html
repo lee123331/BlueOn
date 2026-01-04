@@ -145,7 +145,7 @@ header {
 <!-- HERO -->
 <div class="hero">
   <h2>브랜드 확장 단계</h2>
-  <p>완성된 브랜드를 기반으로 시장 점유율을 높이는 단계입니다.</p>
+  <p>이제 성장은 ‘더 열심히’가 아니라, 구조와 시스템의 문제입니다.</p>
 
   <!-- 진행률 -->
   <div class="progress-wrapper">
@@ -171,32 +171,48 @@ header {
 </div>
 
 <!-- SECTION TITLE -->
-<div class="section-title">브랜드 확장에 필요한 핵심 전략</div>
+<div class="section-title">브랜드를 ‘사업 시스템’으로 만드는 핵심 단계</div>
 
 <!-- SERVICE CARDS -->
 <div class="card-list">
 
+  <!-- 1. 채널 확장 -->
   <div class="card" onclick="location.href='expand-channel.html'">
-    <div class="card-title">📡 국내 채널 확장 전략</div>
-    <div class="card-desc">네이버·카카오·SNS 기반의 국내 확장 전략 설계</div>
+    <div class="card-title">📡 국내 채널 확장 전략 (매출 파이프라인 확대)</div>
+    <div class="card-desc">
+      특정 채널 의존에서 벗어나기 위한 단계입니다.
+      어떤 채널을 언제, 어떤 구조로 확장할지 전략적으로 설계합니다.
+    </div>
     <div class="card-arrow">관련 서비스 보기 →</div>
   </div>
 
+  <!-- 2. 운영 시스템 -->
   <div class="card" onclick="location.href='expansion-system.html'">
-    <div class="card-title">⚙ 자동화 시스템 구축</div>
-    <div class="card-desc">재고 · 주문 · 고객관리 자동화 및 업무 효율성 강화</div>
+    <div class="card-title">⚙ 운영 자동화 시스템 구축 (확장 가능한 구조)</div>
+    <div class="card-desc">
+      주문·재고·CS·정산이 사람을 갈아넣지 않도록 만듭니다.
+      브랜드가 커져도 무너지지 않는 운영 구조를 완성합니다.
+    </div>
     <div class="card-arrow">관련 서비스 보기 →</div>
   </div>
 
+  <!-- 3. 성장 모델 -->
   <div class="card" onclick="location.href='expansion-franchise.html'">
-    <div class="card-title">🏢 브랜드 확장 모델 개발</div>
-    <div class="card-desc">가맹 모델 · B2B 협업 · 파트너십 전략 수립</div>
+    <div class="card-title">🏢 브랜드 확장 모델 개발 (다음 성장 곡선)</div>
+    <div class="card-desc">
+      단일 상품·단일 채널을 넘어,
+      가맹·B2B·파트너십 등 새로운 성장 모델을 설계합니다.
+    </div>
     <div class="card-arrow">관련 서비스 보기 →</div>
   </div>
 
+  <!-- 4. 데이터 고도화 -->
   <div class="card" onclick="location.href='expansion-data.html'">
     <div class="card-title">📊 데이터 기반 마케팅 · CRM 고도화</div>
-    <div class="card-desc">고객 분석 · 재구매 전략 · 브랜딩 ROI 측정</div>
+    <div class="card-desc">
+      감이 아닌 데이터로 의사결정하는 단계입니다.
+      재구매·고객가치(LTV) 중심의 성장 구조를 만듭니다.
+    </div>
     <div class="card-arrow">관련 서비스 보기 →</div>
   </div>
 
@@ -213,15 +229,13 @@ header {
    브랜드 확장 단계 진행률 관리 (4단계)
 ========================================================== */
 
-// 실제 service-detail.html 에서 저장하는 key들과 동일해야 함
 const EXPAND_KEYS = [
-  "expand_channel",       // 국내 채널 확장
-  "auto_system",          // 자동화 시스템 구축
-  "expand_brand_model",   // 브랜드 확장 모델 개발
-  "data_marketing"        // 데이터 기반 마케팅 · CRM 고도화
+  "expand_channel",
+  "auto_system",
+  "expand_brand_model",
+  "data_marketing"
 ];
 
-/* 상태 읽기 */
 function loadExpandStatus() {
   return {
     expand_channel: localStorage.getItem("expand_channel") === "done",
@@ -231,19 +245,15 @@ function loadExpandStatus() {
   };
 }
 
-/* 진행률 계산 */
 function computeExpandProgress() {
   const status = loadExpandStatus();
   let count = 0;
   EXPAND_KEYS.forEach(k => {
     if (status[k]) count++;
   });
-
-  // 퍼센트 계산
   return (count / EXPAND_KEYS.length) * 100;
 }
 
-/* UI 반영 */
 function updateExpandProgressUI() {
   const percent = computeExpandProgress();
   const bar = document.getElementById("progressBar");
@@ -253,10 +263,9 @@ function updateExpandProgressUI() {
   if (label) label.textContent = Math.floor(percent) + "%";
 }
 
-/* 최초 실행 */
 updateExpandProgressUI();
 </script>
 
-
 </body>
 </html>
+  

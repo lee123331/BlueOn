@@ -145,7 +145,7 @@ header {
 <!-- HERO -->
 <div class="hero">
   <h2>브랜드 설계 단계</h2>
-  <p>내 브랜드의 뼈대를 만드는 핵심 단계입니다.</p>
+  <p>지금은 ‘잘 팔리게 만들기 전’, 브랜드의 뼈대를 완성하는 구간입니다.</p>
 
   <!-- 진행률 -->
   <div class="progress-wrapper">
@@ -171,32 +171,48 @@ header {
 </div>
 
 <!-- SECTION TITLE -->
-<div class="section-title">브랜드 설계에 필요한 작업들</div>
+<div class="section-title">브랜드 설계 단계에서 반드시 완성해야 할 것</div>
 
 <!-- SERVICE CARDS -->
 <div class="card-list">
 
+  <!-- 1. 브랜드 얼굴 -->
   <div class="card" onclick="location.href='service-logo.html'">
-    <div class="card-title">🧩 로고 디자인</div>
-    <div class="card-desc">브랜드의 얼굴이 되는 핵심 아이덴티티입니다.</div>
+    <div class="card-title">🧩 브랜드 얼굴 설계 (로고·키비주얼)</div>
+    <div class="card-desc">
+      고객이 처음 보는 순간 “어떤 브랜드인지” 인식하게 만드는 기준점입니다.
+      이후 모든 디자인·콘텐츠의 출발선이 됩니다.
+    </div>
     <div class="card-arrow">추천 전문가 보기 →</div>
   </div>
 
+  <!-- 2. 설득 구조 -->
   <div class="card" onclick="location.href='service-font&detailpage.html'">
-    <div class="card-title">🎨 상세페이지·배너·브랜드 이미지 제작</div>
-    <div class="card-desc">고객에게 일관된 인상을 주는 비주얼 설계 단계</div>
+    <div class="card-title">🎨 구매를 만드는 설명 구조 (상세페이지·배너·브랜드 이미지)</div>
+    <div class="card-desc">
+      고객의 질문을 페이지가 대신 답해주는 단계입니다.
+      ‘왜 사야 하는지’가 명확해져야 전환이 일어납니다.
+    </div>
     <div class="card-arrow">추천 전문가 보기 →</div>
   </div>
 
+  <!-- 3. 유입 기반 -->
   <div class="card" onclick="location.href='service-marketing&copyrighting.html'">
-    <div class="card-title">✍ SNS 운영 + SEO 상위노출 + 광고 집행 대행</div>
-    <div class="card-desc">브랜드 서사와 메시지를 만드는 핵심 단계</div>
+    <div class="card-title">✍ 검색·신뢰 유입 기반 구축 (SEO·블로그·SNS 기본 세팅)</div>
+    <div class="card-desc">
+      광고를 하기 전에 반드시 필요한 단계입니다.
+      시간이 지날수록 쌓이는 ‘지속 유입 구조’를 만듭니다.
+    </div>
     <div class="card-arrow">추천 전문가 보기 →</div>
   </div>
 
+  <!-- 4. 전환 인프라 -->
   <div class="card" onclick="location.href='service-dev.html'">
-    <div class="card-title">💻 스마트스토어 최적화 + 자사몰 구축 + 랜딩페이지 제작</div>
-    <div class="card-desc">결제·회원관리 등 핵심 기능 개발</div>
+    <div class="card-title">💻 판매 인프라 완성 (스마트스토어·자사몰·랜딩페이지)</div>
+    <div class="card-desc">
+      방문자가 실제 구매로 이어지는 마지막 관문입니다.
+      결제·신뢰·확장까지 고려한 기본 구조를 완성합니다.
+    </div>
     <div class="card-arrow">추천 전문가 보기 →</div>
   </div>
 
@@ -209,7 +225,8 @@ header {
 </div>
 
 <script>
-    const API_URL = "https://blueon.up.railway.app";
+const API_URL = "https://blueon.up.railway.app";
+
 /* ==========================================================
     1) Task 정의
 ========================================================== */
@@ -221,7 +238,7 @@ const TASK_KEYS = [
 ];
 
 /* ==========================================================
-    2) 서비스명 + 카테고리 자동 분석 (귀찮음 해결 완성판)
+    2) 서비스명 + 카테고리 자동 분석
 ========================================================== */
 
 function findTaskAuto(service) {
@@ -231,22 +248,14 @@ function findTaskAuto(service) {
     ${service.title || ""}
     ${service.main_category || ""}
     ${service.sub_category || ""}
-  `.replace(/\s+/g, ""); // 공백 제거
+  `.replace(/\s+/g, "");
 
   const lower = text.toLowerCase();
 
-  console.log("🔍 자동 분류 텍스트:", text);
-
-  // -----------------------------
-  // 로고 / 키비주얼
-  // -----------------------------
   if (text.includes("로고") || text.includes("키비주얼") || lower.includes("logo")) {
     return "task_logo";
   }
 
-  // -----------------------------
-  // 상세페이지 / 배너 / 이미지 / 디자인류
-  // -----------------------------
   if (
     text.includes("상세페이지") ||
     text.includes("배너") ||
@@ -259,9 +268,6 @@ function findTaskAuto(service) {
     return "task_visual";
   }
 
-  // -----------------------------
-  // 마케팅 / SEO / SNS / 광고 / 카피
-  // -----------------------------
   if (
     text.includes("seo") ||
     text.includes("광고") ||
@@ -273,9 +279,6 @@ function findTaskAuto(service) {
     return "task_story";
   }
 
-  // -----------------------------
-  // 개발 / 쇼핑몰 구축 / 스마트스토어 / 홈페이지
-  // -----------------------------
   if (
     text.includes("개발") ||
     text.includes("자사몰") ||
@@ -287,8 +290,6 @@ function findTaskAuto(service) {
     return "task_programming";
   }
 
-  // 여전히 못 찾으면 로그 찍고 null
-  console.warn("❗ 분류 실패 → 기본값 null");
   return null;
 }
 
@@ -297,9 +298,7 @@ function findTaskAuto(service) {
 ========================================================== */
 function completeBrandTask(taskKey) {
   if (!taskKey) return false;
-
   if (localStorage.getItem(taskKey) === "done") return false;
-
   localStorage.setItem(taskKey, "done");
   return true;
 }
@@ -322,13 +321,10 @@ function updateProgressUI() {
 }
 
 /* ==========================================================
-    5) 로드 시 초기화 (브랜드 첫 생성자가 아니라면 유지)
+    5) 로드 시 초기화
 ========================================================== */
 async function initProgress() {
-  const res = await fetch(`${API_URL}/brand/check`, {
-  credentials: "include"
-});
-
+  const res = await fetch(`${API_URL}/brand/check`, { credentials: "include" });
   const data = await res.json();
 
   const hasLocal = TASK_KEYS.some(k => localStorage.getItem(k) === "done");
@@ -341,18 +337,16 @@ async function initProgress() {
 }
 
 /* ==========================================================
-    6) 결제 성공 시 호출하는 함수 (이것만 부르면 자동 매핑됨)
+    6) 결제 성공 시 자동 반영
 ========================================================== */
 window.applyBrandTaskFromService = function(service) {
   const taskKey = findTaskAuto(service);
-  console.log("📝 자동 분류 Task:", taskKey);
   completeBrandTask(taskKey);
   updateProgressUI();
 };
 
 initProgress();
 </script>
-
 
 </body>
 </html>
