@@ -955,6 +955,33 @@ if (startBtn) {
     }
   });
 }
+/* ============================================================
+   💬 헤더 채팅 버튼 클릭 → 채팅 페이지 이동
+============================================================ */
+const openChatBtn = document.getElementById("openChat");
+
+if (openChatBtn) {
+  openChatBtn.addEventListener("click", async () => {
+    try {
+      const res = await fetch(`${API_URL}/auth/me`, {
+        credentials: "include",
+      });
+      const data = await res.json();
+
+      // 🔴 비로그인 → 로그인 모달
+      if (!data.success) {
+        openLoginModal();
+        return;
+      }
+
+      // 🟢 로그인 → 채팅 페이지 이동
+      location.href = "chat.html";
+    } catch (err) {
+      console.error("채팅 이동 실패:", err);
+      alert("채팅 페이지로 이동할 수 없습니다.");
+    }
+  });
+}
 
 
   /* ============================================================
