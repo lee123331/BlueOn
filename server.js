@@ -178,9 +178,15 @@ console.log("✅ 세션 스토어 적용 완료");
 function getTaskKey(main, sub) {
   if (!main || !sub) return null;
 
-  // 브랜드 디자인 계열
+  // 🔵 브랜드 디자인 계열
   if (main === "brand_design") {
-    if (sub.includes("로고")) return "task_logo";
+
+    // 로고는 독립
+    if (sub.includes("로고")) {
+      return "task_logo";
+    }
+
+    // 시각 디자인 묶음 (상세·배너·키비주얼·이미지·카드)
     if (
       sub.includes("상세") ||
       sub.includes("배너") ||
@@ -192,16 +198,18 @@ function getTaskKey(main, sub) {
     }
   }
 
-  // 마케팅 계열
+  // 🔵 마케팅 계열
   if (main === "marketing") {
     return "task_story";
   }
 
-  // 쇼핑몰 / 개발 계열
+  // 🔵 쇼핑몰 / 개발 계열
   if (main === "shop_build" || main === "development") {
     return "task_programming";
   }
 
+  // ❗ 여기까지 왔다는 건 정의되지 않은 조합
+  console.warn("⚠️ 알 수 없는 task_key 조합:", main, sub);
   return null;
 }
 
