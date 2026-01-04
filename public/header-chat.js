@@ -17,7 +17,7 @@ async function loadHeaderUser() {
     });
     const data = await res.json();
 
-    if (data.success) {
+    if (data.success && data.user) {
       CURRENT_USER = data.user;
       console.log("🟢 로그인된 사용자:", CURRENT_USER);
       return true;
@@ -60,27 +60,31 @@ async function initHeaderChat() {
   // ✅ 최초 1회 동기화
   syncChatBadge();
 
-  // ✅ polling 백업 (소켓 끊겨도 안전)
+  // ✅ 소켓이 죽어도 배지는 유지 (보조 안전장치)
   setInterval(syncChatBadge, 5000);
 
-  // ✅ 헤더 전용 소켓
+  // ✅ 서버 설정과 완전히 동일하게 맞춤
   const socket = io(API, {
-    withCredentials: true,
-    transports: ["polling"],
-    upgrade: false
+    transports: ["websocket"],   // 🔥 핵심
+    withCredentials: true
   });
 
   socket.on("connect", () => {
     console.log("🟦 header socket 연결:", socket.id);
   });
 
-  socket.on("disconnect", () => {
-    console.log("🔻 header socket 끊김");
+  socket.on("disconnect", (reason) => {
+    console.log("🔻 header socket 끊김:", reason);
   });
 
-  // 📩 새 메시지 이벤트
+  socket.on("connect_error", (err) => {
+    console.warn("⚠️ header socket 오류:", err.message);
+  });
+
+  // 📩 채팅 알림 수신
   socket.on("chat:notify", (data) => {
     if (!data) return;
+    if (!CURRENT_USER) return;
     if (Number(data.targetId) !== Number(CURRENT_USER.id)) return;
 
     console.log("📩 채팅 알림 수신");
