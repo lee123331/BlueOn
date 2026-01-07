@@ -2024,93 +2024,123 @@ taskNsp.on("connection", (socket) => {
    🔵 채팅방 생성
 ====================================================== */
 app.post("/chat/start", async (req, res) => {
-  const conn = await db.getConnection();
+  let conn;
   try {
+    console.log("🧪 chat/start called");
+    console.log("🧪 session user:", req.session.user);
+    console.log("🧪 body:", req.body);
+
     const { targetId } = req.body;
     const me = req.session.user;
 
     if (!me) {
       return res.status(401).json({
         success: false,
-        message: "LOGIN_REQUIRED"
+        message: "LOGIN_REQUIRED",
       });
     }
 
     if (!targetId) {
       return res.status(400).json({
         success: false,
-        message: "TARGET_REQUIRED"
+        message: "TARGET_REQUIRED",
       });
     }
 
     const myId = Number(me.id);
     const otherId = Number(targetId);
 
-    // ❌ 자기 자신과 채팅 방지
-    if (myId === otherId) {
+    if (Number.isNaN(myId) || Number.isNaN(otherId)) {
       return res.status(400).json({
         success: false,
-        message: "CANNOT_CHAT_WITH_SELF"
+        message: "INVALID_USER_ID",
       });
     }
 
+    if (myId === otherId) {
+      return res.status(400).json({
+        success: false,
+        message: "CANNOT_CHAT_WITH_SELF",
+      });
+    }
+
+    conn = await db.getConnection();
     await conn.beginTransaction();
 
     /* ======================================================
-       1️⃣ 기존 방 조회 (행 잠금)
+       1️⃣ 기존 채팅방 조회 (행 잠금)
     ====================================================== */
-    const [exist] = await conn.query(
+    const [existRows] = await conn.query(
       `
       SELECT id
       FROM chat_rooms
-      WHERE (user1_id=? AND user2_id=?)
-         OR (user1_id=? AND user2_id=?)
+      WHERE (user1_id = ? AND user2_id = ?)
+         OR (user1_id = ? AND user2_id = ?)
       LIMIT 1
       FOR UPDATE
       `,
       [myId, otherId, otherId, myId]
     );
 
-    if (exist.length > 0) {
+    if (existRows.length > 0) {
+      const roomId = existRows[0].id;
+
       await conn.commit();
+      conn.release();
+
+      console.log("🟢 existing chat room:", roomId);
+
       return res.json({
         success: true,
-        roomId: exist[0].id,
-        reused: true
+        roomId,
+        reused: true,
       });
     }
 
     /* ======================================================
        2️⃣ 새 채팅방 생성
     ====================================================== */
-    const now = nowStr();
+    const now = new Date();
 
-    const [result] = await conn.query(
+    const [insertResult] = await conn.query(
       `
       INSERT INTO chat_rooms
-      (user1_id, user2_id, created_at, updated_at)
-      VALUES (?, ?, ?, ?)
+        (user1_id, user2_id, last_msg, created_at, updated_at)
+      VALUES
+        (?, ?, NULL, ?, ?)
       `,
       [myId, otherId, now, now]
     );
 
+    const roomId = insertResult.insertId;
+
     await conn.commit();
+    conn.release();
+
+    console.log("🆕 new chat room created:", roomId);
 
     return res.json({
       success: true,
-      roomId: result.insertId,
-      created: true
+      roomId,
+      created: true,
     });
 
   } catch (err) {
-    await conn.rollback();
     console.error("❌ chat/start error:", err);
+
+    if (conn) {
+      try {
+        await conn.rollback();
+        conn.release();
+      } catch (e) {
+        console.error("❌ rollback/release fail:", e);
+      }
+    }
+
     return res.status(500).json({
       success: false,
-      message: "SERVER_ERROR"
+      message: "SERVER_ERROR",
     });
-  } finally {
-    conn.release();
   }
 });
 

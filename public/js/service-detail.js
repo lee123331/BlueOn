@@ -26,7 +26,7 @@ function safeParse(v) {
 }
 
 /* ======================================================
-   🔥 문의하기 (채팅방 생성 → 이동) [최종 안정판]
+   🔥 문의하기 (채팅방 생성 → 이동)
 ====================================================== */
 window.openChat = async function () {
   const targetId = window.SERVICE_EXPERT_ID;
@@ -44,11 +44,6 @@ window.openChat = async function () {
       body: JSON.stringify({ targetId })
     });
 
-    if (!res.ok) {
-      showToast("채팅 서버 연결에 실패했습니다.");
-      return;
-    }
-
     const data = await res.json();
     console.log("🧪 /chat/start result:", data);
 
@@ -57,7 +52,6 @@ window.openChat = async function () {
       return;
     }
 
-    // ✅ 성공 시에만 이동
     location.href = `/chat.html?room=${data.roomId}`;
 
   } catch (err) {
@@ -70,16 +64,14 @@ window.openChat = async function () {
    구매 버튼
 ====================================================== */
 function initBuyButtons() {
-  const buttons = document.querySelectorAll(".btn-buy, .price-buy-btn");
+  document.querySelectorAll(".btn-buy, .price-buy-btn")
+    .forEach(btn => {
+      btn.onclick = async () => {
+        if (!serviceId) {
+          showToast("잘못된 접근입니다.");
+          return;
+        }
 
-  buttons.forEach(btn => {
-    btn.onclick = async () => {
-      if (!serviceId) {
-        showToast("잘못된 접근입니다.");
-        return;
-      }
-
-      try {
         const res = await fetch(`${API}/orders/create`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -87,29 +79,15 @@ function initBuyButtons() {
           body: JSON.stringify({ serviceId })
         });
 
-        if (!res.ok) {
-          showToast("서버 통신 오류가 발생했습니다.");
-          return;
-        }
-
         const data = await res.json();
 
         if (data.orderId) {
-          if (data.code === "DUPLICATE_PENDING") {
-            showToast("이미 입금 대기 중인 주문이 있습니다.");
-          }
           location.href = `/order-pay.html?orderId=${data.orderId}`;
-          return;
+        } else {
+          showToast(data.message || "주문 생성 실패");
         }
-
-        showToast(data.message || "주문 생성에 실패했습니다.");
-
-      } catch (err) {
-        console.error(err);
-        showToast("예상치 못한 오류가 발생했습니다.");
-      }
-    };
-  });
+      };
+    });
 }
 
 /* ======================================================
@@ -150,87 +128,36 @@ function renderSinglePrice(service) {
 }
 
 /* ======================================================
-   서비스 상세 로딩 (🔥 SERVICE_EXPERT_ID 여기서만 설정)
+   🔥 서비스 상세 로딩 (핵심 수정)
 ====================================================== */
 async function loadService() {
-  try {
-    const res = await fetch(`${API}/services/${serviceId}`);
-    const data = await res.json();
+  const res = await fetch(`${API}/services/${serviceId}`);
+  const data = await res.json();
 
-    if (!data || !data.service) {
-      showToast("서비스 정보를 불러오지 못했습니다.");
-      return;
-    }
-
-    const svc = data.service;
-    const expert = data.expert || {};
-
-    // ✅ 채팅용 전문가 ID 전역 저장
-    window.SERVICE_EXPERT_ID = expert.user_id;
-
-    document.getElementById("heroTitle").textContent = svc.title;
-    document.getElementById("heroMainCat").textContent = svc.main_category;
-    document.getElementById("heroSubCat").textContent = svc.sub_category;
-
-    const wrap = document.getElementById("keywordWrap");
-    wrap.innerHTML = "";
-    (svc.keywords || "").split(",").forEach(k => {
-      if (!k.trim()) return;
-      const chip = document.createElement("span");
-      chip.className = "keyword-chip";
-      chip.textContent = "#" + k.trim();
-      wrap.appendChild(chip);
-    });
-
-    slideImgs = safeParse(svc.main_images) || [];
-    const main = document.getElementById("mainSlideImg");
-    main.src = slideImgs[0] || "/assets/default_service.png";
-
-    const thumb = document.getElementById("thumbRow");
-    thumb.innerHTML = "";
-    slideImgs.forEach((img, i) => {
-      const t = document.createElement("img");
-      t.src = img;
-      if (i === 0) t.classList.add("active");
-      t.onclick = () => {
-        main.src = img;
-        document.querySelectorAll("#thumbRow img")
-          .forEach(x => x.classList.remove("active"));
-        t.classList.add("active");
-      };
-      thumb.appendChild(t);
-    });
-
-    document.getElementById("descText").innerHTML =
-      (svc.description || "").replace(/\n/g, "<br>");
-    document.getElementById("brandText").innerHTML =
-      (svc.brand_concept || "").replace(/\n/g, "<br>");
-    document.getElementById("processText").innerHTML =
-      (svc.process || "").replace(/\n/g, "<br>");
-
-    initExpertBox(expert);
-    renderSinglePrice(svc);
-
-  } catch (err) {
-    console.error(err);
+  if (!data || !data.service) {
     showToast("서비스 정보를 불러오지 못했습니다.");
+    return;
   }
-}
 
-/* ======================================================
-   탭 이동
-====================================================== */
-function initTabs() {
-  document.querySelectorAll(".tab-nav").forEach(tab => {
-    tab.onclick = () => {
-      const target = document.getElementById(tab.dataset.target);
-      if (!target) return;
-      window.scrollTo({
-        top: target.offsetTop - 90,
-        behavior: "smooth"
-      });
-    };
-  });
+  const svc = data.service;
+  const expert = data.expert || {};
+
+  // 🔥🔥🔥 핵심 수정 (이 줄이 전부였다)
+  window.SERVICE_EXPERT_ID =
+    svc.expert_user_id || expert.user_id || null;
+
+  console.log("🧪 SERVICE_EXPERT_ID =", window.SERVICE_EXPERT_ID);
+
+  document.getElementById("heroTitle").textContent = svc.title;
+  document.getElementById("heroMainCat").textContent = svc.main_category;
+  document.getElementById("heroSubCat").textContent = svc.sub_category;
+
+  slideImgs = safeParse(svc.main_images) || [];
+  document.getElementById("mainSlideImg").src =
+    slideImgs[0] || "/assets/default_service.png";
+
+  initExpertBox(expert);
+  renderSinglePrice(svc);
 }
 
 /* ======================================================
@@ -238,6 +165,5 @@ function initTabs() {
 ====================================================== */
 document.addEventListener("DOMContentLoaded", async () => {
   await loadService();
-  initTabs();
   initBuyButtons();
 });
