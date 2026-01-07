@@ -107,7 +107,8 @@ async function markRead() {
   method: "POST",
   credentials: "include",
   headers: { "Content-Type": "application/json" },
-  body: JSON.stringify({ roomId: rid })
+  body: JSON.stringify({ roomId: ROOM_ID })
+
 });
 
   if (!socket) return;
@@ -438,10 +439,15 @@ async function loadChatList() {
 (async function init() {
   await loadMe();
 
-  socket = io("http://blueon.up.railway.app", {
-    withCredentials: true,
-    auth: { userId: CURRENT_USER.id }
-  });
+socket = io({
+  path: "/socket.io",
+  transports: ["websocket"],   // 🔥 polling 완전 차단
+  withCredentials: true,
+  auth: {
+    userId: CURRENT_USER.id
+  }
+});
+
 
   socket.on("connect", () => {
     console.log("🔵 소켓 연결됨:", socket.id);
