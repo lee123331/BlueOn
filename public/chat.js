@@ -154,6 +154,31 @@ function initSocket(roomId) {
       .forEach(el => el.textContent = "읽음");
   });
 }
+/* ======================================================
+   room 기준 상대 프로필 세팅 (🔥 필수)
+====================================================== */
+async function setHeaderByRoomId(roomId) {
+  try {
+    const res = await fetch(`${API_URL}/chat/rooms`, {
+      credentials: "include",
+      cache: "no-store"
+    });
+    const data = await safeJson(res);
+
+    if (!data.success || !Array.isArray(data.rooms)) return;
+
+    const room = data.rooms.find(
+      r => String(r.room_id) === String(roomId)
+    );
+
+    if (!room) return;
+
+    headerName.textContent = room.other_nickname || "상대방";
+    headerImg.src = room.other_avatar || "/assets/default_profile.png";
+  } catch (e) {
+    console.warn("setHeaderByRoomId fail", e);
+  }
+}
 
 /* ======================================================
    INIT
@@ -162,8 +187,10 @@ function initSocket(roomId) {
   const ok = await loadMe();
   if (!ok) return;
 
-  initSocket(ROOM_ID);
-  await loadMessages(ROOM_ID);
+  await setHeaderByRoomId(ROOM_ID); // 🔥 이 줄 추가
+initSocket(ROOM_ID);
+await loadMessages(ROOM_ID);
+
 })();
 
 /* ======================================================
