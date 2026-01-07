@@ -1,7 +1,7 @@
 console.log("🔵 header-chat.js loaded");
 
 /* =========================================================
-   ✅ 공통 설정
+   공통 설정
 ========================================================= */
 const API_URL = "https://blueon.up.railway.app";
 
@@ -12,10 +12,9 @@ if (chatBadge) chatBadge.style.display = "none";
 
 let CURRENT_USER = null;
 let socket = null;
-let isSocketReady = false;
 
 /* =========================================================
-   1️⃣ 로그인 유저 정보 로드
+   1️⃣ 로그인 유저 정보
 ========================================================= */
 async function loadHeaderUser() {
   try {
@@ -23,22 +22,21 @@ async function loadHeaderUser() {
       credentials: "include",
       cache: "no-store",
     });
-
     const data = await res.json();
 
-    if (data && data.success && data.user) {
+    if (data?.success && data.user) {
       CURRENT_USER = data.user;
-      console.log("🟢 header user loaded:", CURRENT_USER);
+      console.log("🟢 header user loaded:", CURRENT_USER.id);
       return true;
     }
-  } catch (err) {
-    console.error("❌ header user load 실패:", err);
+  } catch (e) {
+    console.error("❌ header user load fail:", e);
   }
   return false;
 }
 
 /* =========================================================
-   2️⃣ 🔴 안 읽은 채팅 배지 동기화
+   2️⃣ 🔴 안 읽은 채팅 배지 (서버 기준)
 ========================================================= */
 async function syncChatBadge() {
   if (!chatBadge || !CURRENT_USER) return;
@@ -48,23 +46,20 @@ async function syncChatBadge() {
       credentials: "include",
       cache: "no-store",
     });
-
     const data = await res.json();
 
-    console.log("🔍 unread-count response:", data);
-
-    if (data && data.success && Number(data.total) > 0) {
+    if (data?.success && Number(data.total) > 0) {
       chatBadge.style.display = "block";
     } else {
       chatBadge.style.display = "none";
     }
-  } catch (err) {
-    console.error("❌ unread-count 실패:", err);
+  } catch (e) {
+    console.warn("⚠️ unread-count fail", e);
   }
 }
 
 /* =========================================================
-   3️⃣ 💬 채팅 아이콘 클릭
+   3️⃣ 💬 채팅 아이콘 클릭 → 최근 채팅
 ========================================================= */
 async function openLatestChatRoom() {
   try {
@@ -72,87 +67,69 @@ async function openLatestChatRoom() {
       credentials: "include",
       cache: "no-store",
     });
-
     const data = await res.json();
 
-    if (!data || !data.success || !Array.isArray(data.rooms) || data.rooms.length === 0) {
+    if (!data?.success || !data.rooms?.length) {
       location.href = "/chat.html";
       return;
     }
 
-    const room = data.rooms[0];
-
-    location.href = `/chat.html?room=${room.room_id}&target=${room.other_id}`;
-  } catch (err) {
-    console.error("❌ 채팅방 이동 실패:", err);
+    location.href = `/chat.html?room=${data.rooms[0].room_id}`;
+  } catch {
     location.href = "/chat.html";
   }
 }
 
 /* =========================================================
-   4️⃣ 🔥 헤더 전용 소켓 초기화
+   4️⃣ 🔥 헤더 소켓 (배지 전용)
 ========================================================= */
 async function initHeaderChat() {
   const ok = await loadHeaderUser();
   if (!ok) return;
 
-  // 최초 배지 동기화
+  // 최초 동기화
   await syncChatBadge();
 
-  // 🔄 안전 폴링 (소켓 죽어도 배지 유지)
+  // 🔄 안전망 (소켓 죽어도 복구)
   setInterval(syncChatBadge, 5000);
 
-  // 💬 채팅 버튼 클릭
   if (openChatBtn) {
     openChatBtn.addEventListener("click", openLatestChatRoom);
   }
 
   /* =====================================================
-     Socket.IO 연결
+     Socket.IO
   ===================================================== */
-  socket = io({
-    path: "/socket.io",
-    withCredentials: true,
-    transports: ["polling"],   // Railway 안정 모드
-    upgrade: false,
+  socket = io(API_URL, {
+    withCredentials: true
   });
 
   socket.on("connect", () => {
     console.log("🟦 header socket connected:", socket.id);
 
-    if (CURRENT_USER && CURRENT_USER.id) {
-      
-      console.log("👤 user room joined: user:" + CURRENT_USER.id);
-      isSocketReady = true;
-    }
-  });
-
-  socket.on("disconnect", (reason) => {
-    console.log("🔻 header socket disconnected:", reason);
-    isSocketReady = false;
+    // ✅ 이게 핵심
+    socket.emit("user:join", String(CURRENT_USER.id));
   });
 
   socket.on("connect_error", (err) => {
     console.warn("⚠️ header socket error:", err?.message || err);
   });
 
+  socket.on("disconnect", (reason) => {
+    console.log("🔻 header socket disconnected:", reason);
+  });
+
   /* =====================================================
-     📩 새 메시지 알림 수신
+     📩 새 메시지 알림
+     👉 서버에서 이미 '나에게 온 것만' 보내야 함
   ===================================================== */
   socket.on("chat:notify", (payload) => {
-    if (!payload || !CURRENT_USER) return;
+    console.log("📩 header chat notify:", payload);
 
-    const targetId = Number(payload.targetId);
-    const myId     = Number(CURRENT_USER.id);
+    // 🔴 즉시 표시
+    if (chatBadge) chatBadge.style.display = "block";
 
-    if (targetId !== myId) return;
-
-    console.log("📩 header chat notify received:", payload);
-
-    // 🔴 배지 즉시 반영
-    chatBadge.style.display = "block";
-
-    // 🔄 서버 기준 동기화
+    // 🔄 서버 기준으로 재동기화
     syncChatBadge();
   });
 }

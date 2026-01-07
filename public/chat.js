@@ -3,7 +3,7 @@ console.log("🔥 chat.js 로딩됨");
 const API_URL = "https://blueon.up.railway.app";
 
 /* ======================================================
-   URL 파라미터
+   URL
 ====================================================== */
 const params = new URLSearchParams(location.search);
 let ROOM_ID = params.get("room");
@@ -30,7 +30,7 @@ async function safeJson(res) {
   const ct = res.headers.get("content-type") || "";
   if (!ct.includes("application/json")) {
     const t = await res.text().catch(() => "");
-    throw new Error(`JSON 아님 (${res.status}): ${t.slice(0, 120)}`);
+    throw new Error(`JSON 아님: ${t.slice(0,120)}`);
   }
   return res.json();
 }
@@ -44,21 +44,20 @@ function setHeader(nickname, avatar) {
   headerImg.src = avatar || "/assets/default_profile.png";
 }
 
-function setEmpty() {
-  setHeader("채팅", "/assets/default_profile.png");
-  chatBody.innerHTML =
-    `<div style="padding:20px;color:#6b7280;">대화를 선택해주세요</div>`;
+function setEmpty(text) {
+  chatBody.innerHTML = `<div style="padding:20px;color:#6b7280;">${text}</div>`;
 }
 
 /* ======================================================
-   로그인 유저
+   로그인
 ====================================================== */
 async function loadMe() {
   const res = await fetch(`${API_URL}/auth/me`, {
     credentials: "include",
-    cache: "no-store",
+    cache: "no-store"
   });
   const data = await safeJson(res);
+
   if (!data.success) {
     location.href = "/login.html";
     return false;
@@ -68,57 +67,83 @@ async function loadMe() {
 }
 
 /* ======================================================
-   채팅 목록 (좌측)
+   좌측 채팅 목록 (🔥 중복 제거 완료)
 ====================================================== */
 async function loadChatList() {
   const res = await fetch(`${API_URL}/chat/rooms`, {
     credentials: "include",
-    cache: "no-store",
+    cache: "no-store"
   });
   const data = await safeJson(res);
 
   chatListArea.innerHTML = "<h2>메시지</h2>";
-  if (!data.success || !data.rooms?.length) return null;
+  if (!data.success || !Array.isArray(data.rooms)) return null;
 
-  data.rooms.forEach(r => {
+  const seen = new Set();
+  const unique = [];
+
+  for (const r of data.rooms) {
+    const key = String(r.other_id);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    unique.push(r);
+  }
+
+  unique.forEach(room => {
     const div = document.createElement("div");
     div.className = "chat-item";
+    div.dataset.roomId = room.room_id;
+    div.dataset.nickname = room.other_nickname || "상대방";
+    div.dataset.avatar = room.other_avatar || "/assets/default_profile.png";
+
     div.innerHTML = `
       <div class="chat-left">
-        <img src="${r.other_avatar || "/assets/default_profile.png"}">
-        <div>${r.other_nickname || "상대방"}</div>
+        <img src="${div.dataset.avatar}">
+        <div>${div.dataset.nickname}</div>
       </div>
+      <div class="chat-unread-badge"></div>
     `;
 
-    if (ROOM_ID && String(r.room_id) === String(ROOM_ID)) {
+    div.onclick = () => {
+      setHeader(div.dataset.nickname, div.dataset.avatar);
+      location.href = `/chat.html?room=${room.room_id}`;
+    };
+
+    if (ROOM_ID && String(room.room_id) === String(ROOM_ID)) {
       div.style.background = "#eef2ff";
     }
-
-    div.onclick = () => {
-      location.href = `/chat.html?room=${r.room_id}`;
-    };
 
     chatListArea.appendChild(div);
   });
 
-  return data.rooms[0];
+  return unique[0] || null;
 }
 
 /* ======================================================
-   roomId 기준 상대 프로필
+   상대 프로필 (room 기준)
 ====================================================== */
-async function loadHeaderByRoom(roomId) {
-  const res = await fetch(`${API_URL}/chat/rooms`, {
-    credentials: "include",
-    cache: "no-store",
-  });
-  const data = await safeJson(res);
+async function loadRoomProfile(roomId) {
+  try {
+    const res = await fetch(`${API_URL}/chat/room-info?roomId=${roomId}`, {
+      credentials: "include",
+      cache: "no-store"
+    });
+    if (!res.ok) throw 0;
+    const data = await safeJson(res);
+    if (data.success && data.other) {
+      setHeader(
+        data.other.nickname,
+        data.other.avatar_url || data.other.avatar
+      );
+      return;
+    }
+  } catch {}
 
-  if (!data.success) return;
-  const room = data.rooms.find(r => String(r.room_id) === String(roomId));
-  if (!room) return;
-
-  setHeader(room.other_nickname, room.other_avatar);
+  // fallback
+  const first = document.querySelector(`.chat-item[data-room-id='${roomId}']`);
+  if (first) {
+    setHeader(first.dataset.nickname, first.dataset.avatar);
+  }
 }
 
 /* ======================================================
@@ -127,18 +152,22 @@ async function loadHeaderByRoom(roomId) {
 function renderMsg(msg) {
   const sender = msg.sender_id ?? msg.senderId;
   const isMe = Number(sender) === Number(CURRENT_USER.id);
-
+  const type = msg.message_type;
   const wrap = document.createElement("div");
   wrap.className = "msg " + (isMe ? "me" : "other");
 
-  if (msg.message_type === "image" && msg.file_url) {
+  if (type === "image") {
     const img = document.createElement("img");
     img.src = msg.file_url;
     img.style.maxWidth = "180px";
     img.style.borderRadius = "10px";
+    img.onclick = () => {
+      document.getElementById("imgModalView").src = img.src;
+      document.getElementById("imgModal").style.display = "flex";
+    };
     wrap.appendChild(img);
   } else {
-    wrap.textContent = msg.message || msg.content;
+    wrap.textContent = msg.message;
   }
 
   chatBody.appendChild(wrap);
@@ -148,10 +177,10 @@ function renderMsg(msg) {
    메시지 로드
 ====================================================== */
 async function loadMessages(roomId) {
-  const res = await fetch(
-    `${API_URL}/chat/messages?roomId=${encodeURIComponent(roomId)}`,
-    { credentials: "include", cache: "no-store" }
-  );
+  const res = await fetch(`${API_URL}/chat/messages?roomId=${roomId}`, {
+    credentials: "include",
+    cache: "no-store"
+  });
   const data = await safeJson(res);
   if (!data.success) return;
 
@@ -161,84 +190,71 @@ async function loadMessages(roomId) {
 }
 
 /* ======================================================
-   텍스트 전송 (🔥 즉시 렌더)
+   전송 (즉시 렌더)
 ====================================================== */
 async function sendText() {
   const text = msgInput.value.trim();
   if (!text || !ROOM_ID) return;
-  msgInput.value = "";
 
-  // ✅ 즉시 렌더
-  renderMsg({
-    sender_id: CURRENT_USER.id,
-    message: text,
-    message_type: "text",
-  });
+  msgInput.value = "";
+  renderMsg({ senderId: CURRENT_USER.id, message: text, message_type: "text" });
   scrollBottom();
 
-  // 서버 전송
-  await fetch(`${API_URL}/chat/send-message`, {
+  fetch(`${API_URL}/chat/send-message`, {
     method: "POST",
     credentials: "include",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       roomId: ROOM_ID,
       message: text,
-      message_type: "text",
-    }),
-  });
+      message_type: "text"
+    })
+  }).catch(() => {});
 }
 
 /* ======================================================
-   📸 이미지 전송
+   이미지 업로드
 ====================================================== */
 fileBtn?.addEventListener("click", () => fileInput.click());
 
 fileInput?.addEventListener("change", async () => {
-  const file = fileInput.files[0];
+  const file = fileInput.files?.[0];
   if (!file || !ROOM_ID) return;
 
-  const fd = new FormData();
-  fd.append("file", file);
+  const form = new FormData();
+  form.append("file", file);
 
-  // 1️⃣ 업로드
-  const upRes = await fetch(`${API_URL}/chat/upload`, {
+  const uploadRes = await fetch(`${API_URL}/chat/upload`, {
     method: "POST",
     credentials: "include",
-    body: fd,
+    body: form
   });
-  const up = await safeJson(upRes);
-  if (!up.success) return;
+  const uploadData = await uploadRes.json();
+  if (!uploadData.success) return;
 
-  // 2️⃣ 즉시 렌더
   renderMsg({
-    sender_id: CURRENT_USER.id,
+    senderId: CURRENT_USER.id,
     message_type: "image",
-    file_url: up.file_url,
+    file_url: uploadData.file_url
   });
   scrollBottom();
 
-  // 3️⃣ 서버 전송
-  await fetch(`${API_URL}/chat/send-message`, {
+  fetch(`${API_URL}/chat/send-message`, {
     method: "POST",
     credentials: "include",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       roomId: ROOM_ID,
       message_type: "image",
-      file_url: up.file_url,
-    }),
+      file_url: uploadData.file_url
+    })
   });
-
-  fileInput.value = "";
 });
 
 /* ======================================================
    Socket
 ====================================================== */
 function initSocket(roomId) {
-  if (socket) socket.disconnect();
-
   socket = io(API_URL, { withCredentials: true });
 
   socket.on("connect", () => {
@@ -260,18 +276,19 @@ function initSocket(roomId) {
   const ok = await loadMe();
   if (!ok) return;
 
-  const first = await loadChatList();
-  if (!ROOM_ID && first) {
-    location.replace(`/chat.html?room=${first.room_id}`);
+  const firstRoom = await loadChatList();
+
+  if (!ROOM_ID && firstRoom) {
+    location.replace(`/chat.html?room=${firstRoom.room_id}`);
     return;
   }
 
   if (!ROOM_ID) {
-    setEmpty();
+    setEmpty("대화를 시작해보세요");
     return;
   }
 
-  await loadHeaderByRoom(ROOM_ID);
+  await loadRoomProfile(ROOM_ID);
   await loadMessages(ROOM_ID);
   initSocket(ROOM_ID);
 })();

@@ -1897,11 +1897,20 @@ io.on("connection", (socket) => {
       return; // ⛔ 채팅 이벤트는 안 붙임
     }
 
-    /* ======================================================
-       1️⃣ 로그인 유저 개인 room (🔥 헤더 채팅 알림 핵심)
-    ====================================================== */
+   /* ======================================================
+   1️⃣ 로그인 유저 개인 room
+====================================================== */
+socket.join(`user:${user.id}`);
+console.log(`➡ user:${user.id} 방 입장`);
+
+// 🔥 프론트 호환용 (header-chat.js)
+socket.on("user:join", (uid) => {
+  if (String(uid) === String(user.id)) {
     socket.join(`user:${user.id}`);
-    console.log(`➡ user:${user.id} 방 입장`);
+    console.log(`🔁 user:${user.id} 재확인 join`);
+  }
+});
+
 
     /* ======================================================
        2️⃣ 관리자 room (선택)
@@ -2064,41 +2073,46 @@ app.get("/chat/rooms", async (req, res) => {
 
     const [rows] = await db.query(
       `
-      SELECT
-        r.id AS room_id,
-        r.last_msg,
-        r.updated_at,
+     SELECT *
+FROM (
+  SELECT
+    r.id AS room_id,
+    r.updated_at,
 
-        -- 🔥 상대 ID
+    CASE
+      WHEN r.user1_id = ? THEN r.user2_id
+      ELSE r.user1_id
+    END AS other_id,
+
+    CASE
+      WHEN r.user1_id = ? THEN COALESCE(ep2.nickname, u2.nickname)
+      ELSE COALESCE(ep1.nickname, u1.nickname)
+    END AS other_nickname,
+
+    CASE
+      WHEN r.user1_id = ? THEN COALESCE(ep2.avatar_url, u2.avatar_url)
+      ELSE COALESCE(ep1.avatar_url, u1.avatar_url)
+    END AS other_avatar,
+
+    ROW_NUMBER() OVER (
+      PARTITION BY
         CASE
           WHEN r.user1_id = ? THEN r.user2_id
           ELSE r.user1_id
-        END AS other_id,
-
-        -- 🔥 상대 닉네임
-        CASE
-          WHEN r.user1_id = ? THEN COALESCE(ep2.nickname, u2.nickname)
-          ELSE COALESCE(ep1.nickname, u1.nickname)
-        END AS other_nickname,
-
-        -- 🔥 상대 아바타
-        CASE
-          WHEN r.user1_id = ? THEN COALESCE(ep2.avatar_url, u2.avatar_url)
-          ELSE COALESCE(ep1.avatar_url, u1.avatar_url)
-        END AS other_avatar,
-
-        IFNULL(cu.count, 0) AS unread_count
-
-      FROM chat_rooms r
-      JOIN users u1 ON u1.id = r.user1_id
-      JOIN users u2 ON u2.id = r.user2_id
-      LEFT JOIN expert_profiles ep1 ON ep1.user_id = u1.id
-      LEFT JOIN expert_profiles ep2 ON ep2.user_id = u2.id
-      LEFT JOIN chat_unread cu
-        ON cu.room_id = r.id AND cu.user_id = ?
-
-      WHERE r.user1_id = ? OR r.user2_id = ?
+        END
       ORDER BY r.updated_at DESC
+    ) AS rn
+
+  FROM chat_rooms r
+  JOIN users u1 ON u1.id = r.user1_id
+  JOIN users u2 ON u2.id = r.user2_id
+  LEFT JOIN expert_profiles ep1 ON ep1.user_id = u1.id
+  LEFT JOIN expert_profiles ep2 ON ep2.user_id = u2.id
+  WHERE r.user1_id = ? OR r.user2_id = ?
+) t
+WHERE rn = 1
+ORDER BY updated_at DESC;
+
       `,
       [userId, userId, userId, userId, userId, userId]
     );
