@@ -747,9 +747,6 @@ app.post("/chat/upload", chatUpload.single("file"), async (req, res) => {
 const httpServer = http.createServer(app);
 
 const io = new SocketIOServer(httpServer, {
-    transports: ["polling"],
-    allowUpgrades: false,
-    path: "/socket.io", 
   cors: {
     origin: [
       "http://localhost:3000",
@@ -759,6 +756,7 @@ const io = new SocketIOServer(httpServer, {
     credentials: true,
   },
 });
+
 // 🔥 Express 세션을 Socket.io에 연결 (핵심)
 io.use((socket, next) => {
   sessionMiddleware(socket.request, {}, next);
@@ -2154,9 +2152,28 @@ app.post("/chat/send-message", async (req, res) => {
 
     const MAX_TEXT_LEN = 500;
 
-    let saveType = type;
-    let saveMessage = "";
-    let saveFileUrl = null;
+    let saveType = message_type || "text";
+let saveMessage = "";
+let saveFileUrl = null;
+
+if (saveType === "text") {
+  saveMessage = (message || content || "").trim();
+  if (!saveMessage) {
+    return res.json({ success:false, message:"EMPTY_MESSAGE" });
+  }
+}
+
+if (saveType === "image") {
+  if (!file_url) {
+    return res.status(400).json({
+      success:false,
+      message:"FILE_URL_REQUIRED"
+    });
+  }
+  saveMessage = "📷 이미지";
+  saveFileUrl = file_url;
+}
+
 
     /* ======================================================
        2️⃣ 타입별 검증 & 가공
@@ -2227,16 +2244,17 @@ app.post("/chat/send-message", async (req, res) => {
     const [result] = await db.query(
       `
       INSERT INTO chat_messages
-      (
-        room_id,
-        sender_id,
-        message,
-        message_type,
-        file_url,
-        is_read,
-        created_at
-      )
-      VALUES (?, ?, ?, ?, ?, 0, ?)
+(
+  room_id,
+  sender_id,
+  message,
+  message_type,
+  file_url,
+  is_read,
+  created_at
+)
+VALUES (?, ?, ?, ?, ?, 0, ?)
+
       `,
       [
         roomId,

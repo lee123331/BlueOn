@@ -268,12 +268,10 @@ function initSocket(roomId) {
     socket = null;
   }
 
-  socket = io(API_URL, {
-    path: "/socket.io",
-    transports: ["polling"],
-    upgrade: false,
-    withCredentials: true
-  });
+socket = io(API_URL, {
+  withCredentials: true
+});
+
 
   socket.on("connect", () => {
     socket.emit("chat:join", String(roomId));
