@@ -3,7 +3,7 @@ console.log("🔵 header-chat.js loaded");
 /* =========================================================
    공통 설정
 ========================================================= */
-const API_URL = "https://blueon.up.railway.app";
+
 
 const chatBadge   = document.getElementById("chatBadge");
 const openChatBtn = document.getElementById("openChat");

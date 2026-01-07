@@ -39,6 +39,15 @@ function scrollBottom() {
   chatBody.scrollTop = chatBody.scrollHeight;
 }
 
+function setHeader(nickname, avatar) {
+  headerName.textContent = nickname || "상대방";
+  headerImg.src = avatar || "/assets/default_profile.png";
+}
+
+function setEmpty(text) {
+  chatBody.innerHTML = `<div style="padding:20px;color:#6b7280;">${text}</div>`;
+}
+
 /* ======================================================
    로그인
 ====================================================== */
@@ -53,12 +62,85 @@ async function loadMe() {
     location.href = "/login.html";
     return false;
   }
+
   CURRENT_USER = data.user;
   return true;
 }
 
 /* ======================================================
-   메시지 렌더 (읽음 DOM 포함)
+   채팅 목록 (좌측)
+====================================================== */
+async function loadChatList() {
+  const res = await fetch(`${API_URL}/chat/rooms`, {
+    credentials: "include",
+    cache: "no-store"
+  });
+  const data = await safeJson(res);
+
+  chatListArea.innerHTML = "<h2>메시지</h2>";
+  if (!data.success || !Array.isArray(data.rooms)) return null;
+
+  data.rooms.forEach(room => {
+    const div = document.createElement("div");
+    div.className = "chat-item";
+    div.dataset.roomId = room.room_id;
+    div.dataset.nickname = room.other_nickname || "상대방";
+    div.dataset.avatar = room.other_avatar || "/assets/default_profile.png";
+
+    div.innerHTML = `
+      <div class="chat-left">
+        <img src="${div.dataset.avatar}">
+        <div>${div.dataset.nickname}</div>
+      </div>
+      <div class="chat-unread-badge"></div>
+    `;
+
+    div.onclick = () => {
+      location.href = `/chat.html?room=${room.room_id}`;
+    };
+
+    if (ROOM_ID && String(room.room_id) === String(ROOM_ID)) {
+      div.style.background = "#eef2ff";
+    }
+
+    chatListArea.appendChild(div);
+  });
+
+  return data.rooms[0] || null;
+}
+
+/* ======================================================
+   헤더 프로필 (room 기준)
+====================================================== */
+async function setHeaderByRoomId(roomId) {
+  const item = document.querySelector(`.chat-item[data-room-id='${roomId}']`);
+
+  if (item) {
+    setHeader(item.dataset.nickname, item.dataset.avatar);
+    return;
+  }
+
+  try {
+    const res = await fetch(`${API_URL}/chat/rooms`, {
+      credentials: "include",
+      cache: "no-store"
+    });
+    const data = await res.json();
+
+    if (data.success) {
+      const r = data.rooms.find(x => String(x.room_id) === String(roomId));
+      if (r) {
+        setHeader(r.other_nickname, r.other_avatar);
+        return;
+      }
+    }
+  } catch {}
+
+  setHeader("상대방", "/assets/default_profile.png");
+}
+
+/* ======================================================
+   메시지 렌더
 ====================================================== */
 function renderMsg(msg) {
   const sender = msg.sender_id ?? msg.senderId;
@@ -66,6 +148,7 @@ function renderMsg(msg) {
 
   const wrap = document.createElement("div");
   wrap.className = "msg " + (isMe ? "me" : "other");
+  wrap.dataset.messageId = msg.id || msg.message_id;
 
   if (msg.message_type === "image") {
     const img = document.createElement("img");
@@ -77,11 +160,16 @@ function renderMsg(msg) {
     wrap.textContent = msg.message;
   }
 
-  // ✅ 처음부터 read-state 생성
-  if (isMe) {
+  // 🔥 삭제 버튼 (내 메시지)
+  if (isMe && wrap.dataset.messageId) {
+    const del = document.createElement("button");
+    del.className = "msg-delete-btn";
+    del.textContent = "삭제";
+    del.onclick = () => deleteMessage(wrap.dataset.messageId);
+    wrap.appendChild(del);
+
     const read = document.createElement("div");
     read.className = "read-state";
-    read.textContent = "";
     wrap.appendChild(read);
   }
 
@@ -89,29 +177,7 @@ function renderMsg(msg) {
 }
 
 /* ======================================================
-   읽음 처리 (DB + socket)
-====================================================== */
-async function markRead(roomId) {
-  if (!socket || !roomId) return;
-
-  fetch(`${API_URL}/chat/read`, {
-    method: "POST",
-    credentials: "include",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ roomId })
-  }).catch(() => {});
-
-  socket.emit("chat:read", {
-    roomId,
-    userId: CURRENT_USER.id
-  });
-
-  // 헤더 배지 갱신
-  window.refreshHeaderBadge?.();
-}
-
-/* ======================================================
-   메시지 로드
+   메시지 로드 + 읽음
 ====================================================== */
 async function loadMessages(roomId) {
   const res = await fetch(`${API_URL}/chat/messages?roomId=${roomId}`, {
@@ -125,130 +191,31 @@ async function loadMessages(roomId) {
   data.messages.forEach(renderMsg);
   scrollBottom();
 
-  // ✅ 소켓 연결된 후 읽음 처리
   markRead(roomId);
 }
 
 /* ======================================================
-   Socket
+   읽음 처리
 ====================================================== */
-function initSocket(roomId) {
-  socket = io(API_URL, { withCredentials: true });
+function markRead(roomId) {
+  fetch(`${API_URL}/chat/read`, {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ roomId })
+  }).catch(() => {});
 
-  socket.on("connect", () => {
-    socket.emit("chat:join", String(roomId));
+  socket?.emit("chat:read", {
+    roomId,
+    userId: CURRENT_USER.id
   });
 
-  socket.on("chat:message", msg => {
-    if (String(msg.roomId) !== String(ROOM_ID)) return;
-    if (Number(msg.senderId) === Number(CURRENT_USER.id)) return;
-    renderMsg(msg);
-    scrollBottom();
-    markRead(ROOM_ID);
-  });
-
-  socket.on("chat:read", ({ roomId }) => {
-    if (String(roomId) !== String(ROOM_ID)) return;
-
-    document.querySelectorAll(".msg.me .read-state")
-      .forEach(el => el.textContent = "읽음");
-  });
-}
-/* ======================================================
-   room 기준 상대 프로필 세팅 (🔥 필수)
-====================================================== */
-async function setHeaderByRoomId(roomId) {
-  console.log("🧪 setHeaderByRoomId", roomId);
-
-  // 1) chatList에서 먼저 찾기 (가장 안정적)
-  const item = document.querySelector(
-    `.chat-item[data-room-id='${roomId}']`
-  );
-
-  if (item) {
-    const nickname = item.dataset.nickname;
-    const avatar = item.dataset.avatar;
-    console.log("🧪 header from chatList", { nickname, avatar });
-    setHeader(nickname, avatar);
-    return;
-  }
-
-  // 2) fallback: /chat/rooms 재조회
-  try {
-    const res = await fetch(`${API_URL}/chat/rooms`, {
-      credentials: "include",
-      cache: "no-store"
-    });
-    const data = await res.json();
-
-    if (data.success && Array.isArray(data.rooms)) {
-      const r = data.rooms.find(
-        x => String(x.room_id) === String(roomId)
-      );
-      if (r) {
-        console.log("🧪 header from API", r.other_nickname);
-        setHeader(
-          r.other_nickname,
-          r.other_avatar
-        );
-        return;
-      }
-    }
-  } catch (e) {
-    console.warn("setHeaderByRoomId fail", e);
-  }
-
-  // 3) 최후 fallback
-  console.warn("⚠ header fallback used");
-  setHeader("상대방", "/assets/default_profile.png");
+  window.refreshHeaderBadge?.();
 }
 
 /* ======================================================
-   INIT
+   메시지 전송
 ====================================================== */
-(async function init() {
-  console.log("🧪 INIT START", { ROOM_ID });
-
-  // 1️⃣ 로그인 정보
-  const ok = await loadMe();
-  if (!ok) return;
-
-  // 2️⃣ 채팅 목록 먼저 로드 (좌측 + header fallback용)
-  const firstRoom = await loadChatList();
-
-  // room 없이 진입 → 첫 채팅방으로 이동
-  if (!ROOM_ID && firstRoom) {
-    location.replace(`/chat.html?room=${firstRoom.room_id}`);
-    return;
-  }
-
-  if (!ROOM_ID) {
-    setEmpty("대화를 시작해보세요");
-    return;
-  }
-
-  // 3️⃣ 소켓 먼저 연결 (읽음/실시간 대비)
-  initSocket(ROOM_ID);
-
-  // 4️⃣ 🔥 roomId 기준으로 헤더 세팅 (가장 중요)
-  await setHeaderByRoomId(ROOM_ID);
-
-  // 5️⃣ 메시지 로드 + 읽음 처리
-  await loadMessages(ROOM_ID);
-
-})();
-
-/* ======================================================
-   Events
-====================================================== */
-sendBtn?.addEventListener("click", sendText);
-msgInput?.addEventListener("keydown", e => {
-  if (e.key === "Enter") {
-    e.preventDefault();
-    sendText();
-  }
-});
-
 async function sendText() {
   const text = msgInput.value.trim();
   if (!text || !ROOM_ID) return;
@@ -273,3 +240,93 @@ async function sendText() {
     })
   }).catch(() => {});
 }
+
+/* ======================================================
+   🔥 메시지 삭제 (DB + socket)
+====================================================== */
+async function deleteMessage(messageId) {
+  if (!messageId) return;
+
+  await fetch(`${API_URL}/chat/delete`, {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ messageId })
+  });
+
+  socket?.emit("chat:delete", {
+    roomId: ROOM_ID,
+    messageId
+  });
+
+  document
+    .querySelector(`.msg[data-message-id='${messageId}']`)
+    ?.remove();
+}
+
+/* ======================================================
+   Socket
+====================================================== */
+function initSocket(roomId) {
+  socket = io(API_URL, { withCredentials: true });
+
+  socket.on("connect", () => {
+    socket.emit("chat:join", String(roomId));
+  });
+
+  socket.on("chat:message", msg => {
+    if (String(msg.roomId) !== String(ROOM_ID)) return;
+    if (Number(msg.senderId) === Number(CURRENT_USER.id)) return;
+    renderMsg(msg);
+    scrollBottom();
+    markRead(ROOM_ID);
+  });
+
+  socket.on("chat:read", ({ roomId }) => {
+    if (String(roomId) !== String(ROOM_ID)) return;
+    document
+      .querySelectorAll(".msg.me .read-state")
+      .forEach(el => el.textContent = "읽음");
+  });
+
+  socket.on("chat:delete", ({ messageId }) => {
+    document
+      .querySelector(`.msg[data-message-id='${messageId}']`)
+      ?.remove();
+  });
+}
+
+/* ======================================================
+   INIT
+====================================================== */
+(async function init() {
+  const ok = await loadMe();
+  if (!ok) return;
+
+  const firstRoom = await loadChatList();
+
+  if (!ROOM_ID && firstRoom) {
+    location.replace(`/chat.html?room=${firstRoom.room_id}`);
+    return;
+  }
+
+  if (!ROOM_ID) {
+    setEmpty("대화를 시작해보세요");
+    return;
+  }
+
+  initSocket(ROOM_ID);
+  await setHeaderByRoomId(ROOM_ID);
+  await loadMessages(ROOM_ID);
+})();
+
+/* ======================================================
+   Events
+====================================================== */
+sendBtn?.addEventListener("click", sendText);
+msgInput?.addEventListener("keydown", e => {
+  if (e.key === "Enter") {
+    e.preventDefault();
+    sendText();
+  }
+});
