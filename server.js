@@ -2238,10 +2238,14 @@ app.post("/chat/send-message", async (req, res) => {
        1) 메시지 저장
     ====================================================== */
     const [result] = await db.query(
-      `INSERT INTO chat_messages (room_id, sender_id, message, message_type)
-       VALUES (?, ?, ?, ?)`,
-      [roomId, senderId, realMessage, message_type || "text"]
-    );
+  `
+  INSERT INTO chat_messages
+  (room_id, sender_id, message, message_type, is_read)
+  VALUES (?, ?, ?, ?, 0)
+  `,
+  [roomId, senderId, realMessage, message_type || "text"]
+);
+
 
     const messageId = result.insertId;
 
