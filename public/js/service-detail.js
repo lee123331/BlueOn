@@ -31,8 +31,10 @@ function safeParse(v) {
 window.openChat = async function () {
   const targetId = window.SERVICE_EXPERT_ID;
 
+  console.log("🧪 openChat targetId =", targetId);
+
   if (!targetId) {
-    showToast("전문가 정보를 불러오는 중입니다.");
+    showToast("전문가 정보를 불러올 수 없습니다.");
     return;
   }
 
@@ -52,6 +54,7 @@ window.openChat = async function () {
       return;
     }
 
+    // ✅ 여기서만 이동
     location.href = `/chat.html?room=${data.roomId}`;
 
   } catch (err) {
@@ -72,19 +75,24 @@ function initBuyButtons() {
           return;
         }
 
-        const res = await fetch(`${API}/orders/create`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          credentials: "include",
-          body: JSON.stringify({ serviceId })
-        });
+        try {
+          const res = await fetch(`${API}/orders/create`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include",
+            body: JSON.stringify({ serviceId })
+          });
 
-        const data = await res.json();
+          const data = await res.json();
 
-        if (data.orderId) {
-          location.href = `/order-pay.html?orderId=${data.orderId}`;
-        } else {
-          showToast(data.message || "주문 생성 실패");
+          if (data.orderId) {
+            location.href = `/order-pay.html?orderId=${data.orderId}`;
+          } else {
+            showToast(data.message || "주문 생성 실패");
+          }
+        } catch (e) {
+          console.error(e);
+          showToast("주문 처리 중 오류가 발생했습니다.");
         }
       };
     });
@@ -128,36 +136,49 @@ function renderSinglePrice(service) {
 }
 
 /* ======================================================
-   🔥 서비스 상세 로딩 (핵심 수정)
+   🔥 서비스 상세 로딩 (핵심 수정 완료본)
 ====================================================== */
 async function loadService() {
-  const res = await fetch(`${API}/services/${serviceId}`);
-  const data = await res.json();
+  try {
+    const res = await fetch(`${API}/services/${serviceId}`, {
+      credentials: "include"
+    });
+    const data = await res.json();
 
-  if (!data || !data.service) {
+    if (!data || !data.service) {
+      showToast("서비스 정보를 불러오지 못했습니다.");
+      return;
+    }
+
+    const svc = data.service;
+    const expert = data.expert || {};
+
+    /* ==================================================
+       ✅ 핵심: 전문가 ID는 service에서만 가져온다
+    ================================================== */
+    window.SERVICE_EXPERT_ID = Number(svc.expert_user_id) || null;
+
+    console.log("🔥 SERVICE_EXPERT_ID =", window.SERVICE_EXPERT_ID);
+
+    if (!window.SERVICE_EXPERT_ID) {
+      console.warn("❌ expert_user_id 없음 → 문의하기 비활성");
+    }
+
+    document.getElementById("heroTitle").textContent = svc.title;
+    document.getElementById("heroMainCat").textContent = svc.main_category;
+    document.getElementById("heroSubCat").textContent = svc.sub_category;
+
+    slideImgs = safeParse(svc.main_images) || [];
+    document.getElementById("mainSlideImg").src =
+      slideImgs[0] || "/assets/default_service.png";
+
+    initExpertBox(expert);
+    renderSinglePrice(svc);
+
+  } catch (err) {
+    console.error(err);
     showToast("서비스 정보를 불러오지 못했습니다.");
-    return;
   }
-
-  const svc = data.service;
-  const expert = data.expert || {};
-
-  // 🔥🔥🔥 핵심 수정 (이 줄이 전부였다)
-  window.SERVICE_EXPERT_ID =
-    svc.expert_user_id || expert.user_id || null;
-
-  console.log("🧪 SERVICE_EXPERT_ID =", window.SERVICE_EXPERT_ID);
-
-  document.getElementById("heroTitle").textContent = svc.title;
-  document.getElementById("heroMainCat").textContent = svc.main_category;
-  document.getElementById("heroSubCat").textContent = svc.sub_category;
-
-  slideImgs = safeParse(svc.main_images) || [];
-  document.getElementById("mainSlideImg").src =
-    slideImgs[0] || "/assets/default_service.png";
-
-  initExpertBox(expert);
-  renderSinglePrice(svc);
 }
 
 /* ======================================================
