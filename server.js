@@ -128,7 +128,7 @@ if (!fs.existsSync(uploadBase)) {
    정적 파일 경로
 ====================================================== */
 app.use("/uploads", express.static(path.join(process.cwd(), "public/uploads")));
-app.use(express.static(path.join(process.cwd(), "public")));
+
 
 /* ======================================================
    세션 (Railway + DB_URL)
@@ -2022,41 +2022,33 @@ app.get("/chat/rooms", async (req, res) => {
     const [rows] = await db.query(
       `
       SELECT
-        r.id AS room_id,
-        r.last_msg,
-        r.updated_at,
+  r.id AS room_id,
+  r.last_msg,
+  r.updated_at,
 
-        CASE
-          WHEN r.user1_id = ? THEN u2.id
-          ELSE u1.id
-        END AS other_id,
+  CASE
+    WHEN r.user1_id = ? THEN u2.id
+    ELSE u1.id
+  END AS other_id,
 
-        CASE
-          WHEN r.user1_id = ?
-            THEN COALESCE(ep2.nickname, u2.nickname)
-          ELSE
-            COALESCE(ep1.nickname, u1.nickname)
-        END AS other_nickname,
+  COALESCE(ep2.nickname, u2.nickname, '알 수 없음') AS other_nickname,
+  COALESCE(ep2.avatar_url, u2.avatar_url, '/assets/default_profile.png') AS other_avatar,
 
-        CASE
-          WHEN r.user1_id = ?
-            THEN COALESCE(ep2.avatar_url, u2.avatar_url, '/assets/default_profile.png')
-          ELSE
-            COALESCE(ep1.avatar_url, u1.avatar_url, '/assets/default_profile.png')
-        END AS other_avatar,
+  IFNULL(cu.count, 0) AS unread_count
 
-        IFNULL(cu.count, 0) AS unread_count
+FROM chat_rooms r
+JOIN users u1 ON u1.id = r.user1_id
+JOIN users u2 ON u2.id = r.user2_id
 
-      FROM chat_rooms r
-      JOIN users u1 ON u1.id = r.user1_id
-      JOIN users u2 ON u2.id = r.user2_id
-      LEFT JOIN expert_profiles ep1 ON ep1.user_id = u1.id
-      LEFT JOIN expert_profiles ep2 ON ep2.user_id = u2.id
-      LEFT JOIN chat_unread cu
-        ON cu.room_id = r.id AND cu.user_id = ?
+LEFT JOIN expert_profiles ep1 ON ep1.user_id = u1.id
+LEFT JOIN expert_profiles ep2 ON ep2.user_id = u2.id
 
-      WHERE r.user1_id = ? OR r.user2_id = ?
-      ORDER BY r.updated_at DESC
+LEFT JOIN chat_unread cu
+  ON cu.room_id = r.id AND cu.user_id = ?
+
+WHERE r.user1_id = ? OR r.user2_id = ?
+ORDER BY r.updated_at DESC
+
       `,
       [userId, userId, userId, userId, userId, userId]
     );
@@ -4329,7 +4321,7 @@ app.get("/test/expert", async (req, res) => {
   res.json(rows);
 });
 
-
+app.use(express.static(path.join(process.cwd(), "public")));
 /* ------------------ 서버 실행 ------------------ */
 httpServer.listen(PORT, () => {
   console.log(`🔥 서버 실행됨: PORT = ${PORT}`);

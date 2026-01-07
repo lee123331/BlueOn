@@ -260,7 +260,7 @@ const res = await fetch(`https://blueon.up.railway.app/chat/send-message`, {
   },
   body: JSON.stringify({
     roomId: ROOM_ID,
-    senderId: CURRENT_USER.id,
+    
     message: text,
     message_type: "text"
   })
@@ -390,10 +390,7 @@ async function loadChatList() {
       div.dataset.roomId = rid;
 
       div.onclick = () => {
-        const target =
-          room.user1_id === CURRENT_USER.id
-            ? room.user2_id
-            : room.user1_id;
+        const target = room.other_id;
 
         const badge = div.querySelector(".chat-unread-badge");
         if (badge) badge.style.display = "none";
@@ -444,7 +441,7 @@ async function loadChatList() {
      1️⃣ 문의하기 진입 시 → 방 먼저 생성
   -------------------------------------------------- */
   if (!ROOM_ID && TARGET_ID) {
-    const res = await fetch(`${API_URL}/chat/room`, {
+    const res = await fetch(`${API_URL}/chat/start`, {
       method: "POST",
       credentials: "include",
       headers: { "Content-Type": "application/json" },
