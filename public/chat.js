@@ -437,11 +437,11 @@ async function loadChatList() {
 (async function init() {
   await loadMe();
 
-  /* --------------------------------------------------
-     1️⃣ 문의하기 진입 시 → 방 먼저 생성
-  -------------------------------------------------- */
+  /* ===============================
+     1️⃣ 문의하기 루트
+  =============================== */
   if (!ROOM_ID && TARGET_ID) {
-    const res = await fetch(`${API_URL}/chat/start`, {
+    const res = await fetch(`${API_URL}/chat/room`, {
       method: "POST",
       credentials: "include",
       headers: { "Content-Type": "application/json" },
@@ -451,20 +451,35 @@ async function loadChatList() {
     const data = await res.json();
     if (data.success && data.roomId) {
       location.replace(`/chat.html?room=${data.roomId}&target=${TARGET_ID}`);
-      return; // ⛔ socket 절대 연결하지 않음
+      return;
     }
   }
 
-  // 여기까지 왔다는 건 ROOM_ID가 확정된 상태
-  if (!ROOM_ID) return;
+  /* ===============================
+     2️⃣ 메인 채팅 리스트 루트 (🔥 이게 핵심)
+  =============================== */
+  if (!ROOM_ID && !TARGET_ID) {
+    // 채팅 목록만 보여줌
+    await loadChatList();
 
+    // 채팅 선택 전 상태 UI 처리
+    headerName.textContent = "채팅";
+    headerImg.src = "/assets/default_profile.png";
+    chatBody.innerHTML = `
+      <div class="chat-empty">
+        대화를 선택해주세요
+      </div>
+    `;
+    return; // ❗ socket 연결 안 함
+  }
+
+  /* ===============================
+     3️⃣ 특정 채팅방 루트
+  =============================== */
   await loadTargetProfile();
   await loadMessages();
   await loadChatList();
 
-  /* --------------------------------------------------
-     2️⃣ 🔥 이제서야 socket 연결
-  -------------------------------------------------- */
   socket = io({
     path: "/socket.io",
     transports: ["websocket"],
@@ -472,10 +487,8 @@ async function loadChatList() {
   });
 
   socket.on("connect", () => {
-    console.log("🔵 소켓 연결됨:", socket.id);
     socket.emit("chat:join", ROOM_ID);
   });
-
   /* ---------- 메시지 수신 ---------- */
   socket.on("chat:message", msg => {
     if (!CURRENT_USER) return;
