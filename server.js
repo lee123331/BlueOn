@@ -747,7 +747,9 @@ app.post("/chat/upload", chatUpload.single("file"), async (req, res) => {
 const httpServer = http.createServer(app);
 
 const io = new SocketIOServer(httpServer, {
-   transports: ["websocket"], // 🔥 이거 반드시
+    transports: ["polling"],
+    allowUpgrades: false,
+    path: "/socket.io", 
   cors: {
     origin: [
       "http://localhost:3000",
