@@ -26,14 +26,25 @@ function safeParse(v) {
 }
 
 /* ======================================================
-   구매 버튼 (🔥 최종 안정화)
+   🔥 문의하기 (채팅 이동)
+====================================================== */
+window.openChat = function () {
+  if (!window.SERVICE_EXPERT_ID) {
+    showToast("전문가 정보를 불러오는 중입니다.");
+    return;
+  }
+
+  location.href = `/chat.html?target=${window.SERVICE_EXPERT_ID}`;
+};
+
+/* ======================================================
+   구매 버튼
 ====================================================== */
 function initBuyButtons() {
   const buttons = document.querySelectorAll(".btn-buy, .price-buy-btn");
 
   buttons.forEach(btn => {
     btn.onclick = async () => {
-
       if (!serviceId) {
         showToast("잘못된 접근입니다.");
         return;
@@ -47,7 +58,6 @@ function initBuyButtons() {
           body: JSON.stringify({ serviceId })
         });
 
-        // ❌ 서버 통신 자체 실패
         if (!res.ok) {
           showToast("서버 통신 오류가 발생했습니다.");
           return;
@@ -55,29 +65,18 @@ function initBuyButtons() {
 
         const data = await res.json();
 
-        /* ======================================================
-           ✅ 핵심 규칙
-           - orderId가 있으면 무조건 주문 성공
-           - success / 알림 실패 여부는 UX에 노출 ❌
-        ====================================================== */
-
         if (data.orderId) {
-          // 중복 입금 대기 주문 안내는 UX만 제공
           if (data.code === "DUPLICATE_PENDING") {
             showToast("이미 입금 대기 중인 주문이 있습니다.");
           }
-
-          // 🔥 무조건 주문 페이지로 이동
           location.href = `/order-pay.html?orderId=${data.orderId}`;
           return;
         }
 
-        // ❌ 진짜 실패 (orderId 없음)
-        console.warn("주문 생성 실패 응답:", data);
         showToast(data.message || "주문 생성에 실패했습니다.");
 
       } catch (err) {
-        console.error("❌ 주문 생성 오류:", err);
+        console.error(err);
         showToast("예상치 못한 오류가 발생했습니다.");
       }
     };
@@ -97,7 +96,7 @@ function initExpertBox(ex) {
 }
 
 /* ======================================================
-   가격 렌더링 (단일)
+   가격 렌더링
 ====================================================== */
 function renderSinglePrice(service) {
   document.getElementById("sideTitle").textContent = service.title;
@@ -132,7 +131,8 @@ async function loadService() {
     const svc = data.service;
     const expert = data.expert || {};
 
-    window.serviceTaskKey = svc.task_key || null;
+    // 🔥 채팅용 전문가 ID 전역 저장 (이게 핵심)
+    window.SERVICE_EXPERT_ID = expert.user_id;
 
     document.getElementById("heroTitle").textContent = svc.title;
     document.getElementById("heroMainCat").textContent = svc.main_category;
@@ -175,8 +175,6 @@ async function loadService() {
       (svc.process || "").replace(/\n/g, "<br>");
 
     initExpertBox(expert);
-    window.expertId = expert.user_id;
-
     renderSinglePrice(svc);
 
   } catch (err) {
