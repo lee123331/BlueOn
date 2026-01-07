@@ -2478,41 +2478,29 @@ app.get("/chat/messages", async (req, res) => {
 /* ======================================================
    🔵 3) 메시지 읽음 처리 (카카오톡 방식)
 ====================================================== */
+// POST /chat/read
 app.post("/chat/read", async (req, res) => {
-  try {
-    const { roomId } = req.body;
-    const userId = req.session.user?.id;
+  if (!req.session.user) return res.status(401).json({ success:false });
 
-    if (!roomId || !userId) {
-      return res.json({ success: false, message: "roomId 또는 user 없음" });
-    }
+  const { roomId } = req.body;
+  const userId = req.session.user.id;
 
-    // 상대방 메시지를 모두 읽음 처리
-    await db.query(
-      `UPDATE chat_messages
-       SET is_read = 1
-       WHERE room_id = ? AND sender_id != ?`,
-      [roomId, userId]
-    );
+  // 🔥 상대방이 보낸 메시지를 읽음 처리
+  await db.query(`
+    UPDATE chat_messages
+    SET is_read = 1
+    WHERE room_id = ?
+      AND sender_id != ?
+      AND is_read = 0
+  `, [roomId, userId]);
 
-    // unread 카운트 초기화
-    await db.query(
-      `UPDATE chat_unread SET count = 0 WHERE user_id=? AND room_id=?`,
-      [userId, roomId]
-    );
+  // unread count 초기화
+  await db.query(`
+    DELETE FROM chat_unread
+    WHERE user_id = ? AND room_id = ?
+  `, [userId, roomId]);
 
-    // 실시간 읽음 표시
-    io.to(String(roomId)).emit("chat:read", {
-      roomId,
-      userId
-    });
-
-    return res.json({ success: true });
-
-  } catch (err) {
-    console.error("❌ chat/read error:", err);
-    return res.json({ success: false });
-  }
+  res.json({ success:true });
 });
 
 

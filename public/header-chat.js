@@ -123,15 +123,25 @@ async function initHeaderChat() {
      📩 새 메시지 알림
      👉 서버에서 이미 '나에게 온 것만' 보내야 함
   ===================================================== */
-  socket.on("chat:notify", (payload) => {
-    console.log("📩 header chat notify:", payload);
+socket.on("chat:notify", (payload) => {
+  if (!payload || !CURRENT_USER) return;
 
-    // 🔴 즉시 표시
-    if (chatBadge) chatBadge.style.display = "block";
+  // 🔥 senderId만 있으면 충분
+  const senderId = Number(payload.senderId);
+  const myId = Number(CURRENT_USER.id);
 
-    // 🔄 서버 기준으로 재동기화
-    syncChatBadge();
-  });
+  // 내가 보낸 메시지는 무시
+  if (senderId === myId) return;
+
+  console.log("📩 header chat notify:", payload);
+
+  // 🔴 즉시 표시
+  chatBadge.style.display = "block";
+
+  // 서버 unread 기준으로 동기화
+  syncChatBadge();
+});
+
 }
 
 /* =========================================================

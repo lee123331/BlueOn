@@ -1,4 +1,4 @@
-console.log("🔥 chat.js 로딩됨");
+console.log("🔥 chat.js loaded");
 
 const API_URL = "https://blueon.up.railway.app";
 
@@ -67,7 +67,7 @@ async function loadMe() {
 }
 
 /* ======================================================
-   좌측 채팅 목록 (🔥 중복 제거 완료)
+   좌측 채팅 목록 (중복 제거)
 ====================================================== */
 async function loadChatList() {
   const res = await fetch(`${API_URL}/chat/rooms`, {
@@ -79,13 +79,13 @@ async function loadChatList() {
   chatListArea.innerHTML = "<h2>메시지</h2>";
   if (!data.success || !Array.isArray(data.rooms)) return null;
 
-  const seen = new Set();
+  const seenRoom = new Set();
   const unique = [];
 
   for (const r of data.rooms) {
-    const key = String(r.other_id);
-    if (seen.has(key)) continue;
-    seen.add(key);
+    const key = String(r.room_id);
+    if (seenRoom.has(key)) continue;
+    seenRoom.add(key);
     unique.push(r);
   }
 
@@ -120,7 +120,7 @@ async function loadChatList() {
 }
 
 /* ======================================================
-   상대 프로필 (room 기준)
+   room 기준 상대 프로필
 ====================================================== */
 async function loadRoomProfile(roomId) {
   try {
@@ -129,6 +129,7 @@ async function loadRoomProfile(roomId) {
       cache: "no-store"
     });
     if (!res.ok) throw 0;
+
     const data = await safeJson(res);
     if (data.success && data.other) {
       setHeader(
@@ -140,10 +141,8 @@ async function loadRoomProfile(roomId) {
   } catch {}
 
   // fallback
-  const first = document.querySelector(`.chat-item[data-room-id='${roomId}']`);
-  if (first) {
-    setHeader(first.dataset.nickname, first.dataset.avatar);
-  }
+  const el = document.querySelector(`.chat-item[data-room-id='${roomId}']`);
+  if (el) setHeader(el.dataset.nickname, el.dataset.avatar);
 }
 
 /* ======================================================
@@ -152,11 +151,11 @@ async function loadRoomProfile(roomId) {
 function renderMsg(msg) {
   const sender = msg.sender_id ?? msg.senderId;
   const isMe = Number(sender) === Number(CURRENT_USER.id);
-  const type = msg.message_type;
+
   const wrap = document.createElement("div");
   wrap.className = "msg " + (isMe ? "me" : "other");
 
-  if (type === "image") {
+  if (msg.message_type === "image") {
     const img = document.createElement("img");
     img.src = msg.file_url;
     img.style.maxWidth = "180px";
@@ -174,7 +173,7 @@ function renderMsg(msg) {
 }
 
 /* ======================================================
-   메시지 로드
+   메시지 로드 + 읽음 처리
 ====================================================== */
 async function loadMessages(roomId) {
   const res = await fetch(`${API_URL}/chat/messages?roomId=${roomId}`, {
@@ -187,6 +186,31 @@ async function loadMessages(roomId) {
   chatBody.innerHTML = "";
   data.messages.forEach(renderMsg);
   scrollBottom();
+
+  markRead(roomId);
+}
+
+/* ======================================================
+   🔥 읽음 처리 (DB + socket)
+====================================================== */
+async function markRead(roomId) {
+  try {
+    await fetch(`${API_URL}/chat/read`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ roomId })
+    });
+
+    if (socket) {
+      socket.emit("chat:read", {
+        roomId,
+        userId: CURRENT_USER.id
+      });
+    }
+  } catch (e) {
+    console.warn("markRead fail", e);
+  }
 }
 
 /* ======================================================
@@ -197,7 +221,11 @@ async function sendText() {
   if (!text || !ROOM_ID) return;
 
   msgInput.value = "";
-  renderMsg({ senderId: CURRENT_USER.id, message: text, message_type: "text" });
+  renderMsg({
+    senderId: CURRENT_USER.id,
+    message: text,
+    message_type: "text"
+  });
   scrollBottom();
 
   fetch(`${API_URL}/chat/send-message`, {
@@ -266,6 +294,11 @@ function initSocket(roomId) {
     if (Number(msg.senderId) === Number(CURRENT_USER.id)) return;
     renderMsg(msg);
     scrollBottom();
+  });
+
+  socket.on("chat:read", ({ roomId }) => {
+    if (String(roomId) !== String(ROOM_ID)) return;
+    // UI용 읽음 처리 (필요시 확장)
   });
 }
 
