@@ -189,6 +189,32 @@ async function loadMessages(roomId) {
 
   markRead(roomId);
 }
+async function loadMessages(roomId) {
+  const res = await fetch(`${API_URL}/chat/messages?roomId=${roomId}`, {
+    credentials: "include",
+    cache: "no-store"
+  });
+  const data = await safeJson(res);
+  if (!data.success) return;
+
+  chatBody.innerHTML = "";
+  data.messages.forEach(renderMsg);
+  scrollBottom();
+
+  // ✅🔥 여기 추가 (읽음 처리)
+  fetch(`${API_URL}/chat/read`, {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ roomId })
+  });
+
+  // ✅ 상대방에게 "읽음" 소켓 알림
+  socket?.emit("chat:read", {
+    roomId,
+    userId: CURRENT_USER.id
+  });
+}
 
 /* ======================================================
    🔥 읽음 처리 (DB + socket)
@@ -296,10 +322,25 @@ function initSocket(roomId) {
     scrollBottom();
   });
 
-  socket.on("chat:read", ({ roomId }) => {
-    if (String(roomId) !== String(ROOM_ID)) return;
-    // UI용 읽음 처리 (필요시 확장)
+  socket.on("chat:read", ({ roomId, userId }) => {
+  if (String(roomId) !== String(ROOM_ID)) return;
+
+  // 🔥 내가 보낸 메시지 중 읽음 표시
+  const myMessages = chatBody.querySelectorAll(".msg.me");
+
+  myMessages.forEach(msg => {
+    let readEl = msg.querySelector(".read-state");
+
+    if (!readEl) {
+      readEl = document.createElement("div");
+      readEl.className = "read-state";
+      msg.appendChild(readEl);
+    }
+
+    readEl.textContent = "읽음";
   });
+});
+
 }
 
 /* ======================================================

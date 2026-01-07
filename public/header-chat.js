@@ -99,16 +99,19 @@ async function initHeaderChat() {
 
   /* =====================================================
      Socket.IO
+     ⚠️ 이벤트 이름을 서버와 100% 일치시킨다
   ===================================================== */
   socket = io(API_URL, {
-    withCredentials: true
+    withCredentials: true,
   });
 
   socket.on("connect", () => {
     console.log("🟦 header socket connected:", socket.id);
 
-    // ✅ 이게 핵심
-    socket.emit("user:join", String(CURRENT_USER.id));
+    // 🔥🔥🔥 핵심: 서버가 이 이벤트를 받아야 한다
+    socket.emit("join:user", {
+      userId: CURRENT_USER.id
+    });
   });
 
   socket.on("connect_error", (err) => {
@@ -121,27 +124,18 @@ async function initHeaderChat() {
 
   /* =====================================================
      📩 새 메시지 알림
-     👉 서버에서 이미 '나에게 온 것만' 보내야 함
+     - 서버에서 이미 "나에게 온 것만" 보내는 구조
+     - 프론트에서 추가 필터링 ❌
   ===================================================== */
-socket.on("chat:notify", (payload) => {
-  if (!payload || !CURRENT_USER) return;
+  socket.on("chat:notify", (payload) => {
+    console.log("📩 header chat notify:", payload);
 
-  // 🔥 senderId만 있으면 충분
-  const senderId = Number(payload.senderId);
-  const myId = Number(CURRENT_USER.id);
+    // 🔴 즉시 표시
+    chatBadge.style.display = "block";
 
-  // 내가 보낸 메시지는 무시
-  if (senderId === myId) return;
-
-  console.log("📩 header chat notify:", payload);
-
-  // 🔴 즉시 표시
-  chatBadge.style.display = "block";
-
-  // 서버 unread 기준으로 동기화
-  syncChatBadge();
-});
-
+    // 🔄 서버 unread 기준으로 재동기화
+    syncChatBadge();
+  });
 }
 
 /* =========================================================

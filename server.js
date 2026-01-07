@@ -2479,28 +2479,34 @@ app.get("/chat/messages", async (req, res) => {
    🔵 3) 메시지 읽음 처리 (카카오톡 방식)
 ====================================================== */
 // POST /chat/read
+// 🔥 읽음 처리 (DB 기준)
 app.post("/chat/read", async (req, res) => {
-  if (!req.session.user) return res.status(401).json({ success:false });
+  try {
+    if (!req.session.user) {
+      return res.status(401).json({ success: false });
+    }
 
-  const { roomId } = req.body;
-  const userId = req.session.user.id;
+    const userId = req.session.user.id;
+    const { roomId } = req.body;
 
-  // 🔥 상대방이 보낸 메시지를 읽음 처리
-  await db.query(`
-    UPDATE chat_messages
-    SET is_read = 1
-    WHERE room_id = ?
-      AND sender_id != ?
-      AND is_read = 0
-  `, [roomId, userId]);
+    if (!roomId) {
+      return res.json({ success: false });
+    }
 
-  // unread count 초기화
-  await db.query(`
-    DELETE FROM chat_unread
-    WHERE user_id = ? AND room_id = ?
-  `, [userId, roomId]);
+    // ✅ unread 카운트 제거
+    await db.query(
+      `
+      DELETE FROM chat_unread
+      WHERE user_id = ? AND room_id = ?
+      `,
+      [userId, roomId]
+    );
 
-  res.json({ success:true });
+    return res.json({ success: true });
+  } catch (e) {
+    console.error("❌ chat read error:", e);
+    return res.status(500).json({ success: false });
+  }
 });
 
 
