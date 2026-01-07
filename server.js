@@ -2068,35 +2068,51 @@ app.post("/chat/room", async (req, res) => {
 app.get("/chat/rooms", async (req, res) => {
   try {
     if (!req.session.user) {
-      return res.json({ success: false });
+      return res.json({ success: false, rooms: [] });
     }
 
     const userId = req.session.user.id;
 
-    const [rooms] = await db.query(
+    const [rows] = await db.query(
       `
       SELECT
         r.id AS room_id,
-        IF(r.user1_id = ?, r.user2_id, r.user1_id) AS other_id,
-        u.nickname AS other_nickname,
-        u.avatar_url AS other_avatar,
         r.last_msg,
-        r.updated_at
+        r.updated_at,
+
+        CASE
+          WHEN r.user1_id = ? THEN u2.id
+          ELSE u1.id
+        END AS other_id,
+
+        CASE
+          WHEN r.user1_id = ? THEN u2.nickname
+          ELSE u1.nickname
+        END AS other_nickname,
+
+        CASE
+          WHEN r.user1_id = ? THEN u2.avatar_url
+          ELSE u1.avatar_url
+        END AS other_avatar,
+
+        IFNULL(cu.count, 0) AS unread_count
+
       FROM chat_rooms r
-      JOIN users u
-        ON u.id = IF(r.user1_id = ?, r.user2_id, r.user1_id)
+      JOIN users u1 ON u1.id = r.user1_id
+      JOIN users u2 ON u2.id = r.user2_id
+      LEFT JOIN chat_unread cu
+        ON cu.room_id = r.id AND cu.user_id = ?
+
       WHERE r.user1_id = ? OR r.user2_id = ?
       ORDER BY r.updated_at DESC
       `,
-      [userId, userId, userId, userId]
+      [userId, userId, userId, userId, userId, userId]
     );
 
-    res.json({
-      success: true,
-      rooms
-    });
+    res.json({ success: true, rooms: rows });
+
   } catch (err) {
-    console.error("❌ chat/rooms error:", err);
+    console.error("❌ /chat/rooms error:", err);
     res.status(500).json({ success: false });
   }
 });
