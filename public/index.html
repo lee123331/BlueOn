@@ -956,26 +956,56 @@ if (startBtn) {
   });
 }
 /* ============================================================
-   💬 헤더 채팅 버튼 클릭 → 채팅 페이지 이동
+   💬 헤더 채팅 버튼 클릭 → 최근 채팅방으로 이동
 ============================================================ */
 const openChatBtn = document.getElementById("openChat");
 
 if (openChatBtn) {
   openChatBtn.addEventListener("click", async () => {
     try {
-      const res = await fetch(`${API_URL}/auth/me`, {
-        credentials: "include",
-      });
-      const data = await res.json();
+      // 1) 로그인 체크
+      const meRes = await fetch(`${API_URL}/auth/me`, { credentials: "include" });
+      const me = await meRes.json();
 
-      // 🔴 비로그인 → 로그인 모달
-      if (!data.success) {
+      if (!me.success) {
         openLoginModal();
         return;
       }
 
-      // 🟢 로그인 → 채팅 페이지 이동
-      location.href = "chat.html";
+      // 2) 내 채팅방 목록 가져오기 (가장 최근 1개)
+      const roomsRes = await fetch(`${API_URL}/chat/rooms`, {
+        credentials: "include",
+        cache: "no-store",
+      });
+      const roomsData = await roomsRes.json();
+
+      // 서버 응답 키가 rooms / list 등일 수 있어서 방어적으로 처리
+      const rooms = roomsData.rooms || roomsData.list || roomsData.data || [];
+
+      // 채팅방이 없으면 그냥 채팅 페이지(목록)로
+      if (!roomsData.success || !rooms.length) {
+        location.href = "chat.html";
+        return;
+      }
+
+      // 3) 첫 번째(=최근) 채팅방으로 진입
+      const r = rooms[0];
+      const roomId = r.room_id || r.id || r.roomId;
+      const targetId = r.target_id || r.other_user_id || r.partner_id || r.targetId;
+
+      if (!roomId) {
+        location.href = "chat.html";
+        return;
+      }
+
+      // ✅ 핵심: room 파라미터를 붙여서 들어간다
+      // targetId가 있으면 같이 붙여주면 더 안정적
+      if (targetId) {
+        location.href = `chat.html?room=${encodeURIComponent(roomId)}&target=${encodeURIComponent(targetId)}`;
+      } else {
+        location.href = `chat.html?room=${encodeURIComponent(roomId)}`;
+      }
+
     } catch (err) {
       console.error("채팅 이동 실패:", err);
       alert("채팅 페이지로 이동할 수 없습니다.");
