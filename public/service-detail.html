@@ -904,6 +904,20 @@
 </div>
 
 <script src="/js/service-detail.js"></script>
+<script>
+  function openChat() {
+    // 전문가 ID는 service-detail.js에서 이미 불러왔을 가능성이 큼
+    // 가장 안전한 방법: DOM이나 전역 변수에서 가져오기
+
+    if (!window.SERVICE_EXPERT_ID) {
+      alert("전문가 정보를 불러오는 중입니다. 잠시 후 다시 시도해주세요.");
+      return;
+    }
+
+    location.href = `/chat.html?target=${window.SERVICE_EXPERT_ID}`;
+  }
+</script>
+
 <div id="toast" class="toast"></div>
 
 </body>
