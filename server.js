@@ -2024,7 +2024,7 @@ app.post("/chat/room", async (req, res) => {
       return res.json({ success: false });
     }
 
-    // ✅ 기존 방 조회 (id 컬럼 사용)
+    // 1) 기존 방 조회
     const [rows] = await db.query(
       `
       SELECT id
@@ -2039,34 +2039,28 @@ app.post("/chat/room", async (req, res) => {
     );
 
     if (rows.length > 0) {
-      return res.json({
-        success: true,
-        roomId: rows[0].id   // ✅ id
-      });
+      return res.json({ success: true, roomId: rows[0].id });
     }
 
-    // ✅ 새 방 생성
+    // 2) 새 방 생성 (🔥 chat_rooms에 생성해야 함)
+    const now = nowStr();
+
     const [result] = await db.query(
       `
-INSERT INTO chat_messages
-(room_id, sender_id, message, message_type, is_read)
-VALUES (?, ?, ?, ?, 0)
-
-
+      INSERT INTO chat_rooms (user1_id, user2_id, room_type, created_at, updated_at)
+      VALUES (?, ?, 'dm', ?, ?)
       `,
-      [userId, targetId]
+      [userId, targetId, now, now]
     );
 
-    return res.json({
-      success: true,
-      roomId: result.insertId
-    });
+    return res.json({ success: true, roomId: result.insertId });
 
   } catch (err) {
     console.error("❌ chat/room error:", err);
     return res.status(500).json({ success: false });
   }
 });
+
 
 app.get("/chat/rooms", async (req, res) => {
   try {
