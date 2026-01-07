@@ -9,7 +9,8 @@ const API_URL = "https://blueon.up.railway.app";
 const params = new URLSearchParams(location.search);
 const ROOM_ID = params.get("room");
 const TARGET_ID = params.get("target");
-const IS_ROOM_MODE = ROOM_ID && TARGET_ID;
+const IS_ROOM_MODE = ROOM_ID !== null;
+
 
 console.log("🔍 ROOM_ID =", ROOM_ID);
 console.log("🔍 TARGET_ID =", TARGET_ID);
@@ -104,11 +105,11 @@ async function markRead() {
   if (!ROOM_ID) return;
 
   fetch(`${API_URL}/chat/read`, {
-  method: "POST",
-  credentials: "include",
-  headers: { "Content-Type": "application/json" },
-  body: JSON.stringify({ roomId: rid })
-});
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ roomId: ROOM_ID })
+  });
 
   if (!socket) return;
 
@@ -117,6 +118,7 @@ async function markRead() {
     userId: CURRENT_USER.id
   });
 }
+
 
 /* ======================================================
    메시지 불러오기
@@ -433,35 +435,60 @@ async function loadChatList() {
 }
 
 /* ======================================================
-   🔥 초기 실행
+   🔥 초기 실행 (최종 구조)
 ====================================================== */
 (async function init() {
   await loadMe();
 
-socket = io({
-  path: "/socket.io",
-  transports: ["polling"],   // Mixed Content 완전 차단
-  withCredentials: true,
-  auth: {
-    userId: CURRENT_USER.id
-  }
-});
+  /* --------------------------------------------------
+     1️⃣ 문의하기 진입 시 → 방 먼저 생성
+  -------------------------------------------------- */
+  if (!ROOM_ID && TARGET_ID) {
+    const res = await fetch(`${API_URL}/chat/room`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ targetId: TARGET_ID })
+    });
 
+    const data = await res.json();
+    if (data.success && data.roomId) {
+      location.replace(`/chat.html?room=${data.roomId}&target=${TARGET_ID}`);
+      return; // ⛔ socket 절대 연결하지 않음
+    }
+  }
+
+  // 여기까지 왔다는 건 ROOM_ID가 확정된 상태
+  if (!ROOM_ID) return;
+
+  await loadTargetProfile();
+  await loadMessages();
+  await loadChatList();
+
+  /* --------------------------------------------------
+     2️⃣ 🔥 이제서야 socket 연결
+  -------------------------------------------------- */
+  socket = io({
+    path: "/socket.io",
+    transports: ["websocket"],
+    withCredentials: true
+  });
 
   socket.on("connect", () => {
     console.log("🔵 소켓 연결됨:", socket.id);
-    if (IS_ROOM_MODE) socket.emit("chat:join", ROOM_ID);
+    socket.emit("chat:join", ROOM_ID);
   });
 
   /* ---------- 메시지 수신 ---------- */
   socket.on("chat:message", msg => {
     if (!CURRENT_USER) return;
 
-    if (msg.senderId === CURRENT_USER.id || msg.sender_id === CURRENT_USER.id)
-      return;
+    const senderId = msg.senderId ?? msg.sender_id;
+    const roomId   = msg.roomId;
 
-    const roomId = msg.roomId;
+    if (senderId === CURRENT_USER.id) return;
 
+    // 왼쪽 목록 배지
     const item = document.querySelector(
       `.chat-item[data-room-id='${roomId}']`
     );
@@ -479,69 +506,45 @@ socket = io({
 
   /* ---------- 메시지 삭제 ---------- */
   socket.on("chat:delete", ({ messageId }) => {
-    const el = document.querySelector(`[data-message-id='${messageId}']`);
+    const el = document.querySelector(
+      `[data-message-id='${messageId}']`
+    );
     if (el) el.remove();
   });
 
-  /* ---------- typing 표시 수신 ---------- */
+  /* ---------- typing ---------- */
   socket.on("chat:typing", ({ roomId, userId, isTyping }) => {
-    if (!ROOM_ID) return;
     if (ROOM_ID != roomId) return;
     if (userId === CURRENT_USER.id) return;
-
     typingIndicator.style.display = isTyping ? "block" : "none";
   });
 
-  /* ---------- 읽음 표시 수신 (🔥 신규 추가) ---------- */
-  socket.on("chat:read", ({ roomId, userId }) => {
+  /* ---------- 읽음 ---------- */
+  socket.on("chat:read", ({ roomId }) => {
     if (ROOM_ID != roomId) return;
-
-    const myMessages = document.querySelectorAll(".msg.me .read-state");
-    myMessages.forEach(state => {
-      state.textContent = "읽음";
-    });
+    document
+      .querySelectorAll(".msg.me .read-state")
+      .forEach(el => (el.textContent = "읽음"));
   });
 
-  /* ---------- notify 수신 ---------- */
+  /* ---------- 알림 ---------- */
   socket.on("chat:notify", async ({ targetId, roomId }) => {
     if (targetId != CURRENT_USER.id) return;
 
     await loadChatList();
-    if (ROOM_ID == roomId) {
-      await loadMessages();
-    }
+    if (ROOM_ID == roomId) await loadMessages();
 
     const alertBox = document.getElementById("globalChatAlert");
-    if (alertBox) {
-      alertBox.style.display = "block";
-      alertBox.style.opacity = "1";
+    if (!alertBox) return;
 
-      setTimeout(() => {
-        alertBox.style.opacity = "0";
-        setTimeout(() => (alertBox.style.display = "none"), 300);
-      }, 2500);
-    }
+    alertBox.style.display = "block";
+    alertBox.style.opacity = "1";
+
+    setTimeout(() => {
+      alertBox.style.opacity = "0";
+      setTimeout(() => (alertBox.style.display = "none"), 300);
+    }, 2500);
   });
-
-  await loadChatList();
-
-  if (IS_ROOM_MODE) {
-    await loadTargetProfile();
-    await loadMessages();
-
-    if (CURRENT_USER.isExpert === true) {
-      const btn = document.getElementById("viewBrandPlanBtn");
-      if (btn) {
-        btn.style.display = "inline-block";
-        btn.onclick = () =>
-          (location.href = `brand-plan-view.html?user=${TARGET_ID}`);
-      }
-    }
-  } else {
-    document.querySelector(".chat-header").style.display = "none";
-    chatBody.innerHTML =
-      "<div style='padding:20px;color:#6b7280;'>대화를 선택하세요.</div>";
-  }
 })();
 
 /* ======================================================
