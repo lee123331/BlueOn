@@ -5,7 +5,9 @@
 ========================================================= */
 
 // API 서버 주소 (⚠️ 절대 다른 파일에서 const로 다시 선언하지 말 것)
+// js/config.js
 window.API_URL = "https://blueon.up.railway.app";
+
 
 // 이후 필요하면 여기만 확장
 // window.SOCKET_PATH = "/socket.io";
