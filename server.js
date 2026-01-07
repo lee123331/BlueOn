@@ -2065,6 +2065,41 @@ app.post("/chat/room", async (req, res) => {
   }
 });
 
+app.get("/chat/rooms", async (req, res) => {
+  try {
+    if (!req.session.user) {
+      return res.json({ success: false });
+    }
+
+    const userId = req.session.user.id;
+
+    const [rooms] = await db.query(
+      `
+      SELECT
+        r.id AS room_id,
+        IF(r.user1_id = ?, r.user2_id, r.user1_id) AS other_id,
+        u.nickname AS other_nickname,
+        u.avatar_url AS other_avatar,
+        r.last_msg,
+        r.updated_at
+      FROM chat_rooms r
+      JOIN users u
+        ON u.id = IF(r.user1_id = ?, r.user2_id, r.user1_id)
+      WHERE r.user1_id = ? OR r.user2_id = ?
+      ORDER BY r.updated_at DESC
+      `,
+      [userId, userId, userId, userId]
+    );
+
+    res.json({
+      success: true,
+      rooms
+    });
+  } catch (err) {
+    console.error("❌ chat/rooms error:", err);
+    res.status(500).json({ success: false });
+  }
+});
 
 
 /* ======================================================
@@ -2314,6 +2349,55 @@ app.delete("/chat/message/:id", async (req, res) => {
   }
 });
 
+app.get("/chat/messages", async (req, res) => {
+  try {
+    if (!req.session.user) {
+      return res.status(401).json({ success: false });
+    }
+
+    const { roomId } = req.query;
+    const userId = req.session.user.id;
+
+    // 🔥 방 참여자인지 확인
+    const [[room]] = await db.query(
+      `
+      SELECT id
+      FROM chat_rooms
+      WHERE id = ?
+        AND (user1_id = ? OR user2_id = ?)
+      `,
+      [roomId, userId, userId]
+    );
+
+    if (!room) {
+      return res.json({ success: false });
+    }
+
+    const [messages] = await db.query(
+      `
+      SELECT
+        id,
+        room_id     AS roomId,
+        sender_id   AS senderId,
+        message     AS content,
+        message_type,
+        is_read
+      FROM chat_messages
+      WHERE room_id = ?
+      ORDER BY id ASC
+      `,
+      [roomId]
+    );
+
+    res.json({
+      success: true,
+      messages
+    });
+  } catch (err) {
+    console.error("❌ chat/messages error:", err);
+    res.status(500).json({ success: false });
+  }
+});
 
 
 /* ======================================================
