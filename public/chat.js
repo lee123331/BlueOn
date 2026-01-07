@@ -122,28 +122,7 @@ async function loadChatList() {
 /* ======================================================
    room 기준 상대 프로필
 ====================================================== */
-async function loadRoomProfile(roomId) {
-  try {
-    const res = await fetch(`${API_URL}/chat/room-info?roomId=${roomId}`, {
-      credentials: "include",
-      cache: "no-store"
-    });
-    if (!res.ok) throw 0;
 
-    const data = await safeJson(res);
-    if (data.success && data.other) {
-      setHeader(
-        data.other.nickname,
-        data.other.avatar_url || data.other.avatar
-      );
-      return;
-    }
-  } catch {}
-
-  // fallback
-  const el = document.querySelector(`.chat-item[data-room-id='${roomId}']`);
-  if (el) setHeader(el.dataset.nickname, el.dataset.avatar);
-}
 
 /* ======================================================
    메시지 렌더
@@ -362,7 +341,7 @@ function initSocket(roomId) {
     return;
   }
 
-  await loadRoomProfile(ROOM_ID);
+
   await loadMessages(ROOM_ID);
   initSocket(ROOM_ID);
 })();
