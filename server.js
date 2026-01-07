@@ -4382,56 +4382,78 @@ app.post("/expert/tasks/start", async (req, res) => {
 });
 
 /* ======================================================
-   🔵 채팅방 목록 (프로필 이미지 완전 보정)
+   🔵 채팅방 목록 (좌측 프로필 리스트용 – 전문가 완전 대응)
 ====================================================== */
 app.get("/chat/rooms", async (req, res) => {
   try {
-    const user = req.session.user;
-    if (!user) return res.json({ success: false });
+    if (!req.session.user) {
+      return res.json({ success: false, rooms: [] });
+    }
 
-    const myId = user.id;
+    const myId = req.session.user.id;
 
     const [rows] = await db.query(
       `
-      SELECT 
+      SELECT
         r.id AS room_id,
-        r.user1_id,
-        r.user2_id,
         r.last_msg,
         r.updated_at,
 
-        u.id AS other_id,
-
-        COALESCE(ep.nickname, u.nickname, u.name, '사용자') AS other_nickname,
-
+        -- 🔥 상대방 ID 확정
         CASE
-          WHEN ep.avatar_url IS NOT NULL AND ep.avatar_url <> '' THEN ep.avatar_url
-          WHEN u.avatar_url IS NOT NULL AND u.avatar_url <> '' THEN u.avatar_url
-          ELSE '/assets/default_profile.png'
-        END AS other_avatar
+          WHEN r.user1_id = ? THEN r.user2_id
+          ELSE r.user1_id
+        END AS other_id,
+
+        -- 🔥 닉네임 우선순위: 전문가 > 유저
+        COALESCE(
+          ep.nickname,
+          u.nickname,
+          '알 수 없음'
+        ) AS other_nickname,
+
+        -- 🔥 프로필 이미지 우선순위
+        COALESCE(
+          ep.avatar_url,
+          u.avatar_url,
+          '/assets/default_profile.png'
+        ) AS other_avatar,
+
+        -- 🔥 안 읽은 메시지 수
+        IFNULL(cu.count, 0) AS unread_count
 
       FROM chat_rooms r
 
-      LEFT JOIN users u
-        ON u.id = CASE 
+      -- 🔹 상대방 user JOIN
+      JOIN users u
+        ON u.id = CASE
                     WHEN r.user1_id = ? THEN r.user2_id
                     ELSE r.user1_id
                   END
 
+      -- 🔹 전문가 프로필 (있으면)
       LEFT JOIN expert_profiles ep
         ON ep.user_id = u.id
+
+      -- 🔹 unread
+      LEFT JOIN chat_unread cu
+        ON cu.room_id = r.id
+       AND cu.user_id = ?
 
       WHERE r.user1_id = ? OR r.user2_id = ?
       ORDER BY r.updated_at DESC
       `,
-      [myId, myId, myId]
+      [myId, myId, myId, myId, myId]
     );
 
-    return res.json({ success: true, rooms: rows });
+    return res.json({
+      success: true,
+      rooms: rows
+    });
 
   } catch (err) {
     console.error("❌ /chat/rooms error:", err);
-    return res.json({ success: false });
+    return res.status(500).json({ success: false, rooms: [] });
   }
 });
 
