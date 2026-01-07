@@ -158,38 +158,83 @@ function initSocket(roomId) {
    room 기준 상대 프로필 세팅 (🔥 필수)
 ====================================================== */
 async function setHeaderByRoomId(roomId) {
+  console.log("🧪 setHeaderByRoomId", roomId);
+
+  // 1) chatList에서 먼저 찾기 (가장 안정적)
+  const item = document.querySelector(
+    `.chat-item[data-room-id='${roomId}']`
+  );
+
+  if (item) {
+    const nickname = item.dataset.nickname;
+    const avatar = item.dataset.avatar;
+    console.log("🧪 header from chatList", { nickname, avatar });
+    setHeader(nickname, avatar);
+    return;
+  }
+
+  // 2) fallback: /chat/rooms 재조회
   try {
     const res = await fetch(`${API_URL}/chat/rooms`, {
       credentials: "include",
       cache: "no-store"
     });
-    const data = await safeJson(res);
+    const data = await res.json();
 
-    if (!data.success || !Array.isArray(data.rooms)) return;
-
-    const room = data.rooms.find(
-      r => String(r.room_id) === String(roomId)
-    );
-
-    if (!room) return;
-
-    headerName.textContent = room.other_nickname || "상대방";
-    headerImg.src = room.other_avatar || "/assets/default_profile.png";
+    if (data.success && Array.isArray(data.rooms)) {
+      const r = data.rooms.find(
+        x => String(x.room_id) === String(roomId)
+      );
+      if (r) {
+        console.log("🧪 header from API", r.other_nickname);
+        setHeader(
+          r.other_nickname,
+          r.other_avatar
+        );
+        return;
+      }
+    }
   } catch (e) {
     console.warn("setHeaderByRoomId fail", e);
   }
+
+  // 3) 최후 fallback
+  console.warn("⚠ header fallback used");
+  setHeader("상대방", "/assets/default_profile.png");
 }
 
 /* ======================================================
    INIT
 ====================================================== */
 (async function init() {
+  console.log("🧪 INIT START", { ROOM_ID });
+
+  // 1️⃣ 로그인 정보
   const ok = await loadMe();
   if (!ok) return;
 
-  await setHeaderByRoomId(ROOM_ID); // 🔥 이 줄 추가
-initSocket(ROOM_ID);
-await loadMessages(ROOM_ID);
+  // 2️⃣ 채팅 목록 먼저 로드 (좌측 + header fallback용)
+  const firstRoom = await loadChatList();
+
+  // room 없이 진입 → 첫 채팅방으로 이동
+  if (!ROOM_ID && firstRoom) {
+    location.replace(`/chat.html?room=${firstRoom.room_id}`);
+    return;
+  }
+
+  if (!ROOM_ID) {
+    setEmpty("대화를 시작해보세요");
+    return;
+  }
+
+  // 3️⃣ 소켓 먼저 연결 (읽음/실시간 대비)
+  initSocket(ROOM_ID);
+
+  // 4️⃣ 🔥 roomId 기준으로 헤더 세팅 (가장 중요)
+  await setHeaderByRoomId(ROOM_ID);
+
+  // 5️⃣ 메시지 로드 + 읽음 처리
+  await loadMessages(ROOM_ID);
 
 })();
 
