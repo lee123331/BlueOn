@@ -3,8 +3,6 @@ console.log("🔵 header-chat.js loaded");
 /* =========================================================
    공통 설정
 ========================================================= */
-
-
 const chatBadge   = document.getElementById("chatBadge");
 const openChatBtn = document.getElementById("openChat");
 
@@ -12,6 +10,13 @@ if (chatBadge) chatBadge.style.display = "none";
 
 let CURRENT_USER = null;
 let socket = null;
+
+/* =========================================================
+   유틸: 현재 채팅 페이지 여부
+========================================================= */
+function isChatPage() {
+  return location.pathname.includes("chat.html");
+}
 
 /* =========================================================
    1️⃣ 로그인 유저 정보
@@ -40,6 +45,12 @@ async function loadHeaderUser() {
 ========================================================= */
 async function syncChatBadge() {
   if (!chatBadge || !CURRENT_USER) return;
+
+  // 🔥 채팅 페이지에서는 배지 갱신 자체를 하지 않음
+  if (isChatPage()) {
+    chatBadge.style.display = "none";
+    return;
+  }
 
   try {
     const res = await fetch(`${API_URL}/chat/unread-count`, {
@@ -87,10 +98,10 @@ async function initHeaderChat() {
   const ok = await loadHeaderUser();
   if (!ok) return;
 
-  // 최초 동기화
+  // 최초 1회만 동기화 (채팅 페이지 제외)
   await syncChatBadge();
 
-  // 🔄 안전망 (소켓 죽어도 복구)
+  // 🔄 폴링 (채팅 페이지 제외)
   setInterval(syncChatBadge, 5000);
 
   if (openChatBtn) {
@@ -99,7 +110,6 @@ async function initHeaderChat() {
 
   /* =====================================================
      Socket.IO
-     ⚠️ 이벤트 이름을 서버와 100% 일치시킨다
   ===================================================== */
   socket = io(API_URL, {
     withCredentials: true,
@@ -108,7 +118,6 @@ async function initHeaderChat() {
   socket.on("connect", () => {
     console.log("🟦 header socket connected:", socket.id);
 
-    // 🔥🔥🔥 핵심: 서버가 이 이벤트를 받아야 한다
     socket.emit("join:user", {
       userId: CURRENT_USER.id
     });
@@ -124,19 +133,25 @@ async function initHeaderChat() {
 
   /* =====================================================
      📩 새 메시지 알림
-     - 서버에서 이미 "나에게 온 것만" 보내는 구조
-     - 프론트에서 추가 필터링 ❌
   ===================================================== */
   socket.on("chat:notify", (payload) => {
     console.log("📩 header chat notify:", payload);
 
-    // 🔴 즉시 표시
+    // 🔥 내가 채팅 페이지에 있으면 배지 표시 ❌
+    if (isChatPage()) return;
+
+    // 🔴 배지 표시
     chatBadge.style.display = "block";
 
-    // 🔄 서버 unread 기준으로 재동기화
+    // 서버 기준 재확인
     syncChatBadge();
   });
 }
+
+/* =========================================================
+   외부에서 호출 가능 (chat.html에서 사용)
+========================================================= */
+window.refreshHeaderBadge = syncChatBadge;
 
 /* =========================================================
    실행

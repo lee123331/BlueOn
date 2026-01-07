@@ -26,7 +26,7 @@ function safeParse(v) {
 }
 
 /* ======================================================
-   🔥 문의하기 (채팅방 생성 → 이동)
+   🔥 문의하기 (채팅방 생성 → 이동) [최종 안정판]
 ====================================================== */
 window.openChat = async function () {
   const targetId = window.SERVICE_EXPERT_ID;
@@ -37,30 +37,34 @@ window.openChat = async function () {
   }
 
   try {
-    const res = await fetch("/chat/start", {
+    const res = await fetch(`${API}/chat/start`, {
       method: "POST",
       credentials: "include",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ targetId })
     });
 
+    if (!res.ok) {
+      showToast("채팅 서버 연결에 실패했습니다.");
+      return;
+    }
+
     const data = await res.json();
-    console.log("🧪 chat/start result:", data);
+    console.log("🧪 /chat/start result:", data);
 
     if (!data.success || !data.roomId) {
       showToast("채팅방 생성에 실패했습니다.");
       return;
     }
 
-    // ✅ 여기서만 이동
+    // ✅ 성공 시에만 이동
     location.href = `/chat.html?room=${data.roomId}`;
 
-  } catch (e) {
-    console.error(e);
+  } catch (err) {
+    console.error("❌ openChat error:", err);
     showToast("채팅 연결 중 오류가 발생했습니다.");
   }
 };
-
 
 /* ======================================================
    구매 버튼
@@ -119,8 +123,6 @@ function initExpertBox(ex) {
   document.getElementById("expertIntroFull").textContent =
     ex.intro || "등록된 소개 글이 없습니다.";
 }
-// 예시: 서비스 데이터 로드 후
-window.TARGET_USER_ID = service.expert_user_id; // 🔥 이 줄 반드시
 
 /* ======================================================
    가격 렌더링
@@ -148,17 +150,22 @@ function renderSinglePrice(service) {
 }
 
 /* ======================================================
-   서비스 상세 로딩
+   서비스 상세 로딩 (🔥 SERVICE_EXPERT_ID 여기서만 설정)
 ====================================================== */
 async function loadService() {
   try {
     const res = await fetch(`${API}/services/${serviceId}`);
     const data = await res.json();
 
+    if (!data || !data.service) {
+      showToast("서비스 정보를 불러오지 못했습니다.");
+      return;
+    }
+
     const svc = data.service;
     const expert = data.expert || {};
 
-    // 🔥 채팅용 전문가 ID 전역 저장 (이게 핵심)
+    // ✅ 채팅용 전문가 ID 전역 저장
     window.SERVICE_EXPERT_ID = expert.user_id;
 
     document.getElementById("heroTitle").textContent = svc.title;
