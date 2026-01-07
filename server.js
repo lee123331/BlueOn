@@ -2011,6 +2011,57 @@ app.post("/chat/start", async (req, res) => {
   }
 });
 
+app.post("/chat/room", async (req, res) => {
+  try {
+    if (!req.session.user) {
+      return res.status(401).json({ success: false });
+    }
+
+    const userId = req.session.user.id;
+    const { targetId } = req.body;
+
+    if (!targetId) {
+      return res.json({ success: false });
+    }
+
+    // 🔍 기존 방 존재 여부 확인
+    const [rows] = await db.query(
+      `
+      SELECT room_id FROM chat_rooms
+      WHERE
+        (user1_id = ? AND user2_id = ?)
+        OR
+        (user1_id = ? AND user2_id = ?)
+      `,
+      [userId, targetId, targetId, userId]
+    );
+
+    if (rows.length > 0) {
+      return res.json({
+        success: true,
+        roomId: rows[0].room_id
+      });
+    }
+
+    // 🆕 방 생성
+    const [result] = await db.query(
+      `
+      INSERT INTO chat_rooms (user1_id, user2_id, created_at)
+      VALUES (?, ?, NOW())
+      `,
+      [userId, targetId]
+    );
+
+    return res.json({
+      success: true,
+      roomId: result.insertId
+    });
+
+  } catch (err) {
+    console.error("❌ chat room create error", err);
+    res.status(500).json({ success: false });
+  }
+});
 
 
 /* ======================================================
