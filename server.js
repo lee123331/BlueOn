@@ -2217,36 +2217,57 @@ app.get("/chat/messages", async (req, res) => {
 
 
 /* ======================================================
-   🔵 메시지 저장 + last_msg 업데이트 + 알림 브로드캐스트
+   🔵 메시지 저장 + last_msg 업데이트 + 알림 브로드캐스트 (최종 안정판)
 ====================================================== */
 app.post("/chat/send-message", async (req, res) => {
   try {
-    const { roomId, senderId, message, content, message_type } = req.body;
+    if (!req.session.user) {
+      return res.status(401).json({ success: false, message: "LOGIN_REQUIRED" });
+    }
+
+    const { roomId, message, content, message_type } = req.body;
+    const senderId = req.session.user.id;
+
+    if (!roomId) {
+      return res.json({ success: false, message: "ROOM_ID_REQUIRED" });
+    }
 
     const realMessage = message || content;
-    if (!realMessage) {
+    if (!realMessage || !realMessage.trim()) {
       return res.json({ success: false, message: "EMPTY_MESSAGE" });
     }
 
+    const now = nowStr();
+
     /* ======================================================
-       1) 메시지 저장
+       1️⃣ 메시지 저장 (🔥 created_at 반드시 포함)
     ====================================================== */
     const [result] = await db.query(
-  `
-  INSERT INTO chat_messages
-  (room_id, sender_id, message, message_type, is_read)
-  VALUES (?, ?, ?, ?, 0)
-  `,
-  [roomId, senderId, realMessage, message_type || "text"]
-);
-
-
+      `
+      INSERT INTO chat_messages
+      (
+        room_id,
+        sender_id,
+        message,
+        message_type,
+        is_read,
+        created_at
+      )
+      VALUES (?, ?, ?, ?, 0, ?)
+      `,
+      [
+        roomId,
+        senderId,
+        realMessage,
+        message_type || "text",
+        now
+      ]
+    );
 
     const messageId = result.insertId;
 
-
     /* ======================================================
-       2) last_msg 업데이트
+       2️⃣ last_msg + updated_at 업데이트
     ====================================================== */
     const lastMsgPreview =
       message_type === "image"
@@ -2255,44 +2276,50 @@ app.post("/chat/send-message", async (req, res) => {
         ? realMessage.substring(0, 80) + "..."
         : realMessage;
 
-    const now = nowStr();
-
-await db.query(
-  `UPDATE chat_rooms 
-   SET last_msg=?, updated_at=?
-   WHERE id=?`,
-  [lastMsgPreview, now, roomId]
-);
-
-
+    await db.query(
+      `
+      UPDATE chat_rooms
+      SET last_msg = ?, updated_at = ?
+      WHERE id = ?
+      `,
+      [lastMsgPreview, now, roomId]
+    );
 
     /* ======================================================
-       3) 상대방(userId) 구하기
+       3️⃣ 상대방 userId 계산
     ====================================================== */
     const [[room]] = await db.query(
-      "SELECT user1_id, user2_id FROM chat_rooms WHERE id=?",
+      `
+      SELECT user1_id, user2_id
+      FROM chat_rooms
+      WHERE id = ?
+      `,
       [roomId]
     );
+
+    if (!room) {
+      return res.json({ success: false, message: "ROOM_NOT_FOUND" });
+    }
 
     const otherUserId =
       Number(room.user1_id) === Number(senderId)
         ? room.user2_id
         : room.user1_id;
 
-
     /* ======================================================
-       4) unread 증가
+       4️⃣ unread 카운트 증가
     ====================================================== */
     await db.query(
-      `INSERT INTO chat_unread (user_id, room_id, count)
-       VALUES (?, ?, 1)
-       ON DUPLICATE KEY UPDATE count = count + 1`,
+      `
+      INSERT INTO chat_unread (user_id, room_id, count)
+      VALUES (?, ?, 1)
+      ON DUPLICATE KEY UPDATE count = count + 1
+      `,
       [otherUserId, roomId]
     );
 
-
     /* ======================================================
-       5) 방에 있는 사람들에게 메시지 전송
+       5️⃣ 채팅방 실시간 메시지 전송
     ====================================================== */
     io.to(String(roomId)).emit("chat:message", {
       id: messageId,
@@ -2300,30 +2327,38 @@ await db.query(
       roomId,
       senderId,
       content: realMessage,
-      message_type,
-      created_at: nowStr()
-
+      message_type: message_type || "text",
+      created_at: now
     });
 
-
     /* ======================================================
-       6) 🔥 유저 개별 알림 — user:{id} 방으로 전송
+       6️⃣ 상대방 개인 알림 (헤더 채팅 배지용)
     ====================================================== */
     io.to(`user:${otherUserId}`).emit("chat:notify", {
       roomId,
       senderId,
-      targetId: otherUserId
+      messagePreview: lastMsgPreview
     });
 
-    console.log(`📢 chat:notify → user:${otherUserId} 에게 전송됨`);
+    console.log(
+      `📨 chat message saved | room=${roomId} | from=${senderId} → to=${otherUserId}`
+    );
 
-    return res.json({ success: true, messageId });
+    return res.json({
+      success: true,
+      messageId,
+      created_at: now
+    });
 
   } catch (err) {
     console.error("❌ send-message error:", err);
-    return res.json({ success: false });
+    return res.status(500).json({
+      success: false,
+      message: "SERVER_ERROR"
+    });
   }
 });
+
 
 
 /* ======================================================
