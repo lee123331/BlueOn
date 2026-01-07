@@ -1829,7 +1829,7 @@ app.get("/users/profile/:id", async (req, res) => {
   }
 });
 /* ======================================================
-   🔵 Socket.io (보안 강화 + 정상 구조)
+   🔵 Socket.io (헤더 알림 + 채팅 완전체)
 ====================================================== */
 io.on("connection", (socket) => {
   try {
@@ -1839,50 +1839,47 @@ io.on("connection", (socket) => {
     const user = session?.user;
 
     /* ======================================================
-       0️⃣ 비로그인 소켓도 허용 (헤더 알림용)
-       - ❌ 여기서 disconnect 하면 안 됨
+       0️⃣ 비로그인 소켓 (메인페이지 헤더 알림용)
+       - disconnect ❌
     ====================================================== */
     if (!user) {
-      console.log("ℹ️ 비로그인/헤더 소켓 허용:", socket.id);
+      console.log("ℹ️ 비로그인 헤더 소켓 허용:", socket.id);
 
       socket.on("disconnect", () => {
         console.log("🔴 Header socket disconnected:", socket.id);
       });
 
-      return; // ⚠️ 여기서 종료 (채팅/관리자 기능은 안 붙임)
+      return; // ⛔ 채팅 이벤트는 안 붙임
     }
 
     /* ======================================================
-       1️⃣ 로그인 유저 개인 room
+       1️⃣ 로그인 유저 개인 room (🔥 헤더 채팅 알림 핵심)
     ====================================================== */
     socket.join(`user:${user.id}`);
     console.log(`➡ user:${user.id} 방 입장`);
 
-  /* ======================================================
-   2️⃣ 관리자 room 연결 (서버 세션 기준)
-====================================================== */
-const ADMIN_ID = String(process.env.ADMIN_USER_ID || "");
+    /* ======================================================
+       2️⃣ 관리자 room (선택)
+    ====================================================== */
+    const ADMIN_ID = String(process.env.ADMIN_USER_ID || "");
 
-if (ADMIN_ID && String(user.id) === ADMIN_ID) {
-  socket.join("admin");
-
-  console.log(
-    `👑 관리자 소켓 연결됨 | userId=${user.id} | socket=${socket.id}`
-  );
-}
+    if (ADMIN_ID && String(user.id) === ADMIN_ID) {
+      socket.join("admin");
+      console.log(`👑 관리자 소켓 연결 | userId=${user.id}`);
+    }
 
     /* ======================================================
-       3️⃣ 채팅 관련 이벤트 (로그인 유저만)
+       3️⃣ 채팅 이벤트 (로그인 유저만)
     ====================================================== */
 
-    /* 채팅방 입장 */
+    // 채팅방 입장
     socket.on("chat:join", (roomId) => {
       if (!roomId) return;
       socket.join(String(roomId));
       console.log(`📌 chat:join → room ${roomId}`);
     });
 
-    /* typing 표시 */
+    // typing 표시
     socket.on("chat:typing", ({ roomId, userId, isTyping }) => {
       socket.to(String(roomId)).emit("chat:typing", {
         roomId,
@@ -1891,12 +1888,12 @@ if (ADMIN_ID && String(user.id) === ADMIN_ID) {
       });
     });
 
-    /* 읽음 표시 */
+    // 읽음 처리
     socket.on("chat:read", ({ roomId, userId }) => {
       socket.to(String(roomId)).emit("chat:read", { roomId, userId });
     });
 
-    /* 메시지 삭제 */
+    // 메시지 삭제
     socket.on("chat:delete", ({ roomId, messageId }) => {
       socket.to(String(roomId)).emit("chat:delete", { messageId });
     });
@@ -1913,6 +1910,7 @@ if (ADMIN_ID && String(user.id) === ADMIN_ID) {
     socket.disconnect();
   }
 });
+
 /* ======================================================
    🧩 작업 채팅 전용 Socket Namespace
    namespace: /task

@@ -12,6 +12,7 @@ if (chatBadge) chatBadge.style.display = "none";
 
 let CURRENT_USER = null;
 let socket = null;
+let isSocketReady = false;
 
 /* =========================================================
    1️⃣ 로그인 유저 정보 로드
@@ -22,9 +23,10 @@ async function loadHeaderUser() {
       credentials: "include",
       cache: "no-store",
     });
+
     const data = await res.json();
 
-    if (data?.success && data?.user) {
+    if (data && data.success && data.user) {
       CURRENT_USER = data.user;
       console.log("🟢 header user loaded:", CURRENT_USER);
       return true;
@@ -46,9 +48,12 @@ async function syncChatBadge() {
       credentials: "include",
       cache: "no-store",
     });
+
     const data = await res.json();
 
-    if (data?.success && Number(data.total) > 0) {
+    console.log("🔍 unread-count response:", data);
+
+    if (data && data.success && Number(data.total) > 0) {
       chatBadge.style.display = "block";
     } else {
       chatBadge.style.display = "none";
@@ -60,8 +65,6 @@ async function syncChatBadge() {
 
 /* =========================================================
    3️⃣ 💬 채팅 아이콘 클릭
-   - 기존 채팅 있으면 가장 최근 채팅방으로 이동
-   - 없으면 chat.html 기본 진입
 ========================================================= */
 async function openLatestChatRoom() {
   try {
@@ -69,15 +72,14 @@ async function openLatestChatRoom() {
       credentials: "include",
       cache: "no-store",
     });
+
     const data = await res.json();
 
-    // ❌ 채팅 없음
-    if (!data?.success || !data.rooms || data.rooms.length === 0) {
+    if (!data || !data.success || !Array.isArray(data.rooms) || data.rooms.length === 0) {
       location.href = "/chat.html";
       return;
     }
 
-    // ✅ 가장 최근 채팅방
     const room = data.rooms[0];
 
     location.href = `/chat.html?room=${room.room_id}&target=${room.other_id}`;
@@ -95,34 +97,39 @@ async function initHeaderChat() {
   if (!ok) return;
 
   // 최초 배지 동기화
-  syncChatBadge();
+  await syncChatBadge();
 
-  // 🔄 폴링 백업 (소켓 죽어도 배지 유지)
+  // 🔄 안전 폴링 (소켓 죽어도 배지 유지)
   setInterval(syncChatBadge, 5000);
 
-  // 💬 채팅 아이콘 클릭
-  openChatBtn?.addEventListener("click", openLatestChatRoom);
+  // 💬 채팅 버튼 클릭
+  if (openChatBtn) {
+    openChatBtn.addEventListener("click", openLatestChatRoom);
+  }
 
-  // ✅ Socket.IO (같은 도메인, Mixed Content 방지)
+  /* =====================================================
+     Socket.IO 연결
+  ===================================================== */
   socket = io({
     path: "/socket.io",
     withCredentials: true,
-    transports: ["polling"], // Railway 안정 모드
+    transports: ["polling"],   // Railway 안정 모드
     upgrade: false,
   });
 
   socket.on("connect", () => {
     console.log("🟦 header socket connected:", socket.id);
 
-    // 🔥 핵심: 로그인 유저 전용 room join
-    if (CURRENT_USER?.id) {
-      socket.emit("user:join", CURRENT_USER.id);
-      console.log("👤 user room joined:", CURRENT_USER.id);
+    if (CURRENT_USER && CURRENT_USER.id) {
+      socket.emit("user:join", String(CURRENT_USER.id));
+      console.log("👤 user room joined: user:" + CURRENT_USER.id);
+      isSocketReady = true;
     }
   });
 
   socket.on("disconnect", (reason) => {
     console.log("🔻 header socket disconnected:", reason);
+    isSocketReady = false;
   });
 
   socket.on("connect_error", (err) => {
@@ -131,13 +138,21 @@ async function initHeaderChat() {
 
   /* =====================================================
      📩 새 메시지 알림 수신
-     - index.html 빨간 점 표시
   ===================================================== */
   socket.on("chat:notify", (payload) => {
     if (!payload || !CURRENT_USER) return;
-    if (Number(payload.targetId) !== Number(CURRENT_USER.id)) return;
+
+    const targetId = Number(payload.targetId);
+    const myId     = Number(CURRENT_USER.id);
+
+    if (targetId !== myId) return;
 
     console.log("📩 header chat notify received:", payload);
+
+    // 🔴 배지 즉시 반영
+    chatBadge.style.display = "block";
+
+    // 🔄 서버 기준 동기화
     syncChatBadge();
   });
 }
