@@ -2048,8 +2048,10 @@ app.post("/chat/room", async (req, res) => {
     // ✅ 새 방 생성
     const [result] = await db.query(
       `
-      INSERT INTO chat_rooms (user1_id, user2_id, created_at, updated_at)
-VALUES (?, ?, ?, ?)
+INSERT INTO chat_messages
+(room_id, sender_id, message, message_type, is_read)
+VALUES (?, ?, ?, ?, 0)
+
 
       `,
       [userId, targetId]
