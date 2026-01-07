@@ -2011,70 +2011,6 @@ app.post("/chat/start", async (req, res) => {
   }
 });
 
-app.post("/chat/room", async (req, res) => {
-  try {
-    if (!req.session.user) {
-      return res.status(401).json({ success: false });
-    }
-
-    const userId = Number(req.session.user.id);
-    const { targetId } = req.body;
-
-    if (!targetId || Number(targetId) === userId) {
-      return res.json({ success: false, message: "INVALID_TARGET" });
-    }
-
-    /* =========================
-       1️⃣ 기존 방 조회
-    ========================= */
-    const [rows] = await db.query(
-      `
-      SELECT id
-      FROM chat_rooms
-      WHERE
-        (user1_id = ? AND user2_id = ?)
-        OR
-        (user1_id = ? AND user2_id = ?)
-      LIMIT 1
-      `,
-      [userId, targetId, targetId, userId]
-    );
-
-    if (rows.length > 0) {
-      return res.json({
-        success: true,
-        roomId: rows[0].id
-      });
-    }
-
-    /* =========================
-       2️⃣ 새 방 생성
-    ========================= */
-    const now = nowStr();
-
-    const [result] = await db.query(
-      `
-      INSERT INTO chat_rooms
-        (user1_id, user2_id, created_at, updated_at)
-      VALUES (?, ?, ?, ?)
-      `,
-      [userId, targetId, now, now]
-    );
-
-    return res.json({
-      success: true,
-      roomId: result.insertId
-    });
-
-  } catch (err) {
-    console.error("❌ chat/room error:", err);
-    return res.status(500).json({ success: false });
-  }
-});
-
-/* ======================================================
-   🔵 채팅방 메시지 불러오기
-====================================================== */
 app.get("/chat/rooms", async (req, res) => {
   try {
     if (!req.session.user) {
@@ -2090,13 +2026,11 @@ app.get("/chat/rooms", async (req, res) => {
         r.last_msg,
         r.updated_at,
 
-        /* 상대 ID */
         CASE
-          WHEN r.user1_id = ? THEN r.user2_id
-          ELSE r.user1_id
+          WHEN r.user1_id = ? THEN u2.id
+          ELSE u1.id
         END AS other_id,
 
-        /* 🔥 닉네임: 전문가 > 유저 */
         CASE
           WHEN r.user1_id = ?
             THEN COALESCE(ep2.nickname, u2.nickname)
@@ -2104,7 +2038,6 @@ app.get("/chat/rooms", async (req, res) => {
             COALESCE(ep1.nickname, u1.nickname)
         END AS other_nickname,
 
-        /* 🔥 아바타: 전문가 > 유저 > 기본 */
         CASE
           WHEN r.user1_id = ?
             THEN COALESCE(ep2.avatar_url, u2.avatar_url, '/assets/default_profile.png')
@@ -2115,13 +2048,10 @@ app.get("/chat/rooms", async (req, res) => {
         IFNULL(cu.count, 0) AS unread_count
 
       FROM chat_rooms r
-
       JOIN users u1 ON u1.id = r.user1_id
       JOIN users u2 ON u2.id = r.user2_id
-
       LEFT JOIN expert_profiles ep1 ON ep1.user_id = u1.id
       LEFT JOIN expert_profiles ep2 ON ep2.user_id = u2.id
-
       LEFT JOIN chat_unread cu
         ON cu.room_id = r.id AND cu.user_id = ?
 
@@ -2138,6 +2068,7 @@ app.get("/chat/rooms", async (req, res) => {
     return res.status(500).json({ success: false });
   }
 });
+
 
 
 
