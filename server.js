@@ -4387,64 +4387,39 @@ app.post("/expert/tasks/start", async (req, res) => {
 app.get("/chat/rooms", async (req, res) => {
   try {
     if (!req.session.user) {
-      return res.json({ success: false, rooms: [] });
+      return res.json({ success: false });
     }
 
-    const myId = req.session.user.id;
+    const userId = req.session.user.id;
 
-    const [rows] = await db.query(
-      `
+    const [rows] = await db.query(`
       SELECT
         r.id AS room_id,
-        r.last_msg,
-        r.updated_at,
 
-        -- 🔥 상대방 ID 확정
         CASE
-          WHEN r.user1_id = ? THEN r.user2_id
-          ELSE r.user1_id
+          WHEN r.user1_id = ? THEN u2.id
+          ELSE u1.id
         END AS other_id,
 
-        -- 🔥 닉네임 우선순위: 전문가 > 유저
-        COALESCE(
-          ep.nickname,
-          u.nickname,
-          '알 수 없음'
-        ) AS other_nickname,
+        CASE
+          WHEN r.user1_id = ? THEN u2.nickname
+          ELSE u1.nickname
+        END AS other_nickname,
 
-        -- 🔥 프로필 이미지 우선순위
-        COALESCE(
-          ep.avatar_url,
-          u.avatar_url,
-          '/assets/default_profile.png'
-        ) AS other_avatar,
+        CASE
+          WHEN r.user1_id = ? THEN u2.avatar_url
+          ELSE u1.avatar_url
+        END AS other_avatar,
 
-        -- 🔥 안 읽은 메시지 수
-        IFNULL(cu.count, 0) AS unread_count
+        r.last_msg,
+        r.updated_at
 
       FROM chat_rooms r
-
-      -- 🔹 상대방 user JOIN
-      JOIN users u
-        ON u.id = CASE
-                    WHEN r.user1_id = ? THEN r.user2_id
-                    ELSE r.user1_id
-                  END
-
-      -- 🔹 전문가 프로필 (있으면)
-      LEFT JOIN expert_profiles ep
-        ON ep.user_id = u.id
-
-      -- 🔹 unread
-      LEFT JOIN chat_unread cu
-        ON cu.room_id = r.id
-       AND cu.user_id = ?
-
+      JOIN users u1 ON u1.id = r.user1_id
+      JOIN users u2 ON u2.id = r.user2_id
       WHERE r.user1_id = ? OR r.user2_id = ?
       ORDER BY r.updated_at DESC
-      `,
-      [myId, myId, myId, myId, myId]
-    );
+    `, [userId, userId, userId, userId, userId]);
 
     return res.json({
       success: true,
@@ -4453,9 +4428,10 @@ app.get("/chat/rooms", async (req, res) => {
 
   } catch (err) {
     console.error("❌ /chat/rooms error:", err);
-    return res.status(500).json({ success: false, rooms: [] });
+    res.status(500).json({ success: false });
   }
 });
+
 
 /* ======================================================
    🔵 전문가 작업 요약
