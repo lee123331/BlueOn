@@ -2022,44 +2022,52 @@ app.get("/chat/rooms", async (req, res) => {
     const [rows] = await db.query(
       `
       SELECT
-  r.id AS room_id,
-  r.last_msg,
-  r.updated_at,
+        r.id AS room_id,
+        r.last_msg,
+        r.updated_at,
 
-  CASE
-    WHEN r.user1_id = ? THEN u2.id
-    ELSE u1.id
-  END AS other_id,
+        -- 🔥 상대 ID
+        CASE
+          WHEN r.user1_id = ? THEN r.user2_id
+          ELSE r.user1_id
+        END AS other_id,
 
-  COALESCE(ep2.nickname, u2.nickname, '알 수 없음') AS other_nickname,
-  COALESCE(ep2.avatar_url, u2.avatar_url, '/assets/default_profile.png') AS other_avatar,
+        -- 🔥 상대 닉네임
+        CASE
+          WHEN r.user1_id = ? THEN COALESCE(ep2.nickname, u2.nickname)
+          ELSE COALESCE(ep1.nickname, u1.nickname)
+        END AS other_nickname,
 
-  IFNULL(cu.count, 0) AS unread_count
+        -- 🔥 상대 아바타
+        CASE
+          WHEN r.user1_id = ? THEN COALESCE(ep2.avatar_url, u2.avatar_url)
+          ELSE COALESCE(ep1.avatar_url, u1.avatar_url)
+        END AS other_avatar,
 
-FROM chat_rooms r
-JOIN users u1 ON u1.id = r.user1_id
-JOIN users u2 ON u2.id = r.user2_id
+        IFNULL(cu.count, 0) AS unread_count
 
-LEFT JOIN expert_profiles ep1 ON ep1.user_id = u1.id
-LEFT JOIN expert_profiles ep2 ON ep2.user_id = u2.id
+      FROM chat_rooms r
+      JOIN users u1 ON u1.id = r.user1_id
+      JOIN users u2 ON u2.id = r.user2_id
+      LEFT JOIN expert_profiles ep1 ON ep1.user_id = u1.id
+      LEFT JOIN expert_profiles ep2 ON ep2.user_id = u2.id
+      LEFT JOIN chat_unread cu
+        ON cu.room_id = r.id AND cu.user_id = ?
 
-LEFT JOIN chat_unread cu
-  ON cu.room_id = r.id AND cu.user_id = ?
-
-WHERE r.user1_id = ? OR r.user2_id = ?
-ORDER BY r.updated_at DESC
-
+      WHERE r.user1_id = ? OR r.user2_id = ?
+      ORDER BY r.updated_at DESC
       `,
       [userId, userId, userId, userId, userId, userId]
     );
 
-    return res.json({ success: true, rooms: rows });
+    res.json({ success: true, rooms: rows });
 
   } catch (err) {
     console.error("❌ /chat/rooms error:", err);
-    return res.status(500).json({ success: false });
+    res.status(500).json({ success: false });
   }
 });
+
 
 
 
@@ -4232,53 +4240,74 @@ app.post("/expert/tasks/start", async (req, res) => {
 /* ======================================================
    🔵 채팅방 목록 (좌측 프로필 리스트용 – 전문가 완전 대응)
 ====================================================== */
-app.get("/chat/rooms", async (req, res) => {
+/* ======================================================
+   🔵 채팅방 생성 / 조회 (중복 방 완전 차단)
+====================================================== */
+app.post("/chat/room", async (req, res) => {
   try {
     if (!req.session.user) {
-      return res.json({ success: false });
+      return res.status(401).json({ success: false, message: "LOGIN_REQUIRED" });
     }
 
-    const userId = req.session.user.id;
+    const myId = Number(req.session.user.id);
+    const { targetId } = req.body;
 
-    const [rows] = await db.query(`
-      SELECT
-        r.id AS room_id,
+    if (!targetId) {
+      return res.json({ success: false, message: "TARGET_REQUIRED" });
+    }
 
-        CASE
-          WHEN r.user1_id = ? THEN u2.id
-          ELSE u1.id
-        END AS other_id,
+    const otherId = Number(targetId);
 
-        CASE
-          WHEN r.user1_id = ? THEN u2.nickname
-          ELSE u1.nickname
-        END AS other_nickname,
+    // 🔥 핵심: 항상 작은 ID → user1, 큰 ID → user2
+    const user1 = Math.min(myId, otherId);
+    const user2 = Math.max(myId, otherId);
 
-        CASE
-          WHEN r.user1_id = ? THEN u2.avatar_url
-          ELSE u1.avatar_url
-        END AS other_avatar,
+    /* ============================
+       1️⃣ 기존 방 조회
+    ============================ */
+    const [exist] = await db.query(
+      `
+      SELECT id
+      FROM chat_rooms
+      WHERE user1_id = ? AND user2_id = ?
+      LIMIT 1
+      `,
+      [user1, user2]
+    );
 
-        r.last_msg,
-        r.updated_at
+    if (exist.length > 0) {
+      return res.json({
+        success: true,
+        roomId: exist[0].id,
+      });
+    }
 
-      FROM chat_rooms r
-      JOIN users u1 ON u1.id = r.user1_id
-      JOIN users u2 ON u2.id = r.user2_id
-      WHERE r.user1_id = ? OR r.user2_id = ?
-      ORDER BY r.updated_at DESC
-    `, [userId, userId, userId, userId, userId]);
+    /* ============================
+       2️⃣ 새 방 생성
+    ============================ */
+    const now = nowStr();
+
+    const [result] = await db.query(
+      `
+      INSERT INTO chat_rooms
+        (user1_id, user2_id, room_type, created_at, updated_at)
+      VALUES
+        (?, ?, 'dm', ?, ?)
+      `,
+      [user1, user2, now, now]
+    );
 
     return res.json({
       success: true,
-      rooms: rows
+      roomId: result.insertId,
     });
 
   } catch (err) {
-    console.error("❌ /chat/rooms error:", err);
-    res.status(500).json({ success: false });
+    console.error("❌ /chat/room error:", err);
+    return res.status(500).json({ success: false, message: "SERVER_ERROR" });
   }
 });
+
 
 
 /* ======================================================
