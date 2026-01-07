@@ -121,7 +121,7 @@ async function initHeaderChat() {
     console.log("🟦 header socket connected:", socket.id);
 
     if (CURRENT_USER && CURRENT_USER.id) {
-      socket.emit("user:join", String(CURRENT_USER.id));
+      
       console.log("👤 user room joined: user:" + CURRENT_USER.id);
       isSocketReady = true;
     }

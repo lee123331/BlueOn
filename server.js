@@ -254,6 +254,27 @@ const servicesUpload = multer({
     fileSize: 10 * 1024 * 1024,
   },
 });
+/* ======================================================
+   🔵 채팅 이미지 업로드용 multer
+====================================================== */
+const chatUploadStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const dir = "public/uploads/chat";
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    cb(null, dir);
+  },
+  filename: (req, file, cb) => {
+    const ext = path.extname(file.originalname);
+    cb(null, `chat-${Date.now()}-${Math.random().toString(36).slice(2)}${ext}`);
+  }
+});
+
+const chatUpload = multer({
+  storage: chatUploadStorage,
+  limits: {
+    fileSize: 10 * 1024 * 1024 // 10MB
+  }
+});
 
 /* ======================================================
    전문가 아바타 업로드 (Step1 전용)
@@ -689,6 +710,33 @@ app.post("/api/task-chat/send", async (req, res) => {
       success: false,
       message: "서버 오류",
     });
+  }
+});
+/* ======================================================
+   🔵 채팅 이미지 업로드
+   POST /chat/upload
+====================================================== */
+app.post("/chat/upload", chatUpload.single("file"), async (req, res) => {
+  try {
+    if (!req.session.user) {
+      return res.status(401).json({ success: false });
+    }
+
+    if (!req.file) {
+      return res.json({ success: false, message: "NO_FILE" });
+    }
+
+    const fileUrl = `/uploads/chat/${req.file.filename}`;
+
+    return res.json({
+      success: true,
+      file_url: fileUrl,
+      file_name: req.file.originalname
+    });
+
+  } catch (err) {
+    console.error("❌ chat upload error:", err);
+    return res.status(500).json({ success: false });
   }
 });
 
@@ -2071,7 +2119,9 @@ app.get("/chat/rooms", async (req, res) => {
 
 
 /* ======================================================
-   🔵 메시지 저장 + last_msg 업데이트 + 알림 브로드캐스트 (최종 안정판)
+   🔵 메시지 저장 + last_msg 업데이트 + 알림 브로드캐스트 (서버 안전판)
+   - SQL 수정 없이: 긴 메시지/이미지(base64)로 인한 500 방지
+   - 이미지/파일은 message 컬럼에 base64 저장 금지 (업로드 방식만 허용)
 ====================================================== */
 app.post("/chat/send-message", async (req, res) => {
   try {
@@ -2080,21 +2130,83 @@ app.post("/chat/send-message", async (req, res) => {
     }
 
     const { roomId, message, content, message_type } = req.body;
-    const senderId = req.session.user.id;
+    const senderId = Number(req.session.user.id);
 
     if (!roomId) {
       return res.json({ success: false, message: "ROOM_ID_REQUIRED" });
     }
 
-    const realMessage = message || content;
-    if (!realMessage || !realMessage.trim()) {
+    // ✅ 입력 통합
+    const raw = (message ?? content ?? "").toString();
+    const type = (message_type ?? "text").toString();
+
+    // ✅ 공통 trim (텍스트만 의미 있음)
+    const rawTrimmed = raw.trim();
+
+    // ✅ 텍스트가 비어있으면 차단
+    if (!rawTrimmed) {
       return res.json({ success: false, message: "EMPTY_MESSAGE" });
+    }
+
+    /* ======================================================
+       0️⃣ 서버 안전 규칙
+       - TEXT 최대 길이 제한 (DB VARCHAR/TEXT 어떤 환경이든 폭발 방지)
+       - base64(data:image/...)는 message로 저장 금지
+    ====================================================== */
+    const MAX_TEXT_LEN = 500; // 필요하면 300~1000 사이로 조정
+
+    // base64 감지 (data URL)
+    const looksLikeDataUrl =
+      rawTrimmed.startsWith("data:image/") ||
+      rawTrimmed.startsWith("data:application/") ||
+      rawTrimmed.startsWith("data:video/");
+
+    // 1) 이미지/파일 타입인데 base64로 들어오면: 서버에서 차단 (권장)
+    if ((type === "image" || type === "file") && looksLikeDataUrl) {
+      return res.status(400).json({
+        success: false,
+        message: "BASE64_NOT_ALLOWED",
+        hint: "이미지는 base64로 전송하지 말고 업로드(multer) 방식으로 file_url을 저장해야 합니다."
+      });
+    }
+
+    // 2) 텍스트 타입인데 base64가 들어오면: 강제로 차단(또는 잘라내기)
+    if (type === "text" && looksLikeDataUrl) {
+      return res.status(400).json({
+        success: false,
+        message: "BASE64_NOT_ALLOWED",
+        hint: "텍스트로 위장된 base64 데이터는 저장할 수 없습니다."
+      });
+    }
+
+    // ✅ 저장될 message 가공
+    let saveType = type;
+    let saveMessage = rawTrimmed;
+
+    if (saveType === "text") {
+      if (saveMessage.length > MAX_TEXT_LEN) {
+        saveMessage = saveMessage.slice(0, MAX_TEXT_LEN);
+      }
+    } else if (saveType === "image") {
+      // ✅ 이미지일 땐 message를 짧은 설명으로만 저장
+      // (실제 이미지는 file_url 컬럼을 쓰는 구조가 정석)
+      saveMessage = "📷 이미지";
+    } else if (saveType === "file") {
+      saveMessage = "📎 파일";
+    } else {
+      // 알 수 없는 타입은 text로 강제
+      saveType = "text";
+      if (saveMessage.length > MAX_TEXT_LEN) {
+        saveMessage = saveMessage.slice(0, MAX_TEXT_LEN);
+      }
     }
 
     const now = nowStr();
 
     /* ======================================================
-       1️⃣ 메시지 저장 (🔥 created_at 반드시 포함)
+       1️⃣ 메시지 저장
+       - 여기서는 file_url을 받지 않음(현재 네 라우트 구조 기준)
+       - 이미지/파일 전송은 별도 업로드 라우트를 추가하는 게 정석
     ====================================================== */
     const [result] = await db.query(
       `
@@ -2109,13 +2221,7 @@ app.post("/chat/send-message", async (req, res) => {
       )
       VALUES (?, ?, ?, ?, 0, ?)
       `,
-      [
-        roomId,
-        senderId,
-        realMessage,
-        message_type || "text",
-        now
-      ]
+      [roomId, senderId, saveMessage, saveType, now]
     );
 
     const messageId = result.insertId;
@@ -2124,11 +2230,13 @@ app.post("/chat/send-message", async (req, res) => {
        2️⃣ last_msg + updated_at 업데이트
     ====================================================== */
     const lastMsgPreview =
-      message_type === "image"
+      saveType === "image"
         ? "📷 이미지"
-        : realMessage.length > 80
-        ? realMessage.substring(0, 80) + "..."
-        : realMessage;
+        : saveType === "file"
+        ? "📎 파일"
+        : saveMessage.length > 80
+        ? saveMessage.substring(0, 80) + "..."
+        : saveMessage;
 
     await db.query(
       `
@@ -2156,9 +2264,7 @@ app.post("/chat/send-message", async (req, res) => {
     }
 
     const otherUserId =
-      Number(room.user1_id) === Number(senderId)
-        ? room.user2_id
-        : room.user1_id;
+      Number(room.user1_id) === senderId ? Number(room.user2_id) : Number(room.user1_id);
 
     /* ======================================================
        4️⃣ unread 카운트 증가
@@ -2174,19 +2280,20 @@ app.post("/chat/send-message", async (req, res) => {
 
     /* ======================================================
        5️⃣ 채팅방 실시간 메시지 전송
+       - content는 saveMessage로 통일 (base64 차단됨)
     ====================================================== */
     io.to(String(roomId)).emit("chat:message", {
       id: messageId,
       message_id: messageId,
       roomId,
       senderId,
-      content: realMessage,
-      message_type: message_type || "text",
+      content: saveMessage,
+      message_type: saveType,
       created_at: now
     });
 
     /* ======================================================
-       6️⃣ 상대방 개인 알림 (헤더 채팅 배지용)
+       6️⃣ 상대방 개인 알림 (헤더 배지용)
     ====================================================== */
     io.to(`user:${otherUserId}`).emit("chat:notify", {
       roomId,
@@ -2195,7 +2302,7 @@ app.post("/chat/send-message", async (req, res) => {
     });
 
     console.log(
-      `📨 chat message saved | room=${roomId} | from=${senderId} → to=${otherUserId}`
+      `📨 chat message saved | room=${roomId} | from=${senderId} → to=${otherUserId} | type=${saveType}`
     );
 
     return res.json({
@@ -2205,14 +2312,15 @@ app.post("/chat/send-message", async (req, res) => {
     });
 
   } catch (err) {
-    console.error("❌ send-message error:", err);
+    // ✅ DB 에러 원인 로그를 더 잘 보이게
+    console.error("❌ send-message error:", err?.sqlMessage || err);
+
     return res.status(500).json({
       success: false,
       message: "SERVER_ERROR"
     });
   }
 });
-
 
 
 /* ======================================================
