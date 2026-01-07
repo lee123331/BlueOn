@@ -26,16 +26,41 @@ function safeParse(v) {
 }
 
 /* ======================================================
-   🔥 문의하기 (채팅 이동)
+   🔥 문의하기 (채팅방 생성 → 이동)
 ====================================================== */
-window.openChat = function () {
-  if (!window.SERVICE_EXPERT_ID) {
+window.openChat = async function () {
+  const targetId = window.SERVICE_EXPERT_ID;
+
+  if (!targetId) {
     showToast("전문가 정보를 불러오는 중입니다.");
     return;
   }
 
-  location.href = `/chat.html?target=${window.SERVICE_EXPERT_ID}`;
+  try {
+    const res = await fetch("/chat/start", {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ targetId })
+    });
+
+    const data = await res.json();
+    console.log("🧪 chat/start result:", data);
+
+    if (!data.success || !data.roomId) {
+      showToast("채팅방 생성에 실패했습니다.");
+      return;
+    }
+
+    // ✅ 여기서만 이동
+    location.href = `/chat.html?room=${data.roomId}`;
+
+  } catch (e) {
+    console.error(e);
+    showToast("채팅 연결 중 오류가 발생했습니다.");
+  }
 };
+
 
 /* ======================================================
    구매 버튼
@@ -94,6 +119,8 @@ function initExpertBox(ex) {
   document.getElementById("expertIntroFull").textContent =
     ex.intro || "등록된 소개 글이 없습니다.";
 }
+// 예시: 서비스 데이터 로드 후
+window.TARGET_USER_ID = service.expert_user_id; // 🔥 이 줄 반드시
 
 /* ======================================================
    가격 렌더링

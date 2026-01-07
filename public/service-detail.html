@@ -903,7 +903,46 @@
   </div>
 </div>
 
+<script>
+  window.TARGET_USER_ID = null;
+</script>
 <script src="/js/service-detail.js"></script>
+<script>
+async function openChat() {
+  const targetId = window.TARGET_USER_ID;
+
+  if (!targetId) {
+    alert("전문가 정보가 없습니다.");
+    return;
+  }
+
+  try {
+    const res = await fetch("/chat/start", {
+      method: "POST",
+      credentials: "include",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ targetId })
+    });
+
+    const data = await res.json();
+    console.log("🧪 chat/start response:", data);
+
+    if (!data.success || !data.roomId) {
+      alert("채팅방 생성 실패");
+      return;
+    }
+
+    // ✅ 생성 or 기존 채팅방으로 이동
+    location.href = `/chat.html?room=${data.roomId}`;
+
+  } catch (err) {
+    console.error("❌ openChat error:", err);
+    alert("채팅 시작 중 오류 발생");
+  }
+}
+</script>
 
 
 <div id="toast" class="toast"></div>

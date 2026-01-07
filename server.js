@@ -2556,33 +2556,40 @@ app.post("/chat/read", async (req, res) => {
       return res.status(401).json({ success: false });
     }
 
-    const userId = req.session.user.id;
+    const userId = Number(req.session.user.id);
     const { roomId } = req.body;
 
     if (!roomId) {
       return res.json({ success: false });
     }
 
-    // 🔥 unread 제거 (선택지 A의 핵심)
+    // 1️⃣ 메시지 읽음 처리
     await db.query(
-      `DELETE FROM chat_unread WHERE user_id=? AND room_id=?`,
-      [userId, roomId]
-    );
-
-    // 메시지 읽음 처리 (선택)
-    await db.query(
-      `UPDATE chat_messages SET is_read=1
-       WHERE room_id=? AND sender_id != ?`,
+      `
+      UPDATE chat_messages
+      SET is_read = 1
+      WHERE room_id = ?
+        AND sender_id != ?
+      `,
       [roomId, userId]
     );
 
-    res.json({ success: true });
+    // 2️⃣ 🔥 unread 카운트 제거 (핵심)
+    await db.query(
+      `
+      DELETE FROM chat_unread
+      WHERE user_id = ? AND room_id = ?
+      `,
+      [userId, roomId]
+    );
+
+    return res.json({ success: true });
+
   } catch (err) {
     console.error("❌ chat/read error:", err);
     res.status(500).json({ success: false });
   }
 });
-
 
 
 /* ======================================================
