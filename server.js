@@ -1866,18 +1866,15 @@ app.get("/users/profile/:id", async (req, res) => {
         id: user.id,
         name: user.name,
         nickname: user.nickname,
-        avatar: user.avatar_url || "/assets/default_profile.png",
+        avatar_url: user.avatar_url || "/assets/default_profile.png" // ✅ 키 통일
       }
     });
-
   } catch (err) {
     console.error("/users/profile error:", err);
-    return res.json({
-      success: false,
-      message: "서버 오류"
-    });
+    return res.json({ success: false, message: "서버 오류" });
   }
 });
+
 /* ======================================================
    🔵 Socket.io (헤더 알림 + 채팅 완전체)
 ====================================================== */
@@ -2310,16 +2307,19 @@ app.post("/chat/send-message", async (req, res) => {
     /* ======================================================
        7️⃣ 실시간 메시지 브로드캐스트
     ====================================================== */
-    io.to(String(roomId)).emit("chat:message", {
-      id: messageId,
-      message_id: messageId,
-      roomId,
-      senderId,
-      message_type: saveType,
-      content: saveMessage,
-      file_url: saveFileUrl,
-      created_at: now
-    });
+   io.to(String(roomId)).emit("chat:message", {
+  id: messageId,
+  message_id: messageId,
+  roomId,
+  senderId,
+  sender_id: senderId,        // ✅ renderMsg 호환
+  message_type: saveType,
+  message: saveMessage,       // ✅ 핵심: 프론트가 읽는 키
+  content: saveMessage,       // ✅ 기존 호환 유지
+  file_url: saveFileUrl,
+  created_at: now
+});
+
 
     /* ======================================================
        8️⃣ 상대방 개인 알림 (배지용)
@@ -2400,7 +2400,6 @@ app.get("/chat/messages", async (req, res) => {
     const { roomId } = req.query;
     const userId = req.session.user.id;
 
-    // 🔥 방 참여자인지 확인
     const [[room]] = await db.query(
       `
       SELECT id
@@ -2419,11 +2418,15 @@ app.get("/chat/messages", async (req, res) => {
       `
       SELECT
         id,
-        room_id     AS roomId,
-        sender_id   AS senderId,
-        message     AS content,
+        room_id AS roomId,
+        sender_id AS sender_id,      -- ✅ 프론트 호환
+        sender_id AS senderId,       -- ✅ 소켓/호환
+        message AS message,          -- ✅ 프론트가 읽는 키
+        message AS content,          -- ✅ 기존 호환도 유지
         message_type,
-        is_read
+        file_url,
+        is_read,
+        created_at
       FROM chat_messages
       WHERE room_id = ?
       ORDER BY id ASC
@@ -2431,13 +2434,11 @@ app.get("/chat/messages", async (req, res) => {
       [roomId]
     );
 
-    res.json({
-      success: true,
-      messages
-    });
+    return res.json({ success: true, messages });
+
   } catch (err) {
     console.error("❌ chat/messages error:", err);
-    res.status(500).json({ success: false });
+    return res.status(500).json({ success: false });
   }
 });
 
