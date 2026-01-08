@@ -4458,54 +4458,63 @@ app.get("/chat/rooms", async (req, res) => {
     const [rows] = await db.query(
       `
       SELECT
-        t.roomId,
-        t.last_msg,
-        t.updated_at,
-        t.nickname,
-        t.avatar,
+        r.id AS roomId,
+        r.last_msg,
+        r.updated_at,
+
+        -- 상대방 닉네임
+        CASE
+          WHEN r.buyer_id = ? THEN ep.nickname
+          ELSE u.nickname
+        END AS nickname,
+
+        -- 상대방 아바타
+        CASE
+          WHEN r.buyer_id = ? THEN
+            COALESCE(ep.avatar_url, '/assets/default_profile.png')
+          ELSE
+            COALESCE(u.avatar_url, '/assets/default_profile.png')
+        END AS avatar,
+
         COALESCE(cu.count, 0) AS unread
-      FROM (
-        -- 🔹 상대방 기준으로 최신 방 1개만 추출
-        SELECT
-          r.id AS roomId,
-          r.last_msg,
-          r.updated_at,
 
-          -- 상대방 ID
-          CASE
-            WHEN r.buyer_id = ? THEN r.expert_id
-            ELSE r.buyer_id
-          END AS other_id,
+      FROM service_chat_rooms r
 
-          -- 상대방 닉네임
-          CASE
-            WHEN r.buyer_id = ? THEN ep.nickname
-            ELSE u.nickname
-          END AS nickname,
-
-          -- 상대방 아바타
-          CASE
-            WHEN r.buyer_id = ? THEN
-              COALESCE(ep.avatar_url, '/assets/default_profile.png')
-            ELSE
-              COALESCE(u.avatar_url, '/assets/default_profile.png')
-          END AS avatar
-
-        FROM service_chat_rooms r
-        LEFT JOIN users u ON u.id = r.buyer_id
-        LEFT JOIN expert_profiles ep ON ep.user_id = r.expert_id
-        WHERE r.buyer_id = ? OR r.expert_id = ?
-        ORDER BY r.updated_at DESC
-      ) t
-      GROUP BY t.other_id   -- ✅ 여기서 사람당 1개로 압축
-
+      -- 🔹 unread
       LEFT JOIN chat_unread cu
-        ON cu.room_id = t.roomId
+        ON cu.room_id = r.id
        AND cu.user_id = ?
 
-      ORDER BY t.updated_at DESC
+      -- 🔹 buyer 정보
+      LEFT JOIN users u
+        ON u.id = r.buyer_id
+
+      -- 🔹 expert 정보
+      LEFT JOIN expert_profiles ep
+        ON ep.user_id = r.expert_id
+
+      -- 🔹 내가 포함된 방 중
+      WHERE r.id IN (
+        SELECT MAX(r2.id)
+        FROM service_chat_rooms r2
+        WHERE r2.buyer_id = ? OR r2.expert_id = ?
+        GROUP BY
+          CASE
+            WHEN r2.buyer_id = ? THEN r2.expert_id
+            ELSE r2.buyer_id
+          END
+      )
+
+      ORDER BY r.updated_at DESC
       `,
-      [myId, myId, myId, myId, myId, myId]
+      [
+        myId, // nickname case
+        myId, // avatar case
+        myId, // unread
+        myId, // subquery
+        myId, // subquery
+        myId  // group 기준
+      ]
     );
 
     return res.json({ success: true, rooms: rows });
@@ -4515,6 +4524,7 @@ app.get("/chat/rooms", async (req, res) => {
     return res.json({ success: false, rooms: [] });
   }
 });
+
 
 
 
