@@ -227,28 +227,49 @@ function initSocket() {
     if (ROOM_ID) socket.emit("chat:join", ROOM_ID);
   });
 
-  socket.on("chat:message", msg => {
-    const roomId = String(msg.room_id || msg.roomId);
-    const senderId = Number(msg.sender_id);
+  socket.on("chat:read", ({ roomId }) => {
+  // 내가 보고 있는 방만 처리
+  if (!ROOM_ID) return;
+  if (String(roomId) !== String(ROOM_ID)) return;
 
-    const preview =
-      msg.message_type === "image"
-        ? "📷 이미지"
-        : (msg.message || "");
+  // 내가 보낸 메시지들의 읽음 표시를 모두 켜줌
+  document
+    .querySelectorAll(".msg-row.me .read-state")
+    .forEach(el => {
+      el.textContent = "읽음";
+    });
+});
 
-    updateLeftLastMsg(roomId, preview);
 
-    if (ROOM_ID && roomId === String(ROOM_ID)) {
-      if (senderId === CURRENT_USER.id) return;
+socket.on("chat:message", msg => {
+  const roomId = String(msg.room_id || msg.roomId);
+  const senderId = Number(msg.sender_id);
 
-      renderMsg(msg);
-      scrollBottom();
-      markRoomAsRead(roomId);
-      return;
-    }
+  const preview =
+    msg.message_type === "image"
+      ? "📷 이미지"
+      : (msg.message || "");
 
-    showUnreadBadge(roomId);
-  });
+  // 좌측 마지막 메시지 갱신
+  updateLeftLastMsg(roomId, preview);
+
+  // 🔵 내가 현재 보고 있는 방
+  if (ROOM_ID && roomId === String(ROOM_ID)) {
+    // 내가 보낸 건 무시
+    if (senderId === CURRENT_USER.id) return;
+
+    renderMsg(msg);
+    scrollBottom();
+
+    // 즉시 읽음 처리 (서버 + 상대에게 read emit)
+    markRoomAsRead(roomId);
+    return;
+  }
+
+  // 🔴 다른 방에서 온 메시지 → 빨간 뱃지
+  showUnreadBadge(roomId);
+});
+
 }
 
 /* ======================================================

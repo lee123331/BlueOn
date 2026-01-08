@@ -1988,10 +1988,7 @@ if (ADMIN_ID && String(user.id) === ADMIN_ID) {
       });
     });
 
-    /* 읽음 표시 */
-    socket.on("chat:read", ({ roomId, userId }) => {
-      socket.to(String(roomId)).emit("chat:read", { roomId, userId });
-    });
+
 
     /* 메시지 삭제 */
     socket.on("chat:delete", ({ roomId, messageId }) => {
