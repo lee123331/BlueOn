@@ -1,4 +1,4 @@
-console.log("🔥 chat.js FINAL FIX loaded");
+console.log("🔥 chat.js FINAL COMPLETE loaded");
 
 const API = "https://blueon.up.railway.app";
 
@@ -11,15 +11,19 @@ const ROOM_ID = params.get("roomId");
 /* ======================================================
    DOM
 ====================================================== */
-const chatListArea    = document.getElementById("chatList");
-const chatBody        = document.getElementById("chatBody");
-const msgInput        = document.getElementById("msgInput");
-const sendBtn         = document.getElementById("sendBtn");
-const fileBtn         = document.getElementById("fileBtn");
-const fileInput       = document.getElementById("fileInput");
-const headerImg       = document.getElementById("chatProfileImg");
-const headerName      = document.getElementById("chatProfileName");
-const typingIndicator = document.getElementById("typingIndicator");
+const chatListArea = document.getElementById("chatList");
+const chatBody     = document.getElementById("chatBody");
+const msgInput     = document.getElementById("msgInput");
+const sendBtn      = document.getElementById("sendBtn");
+const fileBtn      = document.getElementById("fileBtn");
+const fileInput    = document.getElementById("fileInput");
+
+const headerImg  = document.getElementById("chatProfileImg");
+const headerName = document.getElementById("chatProfileName");
+
+/* 이미지 모달 */
+const imgModal = document.getElementById("imgModal");
+const imgView  = document.getElementById("imgModalView");
 
 /* ======================================================
    상태
@@ -50,8 +54,9 @@ async function loadChatList() {
   data.rooms.forEach(room => {
     const div = document.createElement("div");
     div.className = "chat-item";
-    div.onclick = () =>
+    div.onclick = () => {
       location.href = `/chat.html?roomId=${room.roomId}`;
+    };
 
     div.innerHTML = `
       <div class="chat-left">
@@ -67,10 +72,11 @@ async function loadChatList() {
 }
 
 /* ======================================================
-   채팅방 상단
+   채팅방 상단 정보
 ====================================================== */
 async function loadRoomInfo() {
   if (!ROOM_ID) return;
+
   const res = await fetch(`${API}/chat/room-info?roomId=${ROOM_ID}`, {
     credentials: "include"
   });
@@ -82,10 +88,11 @@ async function loadRoomInfo() {
 }
 
 /* ======================================================
-   메시지 로드
+   메시지 로드 (DB)
 ====================================================== */
 async function loadMessages() {
   if (!ROOM_ID) return;
+
   const res = await fetch(`${API}/chat/messages?roomId=${ROOM_ID}`, {
     credentials: "include"
   });
@@ -98,18 +105,21 @@ async function loadMessages() {
 }
 
 /* ======================================================
-   메시지 렌더 (🔥 핵심 수정)
+   메시지 렌더
 ====================================================== */
 function renderMsg(msg) {
-  const sender = Number(msg.sender_id);
+  const senderId = Number(msg.sender_id);
   const type = msg.message_type;
-  const content = msg.message || msg.content;
-  const isRead = msg.is_read;
+
+  const content =
+    type === "image"
+      ? (msg.file_url || msg.message || msg.content)
+      : (msg.message || msg.content);
 
   if (!content) return;
 
   const wrap = document.createElement("div");
-  wrap.className = "msg " + (sender === CURRENT_USER.id ? "me" : "other");
+  wrap.className = "msg " + (senderId === CURRENT_USER.id ? "me" : "other");
 
   if (type === "image") {
     const img = document.createElement("img");
@@ -119,35 +129,28 @@ function renderMsg(msg) {
     img.style.cursor = "pointer";
 
     img.onclick = () => openImageModal(content);
-
     wrap.appendChild(img);
   } else {
     wrap.textContent = content;
-  }
-
-  if (sender === CURRENT_USER.id) {
-    const readEl = document.createElement("div");
-    readEl.className = "read-state";
-    readEl.textContent = isRead ? "읽음" : "";
-    wrap.appendChild(readEl);
   }
 
   chatBody.appendChild(wrap);
 }
 
 /* ======================================================
-   메시지 전송 (🔥 즉시 렌더)
+   메시지 전송 (텍스트/이미지 공용)
 ====================================================== */
 function sendMessage(type, content) {
-  // ✅ 1. 즉시 렌더
+  // 🔥 즉시 렌더
   renderMsg({
     sender_id: CURRENT_USER.id,
     message_type: type,
-    content
+    message: type === "text" ? content : null,
+    file_url: type === "image" ? content : null
   });
   scrollBottom();
 
-  // ✅ 2. 서버 전송 (백그라운드)
+  // 🔥 서버 저장
   fetch(`${API}/chat/send-message`, {
     method: "POST",
     credentials: "include",
@@ -155,10 +158,11 @@ function sendMessage(type, content) {
     body: JSON.stringify({
       roomId: ROOM_ID,
       message_type: type,
-      content
+      message: type === "text" ? content : null,
+      file_url: type === "image" ? content : null
     })
   }).catch(err => {
-    console.error("❌ send-message fail", err);
+    console.error("❌ send-message error", err);
   });
 }
 
@@ -170,38 +174,80 @@ function sendText() {
 }
 
 /* ======================================================
-   이미지 전송
+   이미지 전송 (🔥 핵심)
 ====================================================== */
 fileBtn.onclick = () => fileInput.click();
 
-fileInput.onchange = () => {
+fileInput.onchange = async () => {
   const file = fileInput.files[0];
   if (!file) return;
 
-  const reader = new FileReader();
-  reader.onload = () => {
-    sendMessage("image", reader.result);
+  try {
+    const fd = new FormData();
+    fd.append("image", file);
+
+    // 1️⃣ 업로드
+    const upRes = await fetch(`${API}/chat/upload-image`, {
+      method: "POST",
+      credentials: "include",
+      body: fd
+    });
+
+    const upData = await upRes.json();
+    if (!upData.success || !upData.url) {
+      console.error("❌ image upload fail", upData);
+      return;
+    }
+
+    // 2️⃣ URL로 메시지 전송
+    sendMessage("image", upData.url);
+
+  } catch (err) {
+    console.error("❌ image send error", err);
+  } finally {
     fileInput.value = "";
-  };
-  reader.readAsDataURL(file);
+  }
 };
 
 /* ======================================================
-   socket.io
+   Socket.io
 ====================================================== */
 function initSocket() {
   socket = io({ withCredentials: true });
 
   socket.on("connect", () => {
     socket.emit("chat:join", ROOM_ID);
+    console.log("🔌 socket connected");
   });
 
   socket.on("chat:message", msg => {
-    if (String(msg.roomId || msg.room_id) !== String(ROOM_ID)) return;
+    if (String(msg.room_id || msg.roomId) !== String(ROOM_ID)) return;
     if (msg.sender_id === CURRENT_USER.id) return;
     renderMsg(msg);
     scrollBottom();
   });
+}
+
+/* ======================================================
+   이미지 모달
+====================================================== */
+function openImageModal(src) {
+  imgView.src = src;
+  imgModal.style.display = "flex";
+}
+
+if (imgModal) {
+  imgModal.onclick = () => {
+    imgModal.style.display = "none";
+    imgView.src = "";
+  };
+}
+
+/* ======================================================
+   유틸
+====================================================== */
+function scrollBottom() {
+  chatBody.scrollTop = chatBody.scrollHeight;
 }
 
 /* ======================================================
@@ -224,28 +270,3 @@ msgInput.addEventListener("keydown", e => {
     sendText();
   }
 });
-
-function scrollBottom() {
-  chatBody.scrollTop = chatBody.scrollHeight;
-}
-/* ======================================================
-   이미지 모달 열기
-====================================================== */
-function openImageModal(src) {
-  const modal = document.getElementById("imgModal");
-  const img = document.getElementById("imgModalView");
-
-  img.src = src;
-  modal.style.display = "flex";
-}
-
-/* ======================================================
-   이미지 모달 닫기 (전체 클릭)
-====================================================== */
-const imgModal = document.getElementById("imgModal");
-if (imgModal) {
-  imgModal.onclick = () => {
-    imgModal.style.display = "none";
-    document.getElementById("imgModalView").src = "";
-  };
-}

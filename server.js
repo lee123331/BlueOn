@@ -253,6 +253,7 @@ const servicesUpload = multer({
     fieldSize: 10 * 1024 * 1024,
     fileSize: 10 * 1024 * 1024,
   },
+  
 });
 
 /* ======================================================
@@ -269,6 +270,25 @@ const expertAvatarStorage = multer.diskStorage({
   },
 });
 const expertAvatarUpload = multer({ storage: expertAvatarStorage });
+/* ======================================================
+   🔵 채팅 이미지 업로드용 Multer (추가)
+====================================================== */
+const chatImageStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const dir = "public/uploads/chat";
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    cb(null, dir);
+  },
+  filename: (_, file, cb) => {
+    const ext = path.extname(file.originalname);
+    cb(null, `chat-${Date.now()}-${Math.random().toString(36).slice(2)}${ext}`);
+  },
+});
+
+const chatImageUpload = multer({
+  storage: chatImageStorage,
+  limits: { fileSize: 10 * 1024 * 1024 },
+});
 
 app.post(
   "/expert/upload-avatar",
@@ -596,46 +616,14 @@ app.get("/api/task-chat/messages", async (req, res) => {
 app.post("/chat/send-message", async (req, res) => {
   try {
     if (!req.session.user) {
-      return res.status(401).json({
-        success: false,
-        message: "LOGIN_REQUIRED"
-      });
+      return res.status(401).json({ success: false });
     }
 
+    const { roomId, message, message_type, file_url } = req.body;
     const senderId = req.session.user.id;
-    const { roomId, message } = req.body;
-
-    if (!roomId || !message || !message.trim()) {
-      return res.json({
-        success: false,
-        message: "INVALID_PARAMS"
-      });
-    }
-
-    /* 1️⃣ 권한 체크 (buyer or expert) */
-    const [[room]] = await db.query(
-      `
-      SELECT buyer_id, expert_id
-      FROM service_chat_rooms
-      WHERE id = ?
-      `,
-      [roomId]
-    );
-
-    if (!room) {
-      return res.json({ success: false, message: "ROOM_NOT_FOUND" });
-    }
-
-    if (room.buyer_id !== senderId && room.expert_id !== senderId) {
-      return res.status(403).json({
-        success: false,
-        message: "NO_ACCESS"
-      });
-    }
 
     const now = nowStr();
 
-    /* 2️⃣ 메시지 저장 */
     const [result] = await db.query(
       `
       INSERT INTO chat_messages
@@ -644,49 +632,58 @@ app.post("/chat/send-message", async (req, res) => {
         sender_id,
         message,
         message_type,
+        file_url,
         is_read,
         created_at
       )
-      VALUES (?, ?, ?, 'text', 0, ?)
+      VALUES (?, ?, ?, ?, ?, 0, ?)
       `,
-      [roomId, senderId, message, now]
+      [
+        roomId,
+        senderId,
+        message || null,
+        message_type || "text",
+        file_url || null,
+        now
+      ]
     );
 
-    /* 3️⃣ 마지막 메시지 업데이트 */
-    await db.query(
-      `
-      UPDATE service_chat_rooms
-      SET last_msg = ?, updated_at = ?
-      WHERE id = ?
-      `,
-      [message, now, roomId]
-    );
-
-    const savedMessage = {
+    const saved = {
       id: result.insertId,
       room_id: roomId,
       sender_id: senderId,
       message,
-      message_type: "text",
+      message_type,
+      file_url,
+      is_read: 0,
       created_at: now
     };
 
-    /* 4️⃣ 실시간 전송 */
-    io.to(String(roomId)).emit("chat:new", savedMessage);
+    // 🔥 실시간 전송
+    io.to(String(roomId)).emit("chat:message", saved);
+
+    return res.json({ success: true, message: saved });
+
+  } catch (e) {
+    console.error("chat send error:", e);
+    res.status(500).json({ success: false });
+  }
+});
+app.post(
+  "/chat/upload-image",
+  chatImageUpload.single("image"),
+  (req, res) => {
+    if (!req.file) {
+      return res.json({ success: false });
+    }
 
     return res.json({
       success: true,
-      message: savedMessage
-    });
-
-  } catch (err) {
-    console.error("❌ /chat/send-message error:", err);
-    return res.status(500).json({
-      success: false,
-      message: "SERVER_ERROR"
+      url: `/uploads/chat/${req.file.filename}`
     });
   }
-});
+);
+
 
 /* ======================================================
    🧩 작업 채팅 메시지 전송 (최종)
@@ -2389,6 +2386,7 @@ app.get("/chat/messages", async (req, res) => {
          m.sender_id,
          m.message,
          m.message_type,
+         m.file_url,
          m.created_at,
          CASE 
            WHEN m.sender_id = ? THEN m.is_read 
