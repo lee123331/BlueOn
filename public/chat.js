@@ -1,9 +1,9 @@
-console.log("🔥 chat.js (unified final) 로딩됨");
+console.log("🔥 chat.js (FINAL) 로딩됨");
 
 const API = "https://blueon.up.railway.app";
 
 /* ======================================================
-   URL 파라미터 & 모드 결정
+   URL 파라미터 (roomId 단일 기준)
 ====================================================== */
 const params = new URLSearchParams(location.search);
 const ROOM_ID = params.get("roomId");
@@ -12,7 +12,6 @@ if (!ROOM_ID) {
   alert("잘못된 접근입니다.");
   location.href = "/";
 }
-
 
 /* ======================================================
    DOM
@@ -31,7 +30,6 @@ const brandBtn        = document.getElementById("viewBrandPlanBtn");
    전역 상태
 ====================================================== */
 let CURRENT_USER = null;
-let ROOM_ID      = null;
 let socket       = null;
 let typingTimer  = null;
 
@@ -39,7 +37,7 @@ let typingTimer  = null;
    로그인 유저
 ====================================================== */
 async function loadMe() {
-  const res  = await fetch(`${API}/auth/me`, { credentials: "include" });
+  const res = await fetch(`${API}/auth/me`, { credentials: "include" });
   const data = await res.json();
 
   if (!data.success) {
@@ -52,63 +50,43 @@ async function loadMe() {
 }
 
 /* ======================================================
-   채팅 컨텍스트 로드
+   채팅방 정보 (상대방)
 ====================================================== */
 async function loadContext() {
-  let url;
+  const res = await fetch(
+    `${API}/chat/room-info?roomId=${ROOM_ID}`,
+    { credentials: "include" }
+  );
 
-  if (MODE === "service") {
-    url = `${API}/service-chat/context?serviceId=${serviceId}`;
-  } else {
-    const qs = taskKey
-      ? `taskKey=${encodeURIComponent(taskKey)}`
-      : `orderId=${encodeURIComponent(orderId)}`;
-    url = `${API}/api/task-chat/context?${qs}`;
-  }
-
-  const res  = await fetch(url, { credentials: "include" });
   const data = await res.json();
 
   if (!data.success) {
-    alert("채팅 정보를 불러올 수 없습니다.");
+    alert("채팅방 정보를 불러올 수 없습니다.");
     location.href = "/";
     return;
   }
 
-  ROOM_ID = data.roomId;
+  headerImg.src =
+    data.avatar || "/assets/default_profile.png";
+  headerName.textContent =
+    data.nickname || "상대방";
 
-  headerImg.src = data.counterpart?.avatar || "/assets/default_profile.png";
-  headerName.textContent = data.counterpart?.nickname || "상대방";
+  // 브랜드 설계 버튼은 필요 없으면 숨김
+  if (brandBtn) brandBtn.style.display = "none";
 
-  // 브랜드 설계 버튼 (task + expert + design 단계)
-  if (
-    MODE === "task" &&
-    data.myRole === "expert" &&
-    data.phase === "design" &&
-    brandBtn
-  ) {
-    brandBtn.style.display = "inline-block";
-    brandBtn.onclick = () =>
-      location.href = `/brand-plan-view.html?taskKey=${taskKey}`;
-  }
-
-  console.log("🧭 CHAT CONTEXT =", data);
+  console.log("🧭 ROOM CONTEXT =", data);
 }
 
 /* ======================================================
-   메시지 로드
+   메시지 불러오기
 ====================================================== */
 async function loadMessages() {
-  if (!ROOM_ID) return;
+  const res = await fetch(
+    `${API}/chat/messages?roomId=${ROOM_ID}`,
+    { credentials: "include" }
+  );
 
-  const url =
-    MODE === "service"
-      ? `${API}/service-chat/messages?roomId=${ROOM_ID}`
-      : `${API}/api/task-chat/messages?roomId=${ROOM_ID}`;
-
-  const res  = await fetch(url, { credentials: "include" });
   const data = await res.json();
-
   if (!data.success) return;
 
   chatBody.innerHTML = "";
@@ -121,14 +99,7 @@ async function loadMessages() {
    읽음 처리
 ====================================================== */
 function markRead() {
-  if (!ROOM_ID) return;
-
-  const url =
-    MODE === "service"
-      ? `${API}/service-chat/read`
-      : `${API}/api/task-chat/read`;
-
-  fetch(url, {
+  fetch(`${API}/chat/read`, {
     method: "POST",
     credentials: "include",
     headers: { "Content-Type": "application/json" },
@@ -144,12 +115,12 @@ function markRead() {
 }
 
 /* ======================================================
-   메시지 렌더링
+   메시지 렌더
 ====================================================== */
 function renderMsg(msg) {
   const sender  = msg.sender_id;
   const type    = msg.message_type;
-  const content = msg.content;
+  const content = msg.message || msg.content;
   const isRead  = msg.is_read;
 
   if (!content) return;
@@ -186,21 +157,14 @@ function renderMsg(msg) {
    메시지 전송
 ====================================================== */
 async function sendMessage(type, content) {
-  if (!ROOM_ID) return;
-
-  const url =
-    MODE === "service"
-      ? `${API}/service-chat/send`
-      : `${API}/api/task-chat/send`;
-
-  await fetch(url, {
+  await fetch(`${API}/chat/send-message`, {
     method: "POST",
     credentials: "include",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       roomId: ROOM_ID,
       message_type: type,
-      content
+      message: content
     })
   });
 }
@@ -234,9 +198,10 @@ fileInput.onchange = () => {
    socket.io
 ====================================================== */
 function initSocket() {
-  socket = io(API, {
+  socket = io({
     withCredentials: true,
-    auth: { userId: CURRENT_USER.id }
+    transports: ["polling"],
+    upgrade: false
   });
 
   socket.on("connect", () => {
@@ -314,3 +279,10 @@ msgInput.addEventListener("keydown", e => {
 document.getElementById("imgModal").onclick = () => {
   document.getElementById("imgModal").style.display = "none";
 };
+
+/* ======================================================
+   스크롤
+====================================================== */
+function scrollBottom() {
+  chatBody.scrollTop = chatBody.scrollHeight;
+}

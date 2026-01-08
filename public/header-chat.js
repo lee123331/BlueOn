@@ -1,15 +1,20 @@
-console.log("🔵 header-chat.js loaded");
+console.log("🔵 header-chat.js (FINAL) loaded");
 
+/* =========================================================
+   공통 설정
+========================================================= */
 const API_URL = "https://blueon.up.railway.app";
 
 const chatBadge = document.getElementById("chatBadge");
 if (chatBadge) chatBadge.style.display = "none";
 
-let CURRENT_USER = null;
+/* ⚠️ chat.js 와 절대 겹치지 않게 이름 분리 */
+let HEADER_CURRENT_USER = null;
+let headerSocket = null;
 
-/* ============================
-   사용자 정보
-============================ */
+/* =========================================================
+   사용자 정보 (헤더용 최소 정보)
+========================================================= */
 async function loadHeaderUser() {
   try {
     const res = await fetch(`${API_URL}/auth/me`, {
@@ -19,7 +24,7 @@ async function loadHeaderUser() {
     const data = await res.json();
 
     if (data?.success && data?.user) {
-      CURRENT_USER = data.user;
+      HEADER_CURRENT_USER = data.user;
       return true;
     }
   } catch (err) {
@@ -28,11 +33,11 @@ async function loadHeaderUser() {
   return false;
 }
 
-/* ============================
-   🔔 안 읽은 채팅 배지
-============================ */
-async function syncChatBadge() {
-  if (!chatBadge || !CURRENT_USER) return;
+/* =========================================================
+   🔔 안 읽은 채팅 배지 갱신
+========================================================= */
+async function syncHeaderChatBadge() {
+  if (!chatBadge || !HEADER_CURRENT_USER) return;
 
   try {
     const res = await fetch(`${API_URL}/chat/unread-count`, {
@@ -41,57 +46,60 @@ async function syncChatBadge() {
     });
     const data = await res.json();
 
-    chatBadge.style.display =
-      data?.success && Number(data.total) > 0 ? "block" : "none";
+    if (data?.success && Number(data.total) > 0) {
+      chatBadge.style.display = "block";
+    } else {
+      chatBadge.style.display = "none";
+    }
   } catch (err) {
     console.error("❌ unread-count error:", err);
   }
 }
 
-/* ============================
-   🔥 헤더 전용 소켓
-============================ */
+/* =========================================================
+   🔥 헤더 전용 socket.io (알림만)
+========================================================= */
 async function initHeaderChat() {
   const ok = await loadHeaderUser();
   if (!ok) return;
 
-  // 최초 1회
-  syncChatBadge();
+  // 최초 동기화
+  syncHeaderChatBadge();
 
-  // 보조 폴링
-  setInterval(syncChatBadge, 5000);
+  // 🔁 보조 안전장치 (소켓 끊겨도 배지 유지)
+  setInterval(syncHeaderChatBadge, 5000);
 
-  // ⚠️ 같은 도메인 상대 경로 연결 (정석)
-  const socket = io({
+  // ⚠️ 같은 도메인 상대 경로 연결 (Mixed Content 방지)
+  headerSocket = io({
     path: "/socket.io",
     withCredentials: true,
-    transports: ["polling", "websocket"], // ← 개선
+    transports: ["polling", "websocket"],
     upgrade: true,
   });
 
-  socket.on("connect", () => {
-    console.log("🟦 header socket connected:", socket.id);
+  headerSocket.on("connect", () => {
+    console.log("🟦 header socket connected:", headerSocket.id);
   });
 
-  socket.on("disconnect", (reason) => {
+  headerSocket.on("disconnect", (reason) => {
     console.log("🔻 header socket disconnected:", reason);
   });
 
-  socket.on("connect_error", (err) => {
+  headerSocket.on("connect_error", (err) => {
     console.warn("⚠️ header socket error:", err?.message || err);
   });
 
-  // 📩 채팅 알림
-  socket.on("chat:notify", (data) => {
-    if (!data || !CURRENT_USER) return;
-    if (Number(data.targetId) !== Number(CURRENT_USER.id)) return;
+  /* 📩 채팅 알림 수신 */
+  headerSocket.on("chat:notify", (data) => {
+    if (!data || !HEADER_CURRENT_USER) return;
+    if (Number(data.targetId) !== Number(HEADER_CURRENT_USER.id)) return;
 
-    console.log("📩 header chat notify");
-    syncChatBadge();
+    console.log("📩 header chat notify received");
+    syncHeaderChatBadge();
   });
 }
 
-/* ============================
+/* =========================================================
    실행
-============================ */
+========================================================= */
 initHeaderChat();
