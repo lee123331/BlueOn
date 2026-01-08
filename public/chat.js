@@ -290,6 +290,20 @@ function initSocket() {
       .forEach(el => (el.textContent = "읽음"));
   });
 }
+async function loadMessages() {
+  if (!ROOM_ID || !chatBody) return;
+
+  const res = await fetch(
+    `${API}/chat/messages?roomId=${encodeURIComponent(ROOM_ID)}`,
+    { credentials: "include" }
+  );
+  const data = await res.json();
+  if (!data.success) return;
+
+  chatBody.innerHTML = "";
+  (data.messages || []).forEach(renderMsg);
+  scrollBottom();
+}
 
 /* ======================================================
    이미지 모달
@@ -310,9 +324,12 @@ imgModal.onclick = () => {
 ====================================================== */
 (async function init() {
   await loadMe();
-  await loadChatList();
 
-  initSocket(); // ✅ 소켓으로 실시간 메시지만 받음
+  if (ROOM_ID) {
+    await loadMessages(); // 🔥 이게 없어서 안 열린다
+  }
+
+  initSocket();
 })();
 
 sendBtn.onclick = () => {
