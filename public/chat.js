@@ -55,11 +55,18 @@ async function loadChatList() {
     const div = document.createElement("div");
     div.className = "chat-item";
     div.onclick = () => {
-      location.href = `/chat.html?roomId=${room.roomId}`;
-    };
+  const dot = div.querySelector(".chat-unread-dot");
+  if (dot) dot.style.display = "none";
+
+  location.href = `/chat.html?roomId=${room.roomId}`;
+};
+
 
     div.innerHTML = `
       <div class="chat-left">
+  <span class="chat-unread-dot"
+        style="display:${room.unread > 0 ? 'block' : 'none'}"></span>
+
         <img src="${room.avatar || "/assets/default_profile.png"}">
         <div>
           <div style="font-weight:700">${room.nickname || "상대방"}</div>
@@ -220,12 +227,29 @@ function initSocket() {
     console.log("🔌 socket connected");
   });
 
-  socket.on("chat:message", msg => {
-    if (String(msg.room_id || msg.roomId) !== String(ROOM_ID)) return;
-    if (msg.sender_id === CURRENT_USER.id) return;
-    renderMsg(msg);
-    scrollBottom();
+socket.on("chat:message", msg => {
+  const roomId = String(msg.room_id || msg.roomId);
+
+  // 1️⃣ 현재 방이면 바로 표시
+  if (roomId === String(ROOM_ID)) {
+    if (msg.sender_id !== CURRENT_USER.id) {
+      renderMsg(msg);
+      scrollBottom();
+      markRoomAsRead(roomId);
+    }
+    return;
+  }
+
+  // 2️⃣ 다른 방이면 → 좌측 빨간 점 표시
+  const items = document.querySelectorAll(".chat-item");
+  items.forEach(item => {
+    if (item.onclick?.toString().includes(`roomId=${roomId}`)) {
+      const dot = item.querySelector(".chat-unread-dot");
+      if (dot) dot.style.display = "block";
+    }
   });
+});
+
 }
 
 /* ======================================================
@@ -249,6 +273,20 @@ if (imgModal) {
 function scrollBottom() {
   chatBody.scrollTop = chatBody.scrollHeight;
 }
+/* ======================================================
+   읽음 처리
+====================================================== */
+function markRoomAsRead(roomId) {
+  fetch(`${API}/chat/read`, {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ roomId })
+  }).catch(err => {
+    console.error("❌ read error", err);
+  });
+}
+
 
 /* ======================================================
    실행
@@ -256,10 +294,14 @@ function scrollBottom() {
 (async function init() {
   await loadMe();
   await loadChatList();
-  if (ROOM_ID) {
-    await loadRoomInfo();
-    await loadMessages();
-  }
+if (ROOM_ID) {
+  await loadRoomInfo();
+  await loadMessages();
+
+  // 🔥 이 줄 추가
+  markRoomAsRead(ROOM_ID);
+}
+
   initSocket();
 })();
 
