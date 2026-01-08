@@ -4121,32 +4121,54 @@ const [[order]] = await db.query(
     /* ======================================================
        3️⃣ 채팅방 생성 (work) - 1회만
     ====================================================== */
-    let roomId = order.room_id;
+let roomId = order.room_id;
 
-    if (!roomId) {
-      const today = new Date().toISOString().slice(0, 10);
+// 🔥 1️⃣ orders에 room_id가 없을 경우
+if (!roomId) {
 
-      const [result] = await db.query(
-        `
-        INSERT INTO chat_rooms
-        (order_id, user1_id, user2_id, room_type, created_at)
-        VALUES (?, ?, ?, 'work', ?)
-        `,
-        [
-          orderId,
-          order.buyer_id,
-          order.expert_id,
-          today
-        ]
-      );
+  // 🔥 2️⃣ 먼저: 같은 주문(order_id)에 이미 채팅방이 있는지 확인
+  const [[existingRoom]] = await db.query(
+    `
+    SELECT id
+    FROM chat_rooms
+    WHERE order_id = ?
+    LIMIT 1
+    `,
+    [orderId]
+  );
 
-      roomId = result.insertId;
+  if (existingRoom) {
+    // ✅ 이미 존재하면 그 방 재사용
+    roomId = existingRoom.id;
 
-      await db.query(
-        `UPDATE orders SET room_id = ? WHERE id = ?`,
-        [roomId, orderId]
-      );
-    }
+  } else {
+    // 🔥 3️⃣ 진짜 없을 때만 새로 생성
+    const now = new Date();
+
+    const [result] = await db.query(
+      `
+      INSERT INTO chat_rooms
+      (order_id, user1_id, user2_id, room_type, created_at)
+      VALUES (?, ?, ?, 'work', ?)
+      `,
+      [
+        orderId,
+        order.buyer_id,
+        order.expert_id,
+        now
+      ]
+    );
+
+    roomId = result.insertId;
+  }
+
+  // 🔥 4️⃣ orders 테이블에 room_id 확정 저장
+  await db.query(
+    `UPDATE orders SET room_id = ? WHERE id = ?`,
+    [roomId, orderId]
+  );
+}
+
 
     /* ======================================================
        4️⃣ 주문 상태 paid 처리 (🔥 여기서만)
