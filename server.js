@@ -2195,25 +2195,23 @@ app.get("/chat/room-info", async (req, res) => {
       return res.json({ success: false });
     }
 
+    const roomId = req.query.roomId;
     const myId = req.session.user.id;
-    const { roomId } = req.query;
 
     const [rows] = await db.query(
       `
       SELECT
         CASE
-          WHEN r.user_id = ? THEN r.expert_id
-          ELSE r.user_id
+          WHEN r.user1_id = ? THEN r.user2_id
+          ELSE r.user1_id
         END AS other_id,
-
-        COALESCE(u.nickname, u.name, '상대방') AS nickname,
-        COALESCE(u.avatar_url, '/assets/default_profile.png') AS avatar
-
+        u.nickname,
+        u.avatar_url
       FROM service_chat_rooms r
       JOIN users u
         ON u.id = CASE
-                    WHEN r.user_id = ? THEN r.expert_id
-                    ELSE r.user_id
+                    WHEN r.user1_id = ? THEN r.user2_id
+                    ELSE r.user1_id
                   END
       WHERE r.id = ?
       `,
@@ -2224,16 +2222,21 @@ app.get("/chat/room-info", async (req, res) => {
       return res.json({ success: false });
     }
 
+    const other = rows[0];
+
     res.json({
       success: true,
-      nickname: rows[0].nickname,
-      avatar: rows[0].avatar
+      nickname: other.nickname,
+      avatar: other.avatar_url
     });
+
   } catch (err) {
     console.error("❌ /chat/room-info error:", err);
     res.json({ success: false });
   }
 });
+
+
 
 
 
@@ -4264,46 +4267,50 @@ app.get("/chat/rooms", async (req, res) => {
     const [rows] = await db.query(
       `
       SELECT
-        r.id AS room_id,
+        r.id AS roomId,
         r.last_msg,
         r.updated_at,
 
         -- 상대방 ID
         CASE
-          WHEN r.user_id = ? THEN r.expert_id
-          ELSE r.user_id
+          WHEN r.user1_id = ? THEN r.user2_id
+          ELSE r.user1_id
         END AS other_id,
 
         -- 상대방 닉네임
-        COALESCE(u.nickname, u.name, '상대방') AS other_nickname,
+        COALESCE(u.nickname, u.name, '상대방') AS nickname,
 
         -- 상대방 프로필
-        COALESCE(u.avatar_url, '/assets/default_profile.png') AS other_avatar,
+        COALESCE(u.avatar_url, '/assets/default_profile.png') AS avatar,
 
         -- 안 읽은 메시지 수
         COALESCE(cu.count, 0) AS unread
 
       FROM service_chat_rooms r
+
       JOIN users u
         ON u.id = CASE
-                    WHEN r.user_id = ? THEN r.expert_id
-                    ELSE r.user_id
+                    WHEN r.user1_id = ? THEN r.user2_id
+                    ELSE r.user1_id
                   END
+
       LEFT JOIN chat_unread cu
         ON cu.room_id = r.id AND cu.user_id = ?
 
-      WHERE r.user_id = ? OR r.expert_id = ?
+      WHERE r.user1_id = ? OR r.user2_id = ?
       ORDER BY r.updated_at DESC
       `,
       [myId, myId, myId, myId, myId]
     );
 
     res.json({ success: true, rooms: rows });
+
   } catch (err) {
     console.error("❌ /chat/rooms error:", err);
     res.json({ success: false, rooms: [] });
   }
 });
+
 
 
 
