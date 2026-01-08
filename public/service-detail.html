@@ -932,7 +932,8 @@ async function openChat() {
     }
 
     // ✅ 서비스 문의 전용 채팅 페이지
-    location.href = `/service-chat.html?roomId=${data.roomId}`;
+    location.href = `/chat.html?roomId=${data.roomId}`;
+
 
   } catch (err) {
     console.error("❌ openChat error:", err);

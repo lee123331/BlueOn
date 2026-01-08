@@ -27,7 +27,7 @@ function safeParse(v) {
 
 /* ======================================================
    🔥 문의하기 (서비스 문의 채팅)
-   service_chat_rooms 기반
+   chat.html 단일 페이지 기반
 ====================================================== */
 window.openChat = async function () {
   if (!serviceId) {
@@ -36,7 +36,7 @@ window.openChat = async function () {
   }
 
   try {
-    const res = await fetch(`${API}/service-chat/start`, {
+    const res = await fetch(`${API}/chat/start`, {
       method: "POST",
       credentials: "include",
       headers: { "Content-Type": "application/json" },
@@ -44,22 +44,22 @@ window.openChat = async function () {
     });
 
     const data = await res.json();
-    console.log("🧪 /service-chat/start result:", data);
+    console.log("🧪 /chat/start result:", data);
 
     if (!data.success || !data.roomId) {
       showToast("채팅방 생성에 실패했습니다.");
       return;
     }
 
-    // ✅ 서비스 문의 전용 채팅 페이지로 이동
-    location.href = `/service-chat.html?roomId=${data.roomId}`;
-
+    // ✅ chat.html 단일 페이지로 이동 (핵심)
+    location.href = `/chat.html?serviceId=${serviceId}`;
 
   } catch (err) {
     console.error("❌ openChat error:", err);
     showToast("채팅 연결 중 오류가 발생했습니다.");
   }
 };
+
 
 /* ======================================================
    구매 버튼
