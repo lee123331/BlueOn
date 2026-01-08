@@ -106,35 +106,24 @@ if (confirmDeleteBtn) {
   confirmDeleteBtn.onclick = async () => {
     if (!DELETE_TARGET_MSG_ID) return;
 
+    // UI 즉시 제거
+    if (DELETE_TARGET_ROW) DELETE_TARGET_ROW.remove();
+
     try {
-      const res = await fetch(`${API}/chat/delete`, {
+      await fetch(`${API}/chat/delete`, {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          roomId: ROOM_ID, // 서버가 roomId 요구하면 사용
+          roomId: ROOM_ID,
           messageId: DELETE_TARGET_MSG_ID,
         }),
       });
-
-      // 서버 실패해도 UI는 우선 제거(낙관적)
-      if (DELETE_TARGET_ROW) DELETE_TARGET_ROW.remove();
-
-      // 상대방에게 삭제 전파
-      if (socket) {
-        socket.emit("chat:delete", {
-          roomId: ROOM_ID,
-          messageId: DELETE_TARGET_MSG_ID,
-        });
-      }
-
-      // 응답 확인(선택)
-      res.json().catch(() => null);
     } catch (e) {
-      console.warn("❌ delete error:", e);
-    } finally {
-      closeDeleteConfirm();
+      console.warn("delete failed", e);
     }
+
+    closeDeleteConfirm();
   };
 }
 
@@ -352,11 +341,18 @@ function renderMsg(msg) {
     delBtn.className = "msg-delete-btn";
     delBtn.textContent = "삭제";
 
-    delBtn.onclick = (e) => {
-      e.stopPropagation();
-      if (!msg.id) return; // pending 메시지는 삭제 불가
-      openDeleteConfirm(msg.id, row);
-    };
+   delBtn.onclick = (e) => {
+  e.stopPropagation();
+
+  const realId = row.dataset.messageId;
+
+  if (!realId || String(realId).startsWith("pending")) {
+    return; // 🔥 pending 메시지는 삭제 불가
+  }
+
+  openDeleteConfirm(realId, row);
+};
+
 
     row.appendChild(delBtn);
   }
