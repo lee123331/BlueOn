@@ -312,11 +312,7 @@ imgModal.onclick = () => {
   await loadMe();
   await loadChatList();
 
-  if (ROOM_ID) {
-    await loadMessages();   // ✅ 메시지만 로드
-  }
-
-  initSocket();
+  initSocket(); // ✅ 소켓으로 실시간 메시지만 받음
 })();
 
 sendBtn.onclick = () => {
