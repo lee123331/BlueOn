@@ -1990,6 +1990,52 @@ app.get("/users/profile/:id", async (req, res) => {
   }
 });
 /* ======================================================
+   🔥 메시지 삭제 (단일 진실 API)
+   POST /chat/delete
+   body: { messageId }
+====================================================== */
+app.post("/chat/delete", async (req, res) => {
+  try {
+    if (!req.session.user) {
+      return res.status(401).json({ success: false, message: "LOGIN_REQUIRED" });
+    }
+
+    const { messageId } = req.body;
+    const userId = req.session.user.id;
+
+    if (!messageId) {
+      return res.status(400).json({ success: false, message: "MESSAGE_ID_REQUIRED" });
+    }
+
+    // 메시지 조회
+    const [[msg]] = await db.query(
+      `SELECT id, room_id, sender_id FROM chat_messages WHERE id = ? LIMIT 1`,
+      [messageId]
+    );
+
+    if (!msg) {
+      return res.status(404).json({ success: false, message: "MESSAGE_NOT_FOUND" });
+    }
+
+    // 🔥 본인 메시지만 삭제
+    if (String(msg.sender_id) !== String(userId)) {
+      return res.status(403).json({ success: false, message: "NO_PERMISSION" });
+    }
+
+    // 삭제
+    await db.query(`DELETE FROM chat_messages WHERE id = ?`, [messageId]);
+
+    // 실시간 반영
+    io.to(String(msg.room_id)).emit("chat:delete", { messageId });
+
+    return res.json({ success: true });
+  } catch (e) {
+    console.error("❌ /chat/delete error:", e);
+    return res.status(500).json({ success: false, message: "SERVER_ERROR" });
+  }
+});
+
+/* ======================================================
    🔵 Socket.io (보안 강화 + 정상 구조)
 ====================================================== */
 io.on("connection", (socket) => {
@@ -2058,38 +2104,6 @@ if (ADMIN_ID && String(user.id) === ADMIN_ID) {
     socket.on("chat:delete", ({ roomId, messageId }) => {
       socket.to(String(roomId)).emit("chat:delete", { messageId });
     });
-app.post("/chat/delete", async (req, res) => {
-  try {
-    const { messageId } = req.body;
-    const userId = req.session.user?.id;
-    if (!messageId || !userId) {
-      return res.json({ success: false });
-    }
-
-    // 🔥 본인 메시지만 삭제 가능
-    const [[msg]] = await db.query(
-      `SELECT room_id, sender_id FROM chat_messages WHERE id = ?`,
-      [messageId]
-    );
-
-    if (!msg || msg.sender_id !== userId) {
-      return res.status(403).json({ success: false });
-    }
-
-    await db.query(
-      `DELETE FROM chat_messages WHERE id = ?`,
-      [messageId]
-    );
-
-    // 🔥 실시간 삭제 브로드캐스트
-    io.to(String(msg.room_id)).emit("chat:delete", { messageId });
-
-    return res.json({ success: true });
-  } catch (e) {
-    console.error("❌ chat delete error:", e);
-    res.status(500).json({ success: false });
-  }
-});
 
     /* ======================================================
        4️⃣ 연결 종료
