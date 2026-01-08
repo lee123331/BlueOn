@@ -562,6 +562,24 @@ app.get("/api/task-chat/context", async (req, res) => {
     });
   }
 });
+// 🔵 채팅 이미지 업로드
+app.post("/chat/upload-image", chatImageUpload.single("image"), (req, res) => {
+  try {
+    if (!req.session.user) {
+      return res.status(401).json({ success: false, message: "LOGIN_REQUIRED" });
+    }
+
+    if (!req.file) {
+      return res.json({ success: false, message: "UPLOAD_FAILED" });
+    }
+
+    const url = `/uploads/chat/${req.file.filename}`;
+    return res.json({ success: true, url });
+  } catch (e) {
+    console.error("❌ upload-image error:", e);
+    return res.status(500).json({ success: false });
+  }
+});
 
 /* ======================================================
    🧩 작업 채팅 메시지 조회
