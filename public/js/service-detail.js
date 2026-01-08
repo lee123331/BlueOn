@@ -26,36 +26,33 @@ function safeParse(v) {
 }
 
 /* ======================================================
-   🔥 문의하기 (채팅방 생성 → 이동)
+   🔥 문의하기 (서비스 문의 채팅)
+   service_chat_rooms 기반
 ====================================================== */
 window.openChat = async function () {
-  const targetId = window.SERVICE_EXPERT_ID;
-
-  console.log("🧪 openChat targetId =", targetId);
-
-  if (!targetId) {
-    showToast("전문가 정보를 불러올 수 없습니다.");
+  if (!serviceId) {
+    showToast("서비스 정보가 없습니다.");
     return;
   }
 
   try {
-    const res = await fetch(`${API}/chat/start`, {
+    const res = await fetch(`${API}/service-chat/start`, {
       method: "POST",
       credentials: "include",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ targetId })
+      body: JSON.stringify({ serviceId })
     });
 
     const data = await res.json();
-    console.log("🧪 /chat/start result:", data);
+    console.log("🧪 /service-chat/start result:", data);
 
     if (!data.success || !data.roomId) {
       showToast("채팅방 생성에 실패했습니다.");
       return;
     }
 
-    // ✅ 여기서만 이동
-    location.href = `/chat.html?room=${data.roomId}`;
+    // ✅ 서비스 문의 전용 채팅 페이지로 이동
+    location.href = `/service-chat.html?roomId=${data.roomId}`;
 
   } catch (err) {
     console.error("❌ openChat error:", err);
@@ -152,17 +149,6 @@ async function loadService() {
 
     const svc = data.service;
     const expert = data.expert || {};
-
-    /* ==================================================
-       ✅ 핵심: 전문가 ID는 service에서만 가져온다
-    ================================================== */
-    window.SERVICE_EXPERT_ID = Number(svc.expert_user_id) || null;
-
-    console.log("🔥 SERVICE_EXPERT_ID =", window.SERVICE_EXPERT_ID);
-
-    if (!window.SERVICE_EXPERT_ID) {
-      console.warn("❌ expert_user_id 없음 → 문의하기 비활성");
-    }
 
     document.getElementById("heroTitle").textContent = svc.title;
     document.getElementById("heroMainCat").textContent = svc.main_category;

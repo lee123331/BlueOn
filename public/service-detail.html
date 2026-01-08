@@ -903,46 +903,44 @@
   </div>
 </div>
 
-<script>
-  window.TARGET_USER_ID = null;
-</script>
 <script src="/js/service-detail.js"></script>
 <script>
 async function openChat() {
-  const targetId = window.TARGET_USER_ID;
-
-  if (!targetId) {
-    alert("전문가 정보가 없습니다.");
-    return;
-  }
-
   try {
-    const res = await fetch("/chat/start", {
+    const serviceId = new URLSearchParams(location.search).get("id");
+
+    if (!serviceId) {
+      alert("서비스 정보가 없습니다.");
+      return;
+    }
+
+    const res = await fetch("/service-chat/start", {
       method: "POST",
       credentials: "include",
       headers: {
         "Content-Type": "application/json"
       },
-      body: JSON.stringify({ targetId })
+      body: JSON.stringify({ serviceId })
     });
 
     const data = await res.json();
-    console.log("🧪 chat/start response:", data);
+    console.log("🧪 service-chat/start response:", data);
 
     if (!data.success || !data.roomId) {
-      alert("채팅방 생성 실패");
+      alert("채팅방 생성에 실패했습니다.");
       return;
     }
 
-    // ✅ 생성 or 기존 채팅방으로 이동
-    location.href = `/chat.html?room=${data.roomId}`;
+    // ✅ 서비스 문의 전용 채팅 페이지
+    location.href = `/service-chat.html?roomId=${data.roomId}`;
 
   } catch (err) {
     console.error("❌ openChat error:", err);
-    alert("채팅 시작 중 오류 발생");
+    alert("채팅 시작 중 오류가 발생했습니다.");
   }
 }
 </script>
+
 
 
 <div id="toast" class="toast"></div>

@@ -128,7 +128,7 @@ if (!fs.existsSync(uploadBase)) {
    정적 파일 경로
 ====================================================== */
 app.use("/uploads", express.static(path.join(process.cwd(), "public/uploads")));
-
+app.use(express.static(path.join(process.cwd(), "public")));
 
 /* ======================================================
    세션 (Railway + DB_URL)
@@ -253,27 +253,6 @@ const servicesUpload = multer({
     fieldSize: 10 * 1024 * 1024,
     fileSize: 10 * 1024 * 1024,
   },
-});
-/* ======================================================
-   🔵 채팅 이미지 업로드용 multer
-====================================================== */
-const chatUploadStorage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    const dir = "public/uploads/chat";
-    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-    cb(null, dir);
-  },
-  filename: (req, file, cb) => {
-    const ext = path.extname(file.originalname);
-    cb(null, `chat-${Date.now()}-${Math.random().toString(36).slice(2)}${ext}`);
-  }
-});
-
-const chatUpload = multer({
-  storage: chatUploadStorage,
-  limits: {
-    fileSize: 10 * 1024 * 1024 // 10MB
-  }
 });
 
 /* ======================================================
@@ -712,33 +691,6 @@ app.post("/api/task-chat/send", async (req, res) => {
     });
   }
 });
-/* ======================================================
-   🔵 채팅 이미지 업로드
-   POST /chat/upload
-====================================================== */
-app.post("/chat/upload", chatUpload.single("file"), async (req, res) => {
-  try {
-    if (!req.session.user) {
-      return res.status(401).json({ success: false });
-    }
-
-    if (!req.file) {
-      return res.json({ success: false, message: "NO_FILE" });
-    }
-
-    const fileUrl = `/uploads/chat/${req.file.filename}`;
-
-    return res.json({
-      success: true,
-      file_url: fileUrl,
-      file_name: req.file.originalname
-    });
-
-  } catch (err) {
-    console.error("❌ chat upload error:", err);
-    return res.status(500).json({ success: false });
-  }
-});
 
 
 /* ======================================================
@@ -747,6 +699,9 @@ app.post("/chat/upload", chatUpload.single("file"), async (req, res) => {
 const httpServer = http.createServer(app);
 
 const io = new SocketIOServer(httpServer, {
+  transports: ["polling", "websocket"],
+
+
   cors: {
     origin: [
       "http://localhost:3000",
@@ -1464,6 +1419,7 @@ app.get("/auth/me", async (req, res) => {
   }
 });
 
+
 /* ------------------ 서비스 상세 불러오기 ------------------ */
 app.get("/services/:id", async (req, res) => {
   try {
@@ -1484,9 +1440,7 @@ app.get("/services/:id", async (req, res) => {
     const safeArrayParse = (val) => {
       if (!val) return [];
       if (Array.isArray(val)) return val;
-      try {
-        return JSON.parse(val);
-      } catch {}
+      try { return JSON.parse(val); } catch {}
       if (typeof val === "string" && val.startsWith("/uploads/")) return [val];
       return [];
     };
@@ -1494,11 +1448,7 @@ app.get("/services/:id", async (req, res) => {
     const safeJsonParseLocal = (val) => {
       if (!val) return null;
       if (typeof val === "object") return val;
-      try {
-        return JSON.parse(val);
-      } catch {
-        return null;
-      }
+      try { return JSON.parse(val); } catch { return null; }
     };
 
     svc.main_images = safeArrayParse(svc.main_images);
@@ -1510,13 +1460,17 @@ app.get("/services/:id", async (req, res) => {
       [svc.user_id]
     );
 
-    // ⭐⭐⭐ 핵심: task_key를 프론트에 전달해야 진행률이 작동한다
     return res.json({
       success: true,
+
+      // 🔥 서비스 기준으로 모든 식별자 명확화
       service: {
         ...svc,
-        task_key: svc.task_key,   // 🔥 반드시 필요
+        expert_user_id: svc.user_id, // ✅ 채팅의 기준점
+        task_key: svc.task_key,
       },
+
+      // UI 전용 정보
       expert: expert || null,
     });
 
@@ -1587,7 +1541,7 @@ app.post("/notice/portfolio-request", async (req, res) => {
 
     // ✅ 여기서 진짜로 DB 저장
     await createNotice({
-      targetUserId: expertId,
+      targetUserId: order.expert_id,
       message,
       type: "trade",
       taskKey,             // 포트폴리오 요청은 taskKey 없으면 null이라도 OK
@@ -1864,17 +1818,20 @@ app.get("/users/profile/:id", async (req, res) => {
         id: user.id,
         name: user.name,
         nickname: user.nickname,
-        avatar_url: user.avatar_url || "/assets/default_profile.png" // ✅ 키 통일
+        avatar: user.avatar_url || "/assets/default_profile.png",
       }
     });
+
   } catch (err) {
     console.error("/users/profile error:", err);
-    return res.json({ success: false, message: "서버 오류" });
+    return res.json({
+      success: false,
+      message: "서버 오류"
+    });
   }
 });
-
 /* ======================================================
-   🔵 Socket.io (헤더 알림 + 채팅 완전체)
+   🔵 Socket.io (보안 강화 + 정상 구조)
 ====================================================== */
 io.on("connection", (socket) => {
   try {
@@ -1884,56 +1841,50 @@ io.on("connection", (socket) => {
     const user = session?.user;
 
     /* ======================================================
-       0️⃣ 비로그인 소켓 (메인페이지 헤더 알림용)
-       - disconnect ❌
+       0️⃣ 비로그인 소켓도 허용 (헤더 알림용)
+       - ❌ 여기서 disconnect 하면 안 됨
     ====================================================== */
     if (!user) {
-      console.log("ℹ️ 비로그인 헤더 소켓 허용:", socket.id);
+      console.log("ℹ️ 비로그인/헤더 소켓 허용:", socket.id);
 
       socket.on("disconnect", () => {
         console.log("🔴 Header socket disconnected:", socket.id);
       });
 
-      return; // ⛔ 채팅 이벤트는 안 붙임
+      return; // ⚠️ 여기서 종료 (채팅/관리자 기능은 안 붙임)
     }
 
-   /* ======================================================
-   1️⃣ 로그인 유저 개인 room
-====================================================== */
-socket.join(`user:${user.id}`);
-console.log(`➡ user:${user.id} 방 입장`);
-
-// 🔥 프론트 호환용 (header-chat.js)
-socket.on("user:join", (uid) => {
-  if (String(uid) === String(user.id)) {
+    /* ======================================================
+       1️⃣ 로그인 유저 개인 room
+    ====================================================== */
     socket.join(`user:${user.id}`);
-    console.log(`🔁 user:${user.id} 재확인 join`);
-  }
-});
+    console.log(`➡ user:${user.id} 방 입장`);
 
+  /* ======================================================
+   2️⃣ 관리자 room 연결 (서버 세션 기준)
+====================================================== */
+const ADMIN_ID = String(process.env.ADMIN_USER_ID || "");
+
+if (ADMIN_ID && String(user.id) === ADMIN_ID) {
+  socket.join("admin");
+
+  console.log(
+    `👑 관리자 소켓 연결됨 | userId=${user.id} | socket=${socket.id}`
+  );
+}
 
     /* ======================================================
-       2️⃣ 관리자 room (선택)
-    ====================================================== */
-    const ADMIN_ID = String(process.env.ADMIN_USER_ID || "");
-
-    if (ADMIN_ID && String(user.id) === ADMIN_ID) {
-      socket.join("admin");
-      console.log(`👑 관리자 소켓 연결 | userId=${user.id}`);
-    }
-
-    /* ======================================================
-       3️⃣ 채팅 이벤트 (로그인 유저만)
+       3️⃣ 채팅 관련 이벤트 (로그인 유저만)
     ====================================================== */
 
-    // 채팅방 입장
+    /* 채팅방 입장 */
     socket.on("chat:join", (roomId) => {
       if (!roomId) return;
       socket.join(String(roomId));
       console.log(`📌 chat:join → room ${roomId}`);
     });
 
-    // typing 표시
+    /* typing 표시 */
     socket.on("chat:typing", ({ roomId, userId, isTyping }) => {
       socket.to(String(roomId)).emit("chat:typing", {
         roomId,
@@ -1942,12 +1893,12 @@ socket.on("user:join", (uid) => {
       });
     });
 
-    // 읽음 처리
+    /* 읽음 표시 */
     socket.on("chat:read", ({ roomId, userId }) => {
       socket.to(String(roomId)).emit("chat:read", { roomId, userId });
     });
 
-    // 메시지 삭제
+    /* 메시지 삭제 */
     socket.on("chat:delete", ({ roomId, messageId }) => {
       socket.to(String(roomId)).emit("chat:delete", { messageId });
     });
@@ -1964,7 +1915,6 @@ socket.on("user:join", (uid) => {
     socket.disconnect();
   }
 });
-
 /* ======================================================
    🧩 작업 채팅 전용 Socket Namespace
    namespace: /task
@@ -2020,19 +1970,15 @@ taskNsp.on("connection", (socket) => {
   });
 });
 
+
+
+
 /* ======================================================
-   🔵 채팅방 생성
+   🔵 서비스 문의 채팅 - 단건 방 정보
 ====================================================== */
-app.post("/chat/start", async (req, res) => {
-  let conn;
+app.get("/service-chat/room/:roomId", async (req, res) => {
   try {
-    console.log("🧪 chat/start called");
-    console.log("🧪 session user:", req.session.user);
-    console.log("🧪 body:", req.body);
-
-    const { targetId } = req.body;
     const me = req.session.user;
-
     if (!me) {
       return res.status(401).json({
         success: false,
@@ -2040,352 +1986,18 @@ app.post("/chat/start", async (req, res) => {
       });
     }
 
-    if (!targetId) {
-      return res.status(400).json({
-        success: false,
-        message: "TARGET_REQUIRED",
-      });
-    }
+    const myId = me.id;
+    const roomId = req.params.roomId;
 
-    const myId = Number(me.id);
-    const otherId = Number(targetId);
-
-    if (Number.isNaN(myId) || Number.isNaN(otherId)) {
-      return res.status(400).json({
-        success: false,
-        message: "INVALID_USER_ID",
-      });
-    }
-
-    if (myId === otherId) {
-      return res.status(400).json({
-        success: false,
-        message: "CANNOT_CHAT_WITH_SELF",
-      });
-    }
-
-    conn = await db.getConnection();
-    await conn.beginTransaction();
-
-    /* ======================================================
-       1️⃣ 기존 채팅방 조회 (행 잠금)
-    ====================================================== */
-    const [existRows] = await conn.query(
-      `
-      SELECT id
-      FROM chat_rooms
-      WHERE (user1_id = ? AND user2_id = ?)
-         OR (user1_id = ? AND user2_id = ?)
-      LIMIT 1
-      FOR UPDATE
-      `,
-      [myId, otherId, otherId, myId]
-    );
-
-    if (existRows.length > 0) {
-      const roomId = existRows[0].id;
-
-      await conn.commit();
-      conn.release();
-
-      console.log("🟢 existing chat room:", roomId);
-
-      return res.json({
-        success: true,
-        roomId,
-        reused: true,
-      });
-    }
-
-    /* ======================================================
-       2️⃣ 새 채팅방 생성
-    ====================================================== */
-    const now = new Date();
-
-    const [insertResult] = await conn.query(
-      `
-      INSERT INTO chat_rooms
-        (user1_id, user2_id, last_msg, created_at, updated_at)
-      VALUES
-        (?, ?, NULL, ?, ?)
-      `,
-      [myId, otherId, now, now]
-    );
-
-    const roomId = insertResult.insertId;
-
-    await conn.commit();
-    conn.release();
-
-    console.log("🆕 new chat room created:", roomId);
-
-    return res.json({
-      success: true,
-      roomId,
-      created: true,
-    });
-
-  } catch (err) {
-    console.error("❌ chat/start error:", err);
-
-    if (conn) {
-      try {
-        await conn.rollback();
-        conn.release();
-      } catch (e) {
-        console.error("❌ rollback/release fail:", e);
-      }
-    }
-
-    return res.status(500).json({
-      success: false,
-      message: "SERVER_ERROR",
-    });
-  }
-});
-
-app.get("/chat/rooms", async (req, res) => {
-  try {
-    if (!req.session.user) {
-      return res.json({ success: false, rooms: [] });
-    }
-
-    const userId = Number(req.session.user.id);
-
-    const [rows] = await db.query(
-      `
-     SELECT *
-FROM (
-  SELECT
-    r.id AS room_id,
-    r.updated_at,
-
-    CASE
-      WHEN r.user1_id = ? THEN r.user2_id
-      ELSE r.user1_id
-    END AS other_id,
-
-    CASE
-      WHEN r.user1_id = ? THEN COALESCE(ep2.nickname, u2.nickname)
-      ELSE COALESCE(ep1.nickname, u1.nickname)
-    END AS other_nickname,
-
-    CASE
-      WHEN r.user1_id = ? THEN COALESCE(ep2.avatar_url, u2.avatar_url)
-      ELSE COALESCE(ep1.avatar_url, u1.avatar_url)
-    END AS other_avatar,
-
-    ROW_NUMBER() OVER (
-      PARTITION BY
-        CASE
-          WHEN r.user1_id = ? THEN r.user2_id
-          ELSE r.user1_id
-        END
-      ORDER BY r.updated_at DESC
-    ) AS rn
-
-  FROM chat_rooms r
-  JOIN users u1 ON u1.id = r.user1_id
-  JOIN users u2 ON u2.id = r.user2_id
-  LEFT JOIN expert_profiles ep1 ON ep1.user_id = u1.id
-  LEFT JOIN expert_profiles ep2 ON ep2.user_id = u2.id
-  WHERE r.user1_id = ? OR r.user2_id = ?
-) t
-WHERE rn = 1
-ORDER BY updated_at DESC;
-
-      `,
-      [userId, userId, userId, userId, userId, userId]
-    );
-
-    res.json({ success: true, rooms: rows });
-
-  } catch (err) {
-    console.error("❌ /chat/rooms error:", err);
-    res.status(500).json({ success: false });
-  }
-});
-
-
-
-app.get("/chat/rooms", async (req, res) => {
-  try {
-    if (!req.session.user) {
-      return res.json({ success: true, rooms: [] });
-    }
-
-    const userId = Number(req.session.user.id);
-
-    const [rows] = await db.query(
-      `
-      SELECT *
-      FROM (
-        SELECT
-          r.id AS room_id,
-          COALESCE(r.updated_at, r.created_at) AS updated_at,
-
-          CASE
-            WHEN r.user1_id = ? THEN r.user2_id
-            ELSE r.user1_id
-          END AS other_id,
-
-          CASE
-            WHEN r.user1_id = ? THEN COALESCE(ep2.nickname, u2.nickname)
-            ELSE COALESCE(ep1.nickname, u1.nickname)
-          END AS other_nickname,
-
-          CASE
-            WHEN r.user1_id = ? THEN COALESCE(ep2.avatar_url, u2.avatar_url)
-            ELSE COALESCE(ep1.avatar_url, u1.avatar_url)
-          END AS other_avatar,
-
-          ROW_NUMBER() OVER (
-            PARTITION BY
-              CASE
-                WHEN r.user1_id = ? THEN r.user2_id
-                ELSE r.user1_id
-              END
-            ORDER BY COALESCE(r.updated_at, r.created_at) DESC
-          ) AS rn
-
-        FROM chat_rooms r
-        JOIN users u1 ON u1.id = r.user1_id
-        JOIN users u2 ON u2.id = r.user2_id
-        LEFT JOIN expert_profiles ep1 ON ep1.user_id = u1.id
-        LEFT JOIN expert_profiles ep2 ON ep2.user_id = u2.id
-        WHERE r.user1_id = ? OR r.user2_id = ?
-      ) t
-      WHERE rn = 1
-      ORDER BY updated_at DESC
-      `,
-      [userId, userId, userId, userId, userId, userId]
-    );
-
-    return res.json({ success: true, rooms: rows });
-
-  } catch (err) {
-    console.error("❌ /chat/rooms error:", err?.sqlMessage || err);
-    return res.status(500).json({ success: false, rooms: [] });
-  }
-});
-
-
-
-
-/* ======================================================
-   🔵 메시지 저장 + last_msg 업데이트 + unread 증가 + 알림
-   ✔ chat_unread 테이블 방식 (선택지 A)
-   ✔ 접속 즉시 배지 뜨는 문제 방지
-   ✔ 방 삭제 / 읽음 처리와 완전히 호환
-====================================================== */
-app.post("/chat/send-message", async (req, res) => {
-  try {
-    /* ======================================================
-       0️⃣ 로그인 체크
-    ====================================================== */
-    if (!req.session.user) {
-      return res.status(401).json({
-        success: false,
-        message: "LOGIN_REQUIRED"
-      });
-    }
-
-    const senderId = Number(req.session.user.id);
-    const {
-      roomId,
-      message,
-      content,
-      message_type,
-      file_url
-    } = req.body;
-
-    if (!roomId) {
-      return res.json({ success: false, message: "ROOM_ID_REQUIRED" });
-    }
-
-    const now = nowStr();
-    const MAX_TEXT_LEN = 500;
-
-    /* ======================================================
-       1️⃣ 메시지 타입 정규화
-    ====================================================== */
-    let saveType = message_type || "text";
-    let saveMessage = "";
-    let saveFileUrl = null;
-
-    const rawText = (message ?? content ?? "").toString().trim();
-
-    if (saveType === "text") {
-      if (!rawText) {
-        return res.json({ success: false, message: "EMPTY_MESSAGE" });
-      }
-      if (rawText.startsWith("data:")) {
-        return res.status(400).json({
-          success: false,
-          message: "BASE64_NOT_ALLOWED"
-        });
-      }
-
-      saveMessage =
-        rawText.length > MAX_TEXT_LEN
-          ? rawText.slice(0, MAX_TEXT_LEN)
-          : rawText;
-    }
-
-    else if (saveType === "image") {
-      if (!file_url) {
-        return res.status(400).json({
-          success: false,
-          message: "FILE_URL_REQUIRED"
-        });
-      }
-      saveMessage = "📷 이미지";
-      saveFileUrl = file_url;
-    }
-
-    else if (saveType === "file") {
-      if (!file_url) {
-        return res.status(400).json({
-          success: false,
-          message: "FILE_URL_REQUIRED"
-        });
-      }
-      saveMessage = "📎 파일";
-      saveFileUrl = file_url;
-    }
-
-    else {
-      return res.json({ success: false, message: "INVALID_MESSAGE_TYPE" });
-    }
-
-    /* ======================================================
-       2️⃣ 메시지 DB 저장
-    ====================================================== */
-    const [msgResult] = await db.query(
-      `
-      INSERT INTO chat_messages
-      (room_id, sender_id, message, message_type, file_url, is_read, created_at)
-      VALUES (?, ?, ?, ?, ?, 0, ?)
-      `,
-      [
-        roomId,
-        senderId,
-        saveMessage,
-        saveType,
-        saveFileUrl,
-        now
-      ]
-    );
-
-    const messageId = msgResult.insertId;
-
-    /* ======================================================
-       3️⃣ 채팅방 존재 + 상대방 계산
-    ====================================================== */
+    /* 1️⃣ 채팅방 조회 */
     const [[room]] = await db.query(
       `
-      SELECT user1_id, user2_id
-      FROM chat_rooms
+      SELECT
+        id,
+        service_id,
+        buyer_id,
+        expert_id
+      FROM service_chat_rooms
       WHERE id = ?
       `,
       [roomId]
@@ -2394,93 +2006,227 @@ app.post("/chat/send-message", async (req, res) => {
     if (!room) {
       return res.json({
         success: false,
-        message: "ROOM_NOT_FOUND"
+        message: "ROOM_NOT_FOUND",
       });
     }
 
-    const otherUserId =
-      Number(room.user1_id) === senderId
-        ? Number(room.user2_id)
-        : Number(room.user1_id);
+    /* 2️⃣ 권한 + 역할 판별 */
+    let myRole = null;
+    let counterpartId = null;
 
-    /* ======================================================
-       4️⃣ last_msg + updated_at 갱신
-    ====================================================== */
-    const lastMsgPreview =
-      saveType === "image"
-        ? "📷 이미지"
-        : saveType === "file"
-        ? "📎 파일"
-        : saveMessage.length > 80
-        ? saveMessage.slice(0, 80) + "..."
-        : saveMessage;
+    if (room.buyer_id === myId) {
+      myRole = "buyer";
+      counterpartId = room.expert_id;
+    } else if (room.expert_id === myId) {
+      myRole = "expert";
+      counterpartId = room.buyer_id;
+    } else {
+      return res.status(403).json({
+        success: false,
+        message: "NO_ACCESS",
+      });
+    }
 
-    await db.query(
+    /* 3️⃣ 서비스 정보 */
+    const [[service]] = await db.query(
       `
-      UPDATE chat_rooms
-      SET last_msg = ?, updated_at = ?
+      SELECT id, title, main_images
+      FROM services
       WHERE id = ?
       `,
-      [lastMsgPreview, now, roomId]
+      [room.service_id]
     );
 
-    /* ======================================================
-       5️⃣ 🔥 unread 증가 (상대방만)
-       - chat_unread 단일 기준
-       - 방 삭제/읽음 처리와 100% 호환
-    ====================================================== */
-    await db.query(
+    let thumbnail = "/assets/default_service.png";
+    try {
+      const imgs = JSON.parse(service.main_images || "[]");
+      if (imgs[0]) thumbnail = imgs[0];
+    } catch {}
+
+    /* 4️⃣ 상대방 정보 */
+    const [[counterpart]] = await db.query(
       `
-      INSERT INTO chat_unread (user_id, room_id, count)
-      VALUES (?, ?, 1)
-      ON DUPLICATE KEY UPDATE count = count + 1
+      SELECT
+        u.id,
+        COALESCE(ep.nickname, u.nickname, u.name, '사용자') AS nickname,
+        COALESCE(ep.avatar_url, u.avatar_url, '/assets/default_profile.png') AS avatar
+      FROM users u
+      LEFT JOIN expert_profiles ep ON ep.user_id = u.id
+      WHERE u.id = ?
       `,
-      [otherUserId, roomId]
+      [counterpartId]
     );
 
-    /* ======================================================
-       6️⃣ 실시간 채팅 브로드캐스트 (방 단위)
-    ====================================================== */
-    io.to(String(roomId)).emit("chat:message", {
-      id: messageId,
-      message_id: messageId,
-      roomId,
-      senderId,
-      sender_id: senderId,
-      message_type: saveType,
-      message: saveMessage,
-      content: saveMessage,
-      file_url: saveFileUrl,
-      created_at: now
+    /* 5️⃣ 응답 */
+    return res.json({
+      success: true,
+
+      room: {
+        id: room.id,
+        service_id: room.service_id,
+        buyer_id: room.buyer_id,
+        expert_id: room.expert_id,
+        my_role: myRole,
+      },
+
+      service: {
+        id: service.id,
+        title: service.title,
+        thumbnail,
+      },
+
+      counterpart,
     });
 
-    /* ======================================================
-       7️⃣ 🔔 헤더 배지용 개인 알림 (상대방만)
-    ====================================================== */
-    io.to(`user:${otherUserId}`).emit("chat:notify", {
-      roomId,
-      senderId,
-      messagePreview: lastMsgPreview
+  } catch (err) {
+    console.error("❌ service-chat room error:", err);
+    return res.status(500).json({
+      success: false,
+      message: "SERVER_ERROR",
     });
+  }
+});
 
-    console.log(
-      `📨 chat saved | room=${roomId} | from=${senderId} → to=${otherUserId} | type=${saveType}`
+/* ======================================================
+   🔵 서비스 문의 채팅 시작
+====================================================== */
+app.post("/service-chat/start", async (req, res) => {
+  try {
+    const me = req.session.user;
+    if (!me) {
+      return res.status(401).json({
+        success: false,
+        message: "LOGIN_REQUIRED",
+      });
+    }
+
+    const { serviceId } = req.body;
+    if (!serviceId) {
+      return res.json({
+        success: false,
+        message: "SERVICE_ID_REQUIRED",
+      });
+    }
+
+    const buyerId = me.id;
+
+    /* 1️⃣ 서비스 조회 → 전문가 판별 */
+    const [[service]] = await db.query(
+      `
+      SELECT id, user_id AS expert_id
+      FROM services
+      WHERE id = ?
+      `,
+      [serviceId]
+    );
+
+    if (!service) {
+      return res.json({
+        success: false,
+        message: "SERVICE_NOT_FOUND",
+      });
+    }
+
+    const expertId = service.expert_id;
+
+    /* 2️⃣ 자기 자신에게 문의 금지 */
+    if (buyerId === expertId) {
+      return res.json({
+        success: false,
+        message: "CANNOT_CHAT_WITH_SELF",
+      });
+    }
+
+    /* 3️⃣ 기존 채팅방 존재 여부 확인 */
+    const [exist] = await db.query(
+      `
+      SELECT id
+      FROM service_chat_rooms
+      WHERE service_id = ?
+        AND buyer_id = ?
+        AND expert_id = ?
+      LIMIT 1
+      `,
+      [serviceId, buyerId, expertId]
+    );
+
+    if (exist.length > 0) {
+      return res.json({
+        success: true,
+        roomId: exist[0].id,
+        reused: true,
+      });
+    }
+
+    /* 4️⃣ 새 채팅방 생성 */
+    const now = nowStr();
+
+    const [result] = await db.query(
+      `
+      INSERT INTO service_chat_rooms
+        (service_id, buyer_id, expert_id, created_at, updated_at)
+      VALUES
+        (?, ?, ?, ?, ?)
+      `,
+      [serviceId, buyerId, expertId, now, now]
     );
 
     return res.json({
       success: true,
-      messageId,
-      created_at: now
+      roomId: result.insertId,
+      created: true,
     });
 
   } catch (err) {
-    console.error("❌ send-message error:", err);
+    console.error("❌ /service-chat/start error:", err);
     return res.status(500).json({
       success: false,
-      message: "SERVER_ERROR"
+      message: "SERVER_ERROR",
     });
   }
 });
+
+/* ======================================================
+   🔵 채팅방 메시지 불러오기
+====================================================== */
+app.get("/chat/messages", async (req, res) => {
+  try {
+    const { roomId } = req.query;
+
+    if (!roomId) {
+      return res.json({ success: false, message: "roomId 필요" });
+    }
+
+    const userId = req.session.user.id;
+
+    const [rows] = await db.query(
+      `SELECT 
+         m.id AS message_id,
+         m.sender_id,
+         m.message,
+         m.message_type,
+         m.created_at,
+         CASE 
+           WHEN m.sender_id = ? THEN m.is_read 
+           ELSE 0
+         END AS is_read
+       FROM chat_messages m
+       WHERE m.room_id = ?
+       ORDER BY m.created_at ASC`,
+      [userId, roomId]
+    );
+
+    return res.json({ success: true, messages: rows });
+
+  } catch (err) {
+    console.error("❌ /chat/messages error:", err);
+    return res.json({ success: false });
+  }
+});
+
+
+
+
 
 /* ======================================================
    🔵 2) 메시지 삭제 API
@@ -2523,103 +2269,48 @@ app.delete("/chat/message/:id", async (req, res) => {
   }
 });
 
-app.get("/chat/messages", async (req, res) => {
-  try {
-    if (!req.session.user) {
-      return res.status(401).json({ success: false });
-    }
-
-    const { roomId } = req.query;
-    const userId = req.session.user.id;
-
-    const [[room]] = await db.query(
-      `
-      SELECT id
-      FROM chat_rooms
-      WHERE id = ?
-        AND (user1_id = ? OR user2_id = ?)
-      `,
-      [roomId, userId, userId]
-    );
-
-    if (!room) {
-      return res.json({ success: false });
-    }
-
-    const [messages] = await db.query(
-      `
-      SELECT
-        id,
-        room_id AS roomId,
-        sender_id AS sender_id,      -- ✅ 프론트 호환
-        sender_id AS senderId,       -- ✅ 소켓/호환
-        message AS message,          -- ✅ 프론트가 읽는 키
-        message AS content,          -- ✅ 기존 호환도 유지
-        message_type,
-        file_url,
-        is_read,
-        created_at
-      FROM chat_messages
-      WHERE room_id = ?
-      ORDER BY id ASC
-      `,
-      [roomId]
-    );
-
-    return res.json({ success: true, messages });
-
-  } catch (err) {
-    console.error("❌ chat/messages error:", err);
-    return res.status(500).json({ success: false });
-  }
-});
 
 
 /* ======================================================
    🔵 3) 메시지 읽음 처리 (카카오톡 방식)
 ====================================================== */
-// POST /chat/read
-// 🔥 읽음 처리 (DB 기준)
 app.post("/chat/read", async (req, res) => {
   try {
-    if (!req.session.user) {
-      return res.status(401).json({ success: false });
-    }
-
-    const userId = Number(req.session.user.id);
     const { roomId } = req.body;
+    const userId = req.session.user?.id;
 
-    if (!roomId) {
-      return res.json({ success: false });
+    if (!roomId || !userId) {
+      return res.json({ success: false, message: "roomId 또는 user 없음" });
     }
 
-    // 1️⃣ 메시지 읽음 처리
+    // 상대방 메시지를 모두 읽음 처리
     await db.query(
-      `
-      UPDATE chat_messages
-      SET is_read = 1
-      WHERE room_id = ?
-        AND sender_id != ?
-      `,
+      `UPDATE chat_messages
+       SET is_read = 1
+       WHERE room_id = ? AND sender_id != ?`,
       [roomId, userId]
     );
 
-    // 2️⃣ 🔥 unread 카운트 제거 (핵심)
+    // unread 카운트 초기화
     await db.query(
-      `
-      DELETE FROM chat_unread
-      WHERE user_id = ? AND room_id = ?
-      `,
+      `UPDATE chat_unread SET count = 0 WHERE user_id=? AND room_id=?`,
       [userId, roomId]
     );
+
+    // 실시간 읽음 표시
+    io.to(String(roomId)).emit("chat:read", {
+      roomId,
+      userId
+    });
 
     return res.json({ success: true });
 
   } catch (err) {
     console.error("❌ chat/read error:", err);
-    res.status(500).json({ success: false });
+    return res.json({ success: false });
   }
 });
+
 
 
 /* ======================================================
@@ -2628,25 +2319,37 @@ app.post("/chat/read", async (req, res) => {
 app.get("/chat/unread-count", async (req, res) => {
   try {
     if (!req.session.user) {
-      return res.json({ success: false, total: 0 });
+      return res.json({ success: false, total: 0, rooms: {} });
     }
 
     const userId = req.session.user.id;
 
-    const [[row]] = await db.query(
-      `SELECT COALESCE(SUM(count), 0) AS total
-       FROM chat_unread
+    // 1) 방별 unread 목록 가져오기
+    const [rows] = await db.query(
+      `SELECT room_id, count 
+       FROM chat_unread 
        WHERE user_id=?`,
       [userId]
     );
 
-    res.json({
-      success: true,
-      total: Number(row.total)
+    // 2) 방별 { roomId: count } 형태로 변환
+    const rooms = {};
+    rows.forEach(r => {
+      rooms[r.room_id] = r.count;
     });
+
+    // 3) 총합 계산
+    const total = rows.reduce((sum, r) => sum + r.count, 0);
+
+    return res.json({
+      success: true,
+      total,   // 전체 unread (index.html 용)
+      rooms    // 방별 unread (chat.html 용)
+    });
+
   } catch (err) {
     console.error("❌ unread-count error:", err);
-    res.json({ success: false, total: 0 });
+    return res.json({ success: false, total: 0, rooms: {} });
   }
 });
 
@@ -4497,77 +4200,58 @@ app.post("/expert/tasks/start", async (req, res) => {
 });
 
 /* ======================================================
-   🔵 채팅방 목록 (좌측 프로필 리스트용 – 전문가 완전 대응)
+   🔵 채팅방 목록 (프로필 이미지 완전 보정)
 ====================================================== */
-/* ======================================================
-   🔵 채팅방 생성 / 조회 (중복 방 완전 차단)
-====================================================== */
-app.post("/chat/room", async (req, res) => {
+app.get("/chat/rooms", async (req, res) => {
   try {
-    if (!req.session.user) {
-      return res.status(401).json({ success: false, message: "LOGIN_REQUIRED" });
-    }
+    const user = req.session.user;
+    if (!user) return res.json({ success: false });
 
-    const myId = Number(req.session.user.id);
-    const { targetId } = req.body;
+    const myId = user.id;
 
-    if (!targetId) {
-      return res.json({ success: false, message: "TARGET_REQUIRED" });
-    }
-
-    const otherId = Number(targetId);
-
-    // 🔥 핵심: 항상 작은 ID → user1, 큰 ID → user2
-    const user1 = Math.min(myId, otherId);
-    const user2 = Math.max(myId, otherId);
-
-    /* ============================
-       1️⃣ 기존 방 조회
-    ============================ */
-    const [exist] = await db.query(
+    const [rows] = await db.query(
       `
-      SELECT id
-      FROM chat_rooms
-      WHERE user1_id = ? AND user2_id = ?
-      LIMIT 1
+      SELECT 
+        r.id AS room_id,
+        r.user1_id,
+        r.user2_id,
+        r.last_msg,
+        r.updated_at,
+
+        u.id AS other_id,
+
+        COALESCE(ep.nickname, u.nickname, u.name, '사용자') AS other_nickname,
+
+        CASE
+          WHEN ep.avatar_url IS NOT NULL AND ep.avatar_url <> '' THEN ep.avatar_url
+          WHEN u.avatar_url IS NOT NULL AND u.avatar_url <> '' THEN u.avatar_url
+          ELSE '/assets/default_profile.png'
+        END AS other_avatar
+
+      FROM chat_rooms r
+
+      LEFT JOIN users u
+        ON u.id = CASE 
+                    WHEN r.user1_id = ? THEN r.user2_id
+                    ELSE r.user1_id
+                  END
+
+      LEFT JOIN expert_profiles ep
+        ON ep.user_id = u.id
+
+      WHERE r.user1_id = ? OR r.user2_id = ?
+      ORDER BY r.updated_at DESC
       `,
-      [user1, user2]
+      [myId, myId, myId]
     );
 
-    if (exist.length > 0) {
-      return res.json({
-        success: true,
-        roomId: exist[0].id,
-      });
-    }
-
-    /* ============================
-       2️⃣ 새 방 생성
-    ============================ */
-    const now = nowStr();
-
-    const [result] = await db.query(
-      `
-      INSERT INTO chat_rooms
-        (user1_id, user2_id, room_type, created_at, updated_at)
-      VALUES
-        (?, ?, 'dm', ?, ?)
-      `,
-      [user1, user2, now, now]
-    );
-
-    return res.json({
-      success: true,
-      roomId: result.insertId,
-    });
+    return res.json({ success: true, rooms: rows });
 
   } catch (err) {
-    console.error("❌ /chat/room error:", err);
-    return res.status(500).json({ success: false, message: "SERVER_ERROR" });
+    console.error("❌ /chat/rooms error:", err);
+    return res.json({ success: false });
   }
 });
-
-
 
 /* ======================================================
    🔵 전문가 작업 요약
@@ -4609,7 +4293,7 @@ app.get("/test/expert", async (req, res) => {
   res.json(rows);
 });
 
-app.use(express.static(path.join(process.cwd(), "public")));
+
 /* ------------------ 서버 실행 ------------------ */
 httpServer.listen(PORT, () => {
   console.log(`🔥 서버 실행됨: PORT = ${PORT}`);
