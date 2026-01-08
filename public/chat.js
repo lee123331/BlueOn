@@ -101,14 +101,15 @@ async function loadMessages() {
    메시지 렌더 (🔥 핵심 수정)
 ====================================================== */
 function renderMsg(msg) {
-  const isMe = msg.sender_id === CURRENT_USER.id;
+  const sender = Number(msg.sender_id);
   const type = msg.message_type;
-  const content = msg.content; // 🔥 통일
+  const content = msg.message || msg.content;
+  const isRead = msg.is_read;
 
   if (!content) return;
 
   const wrap = document.createElement("div");
-  wrap.className = "msg " + (isMe ? "me" : "other");
+  wrap.className = "msg " + (sender === CURRENT_USER.id ? "me" : "other");
 
   if (type === "image") {
     const img = document.createElement("img");
@@ -116,13 +117,19 @@ function renderMsg(msg) {
     img.style.maxWidth = "180px";
     img.style.borderRadius = "10px";
     img.style.cursor = "pointer";
-    img.onclick = () => {
-      document.getElementById("imgModalView").src = content;
-      document.getElementById("imgModal").style.display = "flex";
-    };
+
+    img.onclick = () => openImageModal(content);
+
     wrap.appendChild(img);
   } else {
     wrap.textContent = content;
+  }
+
+  if (sender === CURRENT_USER.id) {
+    const readEl = document.createElement("div");
+    readEl.className = "read-state";
+    readEl.textContent = isRead ? "읽음" : "";
+    wrap.appendChild(readEl);
   }
 
   chatBody.appendChild(wrap);
@@ -220,4 +227,25 @@ msgInput.addEventListener("keydown", e => {
 
 function scrollBottom() {
   chatBody.scrollTop = chatBody.scrollHeight;
+}
+/* ======================================================
+   이미지 모달 열기
+====================================================== */
+function openImageModal(src) {
+  const modal = document.getElementById("imgModal");
+  const img = document.getElementById("imgModalView");
+
+  img.src = src;
+  modal.style.display = "flex";
+}
+
+/* ======================================================
+   이미지 모달 닫기 (전체 클릭)
+====================================================== */
+const imgModal = document.getElementById("imgModal");
+if (imgModal) {
+  imgModal.onclick = () => {
+    imgModal.style.display = "none";
+    document.getElementById("imgModalView").src = "";
+  };
 }
