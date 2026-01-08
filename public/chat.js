@@ -310,11 +310,10 @@ imgModal.onclick = () => {
 ====================================================== */
 (async function init() {
   await loadMe();
-  await loadChatList();   // 🔥 이거 반드시
+  await loadChatList();
 
   if (ROOM_ID) {
-    await loadRoomInfo(); // 🔥 상단 이름/프로필
-    await loadMessages(); // 🔥 메시지 불러오기
+    await loadMessages();   // ✅ 메시지만 로드
   }
 
   initSocket();
