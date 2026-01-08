@@ -2192,54 +2192,50 @@ app.post("/service-chat/start", async (req, res) => {
 app.get("/chat/room-info", async (req, res) => {
   try {
     if (!req.session.user) {
-      return res.json({ success: false, message: "LOGIN_REQUIRED" });
+      return res.json({ success: false });
     }
 
     const myId = req.session.user.id;
-    const { roomId } = req.query;
+    const roomId = req.query.roomId;
 
-    if (!roomId) {
-      return res.json({ success: false, message: "ROOM_ID_REQUIRED" });
-    }
-
-    const [rows] = await db.query(
+    const [[row]] = await db.query(
       `
       SELECT
-        r.id AS roomId,
-
         CASE
-          WHEN r.buyer_id = ? THEN r.expert_id
-          ELSE r.buyer_id
+          WHEN r.user_id = ? THEN r.expert_id
+          ELSE r.user_id
         END AS other_id,
 
-        u.nickname,
+        u.nickname AS nickname,
         COALESCE(u.avatar_url, '/assets/default_profile.png') AS avatar
 
       FROM service_chat_rooms r
       JOIN users u
         ON u.id = CASE
-                    WHEN r.buyer_id = ? THEN r.expert_id
-                    ELSE r.buyer_id
+                    WHEN r.user_id = ? THEN r.expert_id
+                    ELSE r.user_id
                   END
       WHERE r.id = ?
       `,
       [myId, myId, roomId]
     );
 
-    if (rows.length === 0) {
-      return res.json({ success: false, message: "ROOM_NOT_FOUND" });
+    if (!row) {
+      return res.json({ success: false });
     }
 
     res.json({
       success: true,
-      ...rows[0]
+      targetId: row.other_id,
+      nickname: row.nickname,
+      avatar: row.avatar
     });
-
   } catch (err) {
     console.error("❌ /chat/room-info error:", err);
-    res.status(500).json({ success: false });
+    res.json({ success: false });
   }
 });
+
 
 
 /* ======================================================
@@ -4269,44 +4265,42 @@ app.get("/chat/rooms", async (req, res) => {
     const [rows] = await db.query(
       `
       SELECT
-        r.id AS roomId,
+        r.id AS room_id,
         r.last_msg,
         r.updated_at,
 
-        -- 상대방 id
         CASE
-          WHEN r.buyer_id = ? THEN r.expert_id
-          ELSE r.buyer_id
+          WHEN r.user_id = ? THEN r.expert_id
+          ELSE r.user_id
         END AS other_id,
 
-        u.nickname AS nickname,
-        COALESCE(u.avatar_url, '/assets/default_profile.png') AS avatar,
+        u.nickname AS other_nickname,
+        COALESCE(u.avatar_url, '/assets/default_profile.png') AS other_avatar,
 
         COALESCE(cu.count, 0) AS unread
 
       FROM service_chat_rooms r
       JOIN users u
         ON u.id = CASE
-                    WHEN r.buyer_id = ? THEN r.expert_id
-                    ELSE r.buyer_id
+                    WHEN r.user_id = ? THEN r.expert_id
+                    ELSE r.user_id
                   END
-
       LEFT JOIN chat_unread cu
         ON cu.room_id = r.id AND cu.user_id = ?
 
-      WHERE r.buyer_id = ? OR r.expert_id = ?
+      WHERE r.user_id = ? OR r.expert_id = ?
       ORDER BY r.updated_at DESC
       `,
       [myId, myId, myId, myId, myId]
     );
 
     res.json({ success: true, rooms: rows });
-
   } catch (err) {
     console.error("❌ /chat/rooms error:", err);
     res.json({ success: false, rooms: [] });
   }
 });
+
 
 
 
