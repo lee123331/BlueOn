@@ -350,34 +350,41 @@ function renderMsg(msg) {
   /* ======================================================
      6️⃣ 삭제 버튼 (내 메시지 + 서버 id 있을 때만)
   ====================================================== */
-  if (isMe && msg.id != null) {
-    const delBtn = document.createElement("button");
-    delBtn.className = "msg-delete-btn";
-    delBtn.textContent = "삭제";
-    delBtn.style.display = "none";
+ // ✅ 삭제 버튼 (내 메시지 + 서버 id 있을 때만)
+if (isMe && msg.id != null) {
+  const delBtn = document.createElement("button");
+  delBtn.className = "msg-delete-btn";
+  delBtn.textContent = "삭제";
 
-    delBtn.onclick = (e) => {
-      e.stopPropagation();
-      openDeleteConfirm(msg.id, row);
-    };
+  delBtn.onclick = (e) => {
+    e.stopPropagation();
+    openDeleteConfirm(msg.id, row);
+  };
 
-    row.appendChild(delBtn);
+  row.appendChild(delBtn);
 
-    // ✅ 우클릭 시만 표시
-    row.addEventListener("contextmenu", (e) => {
-      e.preventDefault();
-      delBtn.style.display = "block";
+  // ✅ 우클릭 시 표시
+  row.addEventListener("contextmenu", (e) => {
+    e.preventDefault();
 
-      // 바깥 클릭 시 숨김
-      document.addEventListener(
-        "click",
-        () => {
-          delBtn.style.display = "none";
-        },
-        { once: true }
-      );
-    });
-  }
+    // 다른 메시지의 삭제 버튼 전부 숨김
+    document
+      .querySelectorAll(".msg-delete-btn")
+      .forEach(btn => (btn.style.display = "none"));
+
+    delBtn.style.display = "block";
+
+    // 바깥 클릭 시 숨김
+    document.addEventListener(
+      "click",
+      () => {
+        delBtn.style.display = "none";
+      },
+      { once: true }
+    );
+  });
+}
+
 
   /* ======================================================
      7️⃣ DOM 추가
