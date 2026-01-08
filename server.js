@@ -4509,64 +4509,83 @@ app.get("/chat/rooms", async (req, res) => {
 
     const myId = req.session.user.id;
 
-    const [rows] = await db.query(
-      `
+    const SQL = `
       SELECT
-  t.roomId,
-  t.last_msg,
-  t.updated_at,
-  t.other_id,
-  t.nickname,
-  t.avatar,
-  COALESCE(cu.count, 0) AS unread
-FROM (
-  SELECT
-    r.id AS roomId,
-    r.last_msg,
-    r.updated_at,
+        r.id           AS roomId,
+        r.last_msg,
+        r.updated_at,
+        x.other_id,
+        x.nickname,
+        x.avatar,
+        COALESCE(cu.count, 0) AS unread
+      FROM service_chat_rooms r
 
-    -- 상대방 ID
-    CASE
-      WHEN r.buyer_id = ? THEN r.expert_id
-      ELSE r.buyer_id
-    END AS other_id,
+      -- 🔥 사람별 최신 채팅방 1개만 추출
+      JOIN (
+        SELECT
+          CASE
+            WHEN buyer_id = ? THEN expert_id
+            ELSE buyer_id
+          END AS other_id,
+          MAX(updated_at) AS max_updated_at
+        FROM service_chat_rooms
+        WHERE buyer_id = ? OR expert_id = ?
+        GROUP BY other_id
+      ) latest
+        ON latest.max_updated_at = r.updated_at
+       AND (
+            (r.buyer_id = ? AND r.expert_id = latest.other_id)
+         OR (r.expert_id = ? AND r.buyer_id = latest.other_id)
+       )
 
-    -- 상대방 닉네임
-    CASE
-      WHEN r.buyer_id = ? THEN ep.nickname
-      ELSE u.nickname
-    END AS nickname,
+      -- 상대방 정보 (닉네임 / 아바타 / other_id)
+      JOIN (
+        SELECT
+          r2.id AS roomId,
+          CASE
+            WHEN r2.buyer_id = ? THEN ep.nickname
+            ELSE u.nickname
+          END AS nickname,
+          CASE
+            WHEN r2.buyer_id = ?
+              THEN COALESCE(ep.avatar_url, '/assets/default_profile.png')
+            ELSE
+              COALESCE(u.avatar_url, '/assets/default_profile.png')
+          END AS avatar,
+          CASE
+            WHEN r2.buyer_id = ? THEN r2.expert_id
+            ELSE r2.buyer_id
+          END AS other_id
+        FROM service_chat_rooms r2
+        LEFT JOIN users u ON u.id = r2.buyer_id
+        LEFT JOIN expert_profiles ep ON ep.user_id = r2.expert_id
+      ) x
+        ON x.roomId = r.id
 
-    -- 상대방 아바타
-    CASE
-      WHEN r.buyer_id = ? THEN
-        COALESCE(ep.avatar_url, '/assets/default_profile.png')
-      ELSE
-        COALESCE(u.avatar_url, '/assets/default_profile.png')
-    END AS avatar
+      LEFT JOIN chat_unread cu
+        ON cu.room_id = r.id
+       AND cu.user_id = ?
 
-  FROM service_chat_rooms r
-  LEFT JOIN users u ON u.id = r.buyer_id
-  LEFT JOIN expert_profiles ep ON ep.user_id = r.expert_id
-  WHERE r.buyer_id = ? OR r.expert_id = ?
-) t
-LEFT JOIN chat_unread cu
-  ON cu.room_id = t.roomId
- AND cu.user_id = ?
--- 🔥 사람 기준 1개
-GROUP BY t.other_id
-ORDER BY MAX(t.updated_at) DESC;
+      ORDER BY r.updated_at DESC
+    `;
 
-      `,
-      [
-        myId, // nickname case
-        myId, // avatar case
-        myId, // unread
-        myId, // subquery
-        myId, // subquery
-        myId  // group 기준
-      ]
-    );
+    // ✅ ❗️파라미터 개수·순서 절대 중요
+    const params = [
+      myId, // latest: CASE buyer_id = ?
+      myId, // latest: WHERE buyer_id = ?
+      myId, // latest: OR expert_id = ?
+
+      myId, // JOIN 조건 r.buyer_id = ?
+      myId, // JOIN 조건 r.expert_id = ?
+
+      myId, // nickname CASE
+      myId, // avatar CASE
+      myId, // other_id CASE
+
+      myId  // chat_unread.user_id
+    ];
+
+    const [rows] = await db.query(SQL, params);
 
     return res.json({ success: true, rooms: rows });
 
@@ -4575,9 +4594,6 @@ ORDER BY MAX(t.updated_at) DESC;
     return res.json({ success: false, rooms: [] });
   }
 });
-
-
-
 
 
 
