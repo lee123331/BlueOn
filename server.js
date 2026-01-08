@@ -621,9 +621,11 @@ app.post("/chat/send-message", async (req, res) => {
 
     const { roomId, message, message_type, file_url } = req.body;
     const senderId = req.session.user.id;
-
     const now = nowStr();
 
+    /* ===============================
+       1️⃣ 메시지 저장
+    =============================== */
     const [result] = await db.query(
       `
       INSERT INTO chat_messages
@@ -659,30 +661,72 @@ app.post("/chat/send-message", async (req, res) => {
       created_at: now
     };
 
-    // 🔥 실시간 전송
+    /* ===============================
+       2️⃣ 상대방 ID 찾기
+    =============================== */
+    const [[room]] = await db.query(
+      `
+      SELECT buyer_id, expert_id
+      FROM service_chat_rooms
+      WHERE id = ?
+      `,
+      [roomId]
+    );
+
+    if (!room) {
+      return res.json({ success: false });
+    }
+
+    const targetUserId =
+      room.buyer_id === senderId
+        ? room.expert_id
+        : room.buyer_id;
+
+    /* ===============================
+       3️⃣ unread count 증가 (🔥 핵심)
+    =============================== */
+    await db.query(
+      `
+      INSERT INTO chat_unread (user_id, room_id, count)
+      VALUES (?, ?, 1)
+      ON DUPLICATE KEY UPDATE count = count + 1
+      `,
+      [targetUserId, roomId]
+    );
+
+    /* ===============================
+       4️⃣ 채팅방 last_msg 갱신
+    =============================== */
+    const lastMsg =
+      message_type === "image" ? "📷 이미지" : message;
+
+    await db.query(
+      `
+      UPDATE service_chat_rooms
+      SET last_msg = ?, updated_at = ?
+      WHERE id = ?
+      `,
+      [lastMsg, now, roomId]
+    );
+
+    /* ===============================
+       5️⃣ 실시간 전송
+    =============================== */
+
+    // 채팅방에 있는 사람
     io.to(String(roomId)).emit("chat:message", saved);
+
+    // 🔥 상대방 개인 소켓 (다른 방 보고 있어도 받음)
+    io.to(`user:${targetUserId}`).emit("chat:message", saved);
 
     return res.json({ success: true, message: saved });
 
   } catch (e) {
-    console.error("chat send error:", e);
+    console.error("❌ chat send error:", e);
     res.status(500).json({ success: false });
   }
 });
-app.post(
-  "/chat/upload-image",
-  chatImageUpload.single("image"),
-  (req, res) => {
-    if (!req.file) {
-      return res.json({ success: false });
-    }
 
-    return res.json({
-      success: true,
-      url: `/uploads/chat/${req.file.filename}`
-    });
-  }
-);
 
 
 /* ======================================================

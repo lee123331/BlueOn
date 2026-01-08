@@ -44,18 +44,20 @@ async function loadMe() {
    좌측 채팅방 목록
 ====================================================== */
 async function loadChatList() {
-  const res = await fetch(`${API}/chat/rooms`, { credentials: "include" });
+  const res = await fetch(`${API}/chat/rooms`, {
+    credentials: "include"
+  });
   const data = await res.json();
   if (!data.success) return;
 
   chatListArea.innerHTML = "<h2>메시지</h2>";
 
   data.rooms.forEach(room => {
-    const roomId = String(room.roomId);
+    const roomId = String(room.roomId); // ⭐ 문자열 통일 (중요)
 
     const item = document.createElement("div");
     item.className = "chat-item";
-    item.dataset.roomId = roomId;
+    item.dataset.roomId = roomId; // ⭐ 알람 뱃지 핵심
 
     item.innerHTML = `
       <div class="chat-left">
@@ -64,7 +66,9 @@ async function loadChatList() {
 
         <img src="${room.avatar || "/assets/default_profile.png"}">
         <div>
-          <div style="font-weight:700">${room.nickname || "상대방"}</div>
+          <div style="font-weight:700">
+            ${room.nickname || "상대방"}
+          </div>
           <div class="chat-last-msg"
                style="font-size:12px;color:#6b7280">
             ${room.last_msg || ""}
@@ -73,6 +77,7 @@ async function loadChatList() {
       </div>
     `;
 
+    // ⭐ 클릭 시: 뱃지 숨기고 이동
     item.onclick = () => {
       hideUnreadBadge(roomId);
       location.href = `/chat.html?roomId=${roomId}`;
@@ -81,6 +86,7 @@ async function loadChatList() {
     chatListArea.appendChild(item);
   });
 }
+
 
 /* ======================================================
    채팅방 상단

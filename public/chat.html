@@ -150,38 +150,34 @@ body{
   background:#eef2ff80;
 }
 
-/* ✅ “메시지 + 읽음”을 하나의 row로 묶는다 (카톡 방식) */
-.msg-row{
-  display:flex;
-  align-items:flex-end;
-  gap:6px;
-  margin:6px 0;
-}
-.msg-row.me{justify-content:flex-end;}
-.msg-row.other{justify-content:flex-start;}
-
-/* 말풍선 */
-.msg-bubble{
-  max-width:65%;
-  padding:10px 12px;
-  border-radius:14px;
-  background:var(--white);
-  border:1px solid var(--line);
-  color:var(--text-dark);
-  word-break:break-word;
-}
-.msg-row.me .msg-bubble{
-  background:var(--primary);
-  border:none;
-  color:#fff;
+.msg-row {
+  display: flex;
+  margin-bottom: 10px;
 }
 
-/* 이미지 메시지 */
-.msg-bubble img{
-  max-width:220px;
-  border-radius:12px;
-  display:block;
-  cursor:pointer;
+.msg-row.me {
+  justify-content: flex-end;
+}
+
+.msg-row.other {
+  justify-content: flex-start;
+}
+
+.msg-bubble {
+  max-width: 70%;
+  padding: 10px 14px;
+  border-radius: 14px;
+  background: #ffffff;
+}
+
+.msg-row.me .msg-bubble {
+  background: #0056ff;
+  color: white;
+}
+
+.msg-bubble img {
+  max-width: 180px;
+  border-radius: 10px;
 }
 
 /* ✅ 읽음 표시: 말풍선 “옆” (겹침/깨짐 방지) */
