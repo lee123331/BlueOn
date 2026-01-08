@@ -2195,35 +2195,37 @@ app.get("/chat/room-info", async (req, res) => {
       return res.json({ success: false });
     }
 
-    const roomId = req.query.roomId;
     const myId = req.session.user.id;
+    const roomId = req.query.roomId;
 
-    const [[row]] = await db.query(
+    const [rows] = await db.query(
       `
       SELECT
         CASE
-          WHEN r.user_id = ? THEN r.expert_id
-          ELSE r.user_id
+          WHEN r.buyer_id = ? THEN r.expert_id
+          ELSE r.buyer_id
         END AS otherId,
         u.nickname,
-        COALESCE(u.avatar_url, '/assets/default_profile.png') AS avatar
+        u.avatar_url
       FROM service_chat_rooms r
       JOIN users u
         ON u.id = CASE
-                    WHEN r.user_id = ? THEN r.expert_id
-                    ELSE r.user_id
+                    WHEN r.buyer_id = ? THEN r.expert_id
+                    ELSE r.buyer_id
                   END
       WHERE r.id = ?
       `,
       [myId, myId, roomId]
     );
 
-    if (!row) return res.json({ success: false });
+    if (rows.length === 0) {
+      return res.json({ success: false });
+    }
 
     res.json({
       success: true,
-      nickname: row.nickname,
-      avatar: row.avatar
+      nickname: rows[0].nickname,
+      avatar: rows[0].avatar_url
     });
 
   } catch (err) {
@@ -4252,6 +4254,7 @@ app.post("/expert/tasks/start", async (req, res) => {
 
 // ======================================================
 // ✅ 채팅방 목록 (service_chat_rooms 기준 - 최종)
+// ✅ 채팅방 목록 (service_chat_rooms 기준 - FINAL)
 app.get("/chat/rooms", async (req, res) => {
   try {
     if (!req.session.user) {
@@ -4269,8 +4272,8 @@ app.get("/chat/rooms", async (req, res) => {
 
         -- 상대방 ID
         CASE
-          WHEN r.user_id = ? THEN r.expert_id
-          ELSE r.user_id
+          WHEN r.buyer_id = ? THEN r.expert_id
+          ELSE r.buyer_id
         END AS otherId,
 
         -- 상대방 닉네임
@@ -4286,15 +4289,15 @@ app.get("/chat/rooms", async (req, res) => {
 
       JOIN users u
         ON u.id = CASE
-                    WHEN r.user_id = ? THEN r.expert_id
-                    ELSE r.user_id
+                    WHEN r.buyer_id = ? THEN r.expert_id
+                    ELSE r.buyer_id
                   END
 
       LEFT JOIN chat_unread cu
         ON cu.room_id = r.id
        AND cu.user_id = ?
 
-      WHERE r.user_id = ?
+      WHERE r.buyer_id = ?
          OR r.expert_id = ?
 
       ORDER BY r.updated_at DESC
@@ -4302,14 +4305,13 @@ app.get("/chat/rooms", async (req, res) => {
       [myId, myId, myId, myId, myId]
     );
 
-    res.json({ success: true, rooms: rows });
+    return res.json({ success: true, rooms: rows });
 
   } catch (err) {
     console.error("❌ /chat/rooms error:", err);
-    res.status(500).json({ success: false, rooms: [] });
+    return res.json({ success: false, rooms: [] });
   }
 });
-
 
 
 
