@@ -290,22 +290,26 @@ function markRoomAsRead(roomId) {
    좌측 리스트 유틸
 ====================================================== */
 function getChatItem(roomId) {
-  return document.querySelector(`.chat-item[data-room-id="${roomId}"]`);
+  return document.querySelector(
+    `.chat-item[data-room-id="${String(roomId)}"]`
+  );
 }
 
+
 function showUnreadBadge(roomId) {
-  const item = getChatItem(roomId);
+  const item = getChatItem(String(roomId));
   if (!item) return;
   const badge = item.querySelector(".chat-unread-badge");
   if (badge) badge.style.display = "block";
 }
 
 function hideUnreadBadge(roomId) {
-  const item = getChatItem(roomId);
+  const item = getChatItem(String(roomId));
   if (!item) return;
   const badge = item.querySelector(".chat-unread-badge");
   if (badge) badge.style.display = "none";
 }
+
 
 function updateLeftLastMsg(roomId, text) {
   const item = getChatItem(roomId);
