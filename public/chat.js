@@ -261,7 +261,7 @@ function markRoomAsRead(roomId) {
 }
 
 /* ======================================================
-   ✅ 메시지 렌더 (삭제/읽음/이미지/중복치환 포함)
+   ✅ 메시지 렌더 (삭제 / 읽음 / 이미지 / 중복치환 안정판)
 ====================================================== */
 function renderMsg(msg) {
   if (!chatBody || !CURRENT_USER) return;
@@ -277,37 +277,51 @@ function renderMsg(msg) {
 
   if (!content) return;
 
-  // ✅ pending → server 치환 (clientMsgId 기준)
+  /* ======================================================
+     1️⃣ pending → 서버 메시지 치환 (clientMsgId 기준)
+  ====================================================== */
   if (msg.clientMsgId) {
-    const pending = document.querySelector(
+    const pendingEl = document.querySelector(
       `.msg-row[data-client-msg-id="${safeStr(msg.clientMsgId)}"]`
     );
-    if (pending && msg.id != null) {
-      pending.dataset.messageId = safeStr(msg.id);
 
-      // (pending id였으면 실제 id로 교체)
-      const readEl = pending.querySelector(".read-state");
-      if (readEl) readEl.textContent = msg.is_read ? "읽음" : "";
+    if (pendingEl && msg.id != null) {
+      // 실제 messageId로 교체
+      pendingEl.dataset.messageId = safeStr(msg.id);
+
+      // 읽음 상태 갱신
+      const readEl = pendingEl.querySelector(".read-state");
+      if (readEl) {
+        readEl.textContent = msg.is_read ? "읽음" : "";
+      }
 
       PENDING_CLIENT_IDS.delete(msg.clientMsgId);
-      return;
+      return; // ⚠️ 새로 렌더하지 않음
     }
   }
 
-  // ✅ 동일 messageId가 이미 렌더되어 있으면 무시(추가 중복 방지)
+  /* ======================================================
+     2️⃣ messageId 기준 중복 렌더 방지
+  ====================================================== */
   if (msg.id != null) {
-    const exist = document.querySelector(`.msg-row[data-message-id="${safeStr(msg.id)}"]`);
+    const exist = document.querySelector(
+      `.msg-row[data-message-id="${safeStr(msg.id)}"]`
+    );
     if (exist) return;
   }
 
+  /* ======================================================
+     3️⃣ row 생성
+  ====================================================== */
   const row = document.createElement("div");
   row.className = `msg-row ${isMe ? "me" : "other"}`;
 
-  // message id
   if (msg.id != null) row.dataset.messageId = safeStr(msg.id);
-  // client id
   if (msg.clientMsgId) row.dataset.clientMsgId = safeStr(msg.clientMsgId);
 
+  /* ======================================================
+     4️⃣ 말풍선
+  ====================================================== */
   const bubble = document.createElement("div");
   bubble.className = "msg-bubble";
 
@@ -323,7 +337,9 @@ function renderMsg(msg) {
 
   row.appendChild(bubble);
 
-  // ✅ 읽음 표시(내 메시지만)
+  /* ======================================================
+     5️⃣ 읽음 표시 (내 메시지만)
+  ====================================================== */
   if (isMe) {
     const read = document.createElement("span");
     read.className = "read-state";
@@ -331,7 +347,9 @@ function renderMsg(msg) {
     row.appendChild(read);
   }
 
-  // ✅ 삭제 버튼(내 메시지 + 서버 id 있을 때만)
+  /* ======================================================
+     6️⃣ 삭제 버튼 (내 메시지 + 서버 id 있을 때만)
+  ====================================================== */
   if (isMe && msg.id != null) {
     const delBtn = document.createElement("button");
     delBtn.className = "msg-delete-btn";
@@ -345,12 +363,12 @@ function renderMsg(msg) {
 
     row.appendChild(delBtn);
 
-    // 우클릭 시 표시
+    // ✅ 우클릭 시만 표시
     row.addEventListener("contextmenu", (e) => {
       e.preventDefault();
       delBtn.style.display = "block";
 
-      // 바깥 클릭하면 숨김
+      // 바깥 클릭 시 숨김
       document.addEventListener(
         "click",
         () => {
@@ -361,6 +379,9 @@ function renderMsg(msg) {
     });
   }
 
+  /* ======================================================
+     7️⃣ DOM 추가
+  ====================================================== */
   chatBody.appendChild(row);
 }
 
@@ -466,68 +487,86 @@ if (fileBtn && fileInput) {
 }
 
 /* ======================================================
-   Socket.io
+   Socket.io (최종 안정판)
 ====================================================== */
 function initSocket() {
   socket = io(API, { withCredentials: true });
 
   socket.on("connect", () => {
-    if (ROOM_ID) socket.emit("chat:join", ROOM_ID);
+    if (ROOM_ID) {
+      socket.emit("chat:join", ROOM_ID);
+    }
   });
 
-  // ✅ 메시지 수신
+  /* =========================
+     메시지 수신
+  ========================= */
   socket.on("chat:message", (msg) => {
     if (!CURRENT_USER) return;
 
     const roomId = safeStr(msg.room_id || msg.roomId);
+    if (!roomId) return;
 
-    // 다른 방 메시지면 좌측 업데이트만
     const preview =
       msg.message_type === "image"
         ? "📷 이미지"
         : (msg.message || msg.content || "");
 
-    // 좌측 프리뷰 갱신
-    if (roomId) updateLeftLastMsg(roomId, preview);
+    // ✅ 좌측 리스트 미리보기 항상 갱신
+    updateLeftLastMsg(roomId, preview);
 
-    // 내가 보고 있는 방이 아니면 뱃지만
+    // ✅ 내가 보고 있는 방이 아니면 뱃지만 표시
     if (!ROOM_ID || roomId !== safeStr(ROOM_ID)) {
-      if (roomId) showUnreadBadge(roomId);
+      showUnreadBadge(roomId);
       return;
     }
 
-    // ✅ 내가 보낸 메시지는 socket에서 무시(중복 방지)
-    if (Number(msg.sender_id) === Number(CURRENT_USER.id)) return;
+    // ✅ 내가 보낸 메시지는 socket에서 무시 (중복 방지 핵심)
+    if (Number(msg.sender_id) === Number(CURRENT_USER.id)) {
+      return;
+    }
 
-    // ✅ pending clientMsgId 중복 차단
-    if (msg.clientMsgId && PENDING_CLIENT_IDS.has(msg.clientMsgId)) return;
+    // ✅ pending 메시지 중복 차단
+    if (msg.clientMsgId && PENDING_CLIENT_IDS.has(msg.clientMsgId)) {
+      return;
+    }
 
+    // ✅ 실제 렌더
     renderMsg(msg);
     scrollBottom();
 
-    // 내가 보고 있는 방이면 즉시 읽음 처리
+    // ✅ 읽음 처리
     markRoomAsRead(ROOM_ID);
   });
 
-  // ✅ 읽음 이벤트 (한 번만 등록해야 함!)
+  /* =========================
+     읽음 이벤트 (⚠️ 반드시 여기서 한 번만!)
+  ========================= */
   socket.on("chat:read", ({ roomId }) => {
     if (!ROOM_ID) return;
     if (safeStr(roomId) !== safeStr(ROOM_ID)) return;
 
-    document.querySelectorAll(".msg-row.me .read-state").forEach((el) => {
-      el.textContent = "읽음";
-    });
+    document
+      .querySelectorAll(".msg-row.me .read-state")
+      .forEach((el) => {
+        el.textContent = "읽음";
+      });
   });
 
-  // ✅ 삭제 이벤트 수신
+  /* =========================
+     삭제 이벤트
+  ========================= */
   socket.on("chat:delete", ({ messageId, roomId }) => {
-    // roomId가 오면 같은 방만 처리(호환)
+    // roomId가 있으면 같은 방만 처리 (서버 호환용)
     if (roomId && ROOM_ID && safeStr(roomId) !== safeStr(ROOM_ID)) return;
 
-    const el = document.querySelector(`.msg-row[data-message-id="${safeStr(messageId)}"]`);
+    const el = document.querySelector(
+      `.msg-row[data-message-id="${safeStr(messageId)}"]`
+    );
     if (el) el.remove();
   });
 }
+
 
 /* ======================================================
    이미지 모달
