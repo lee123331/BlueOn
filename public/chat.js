@@ -336,41 +336,30 @@ function initSocket() {
     });
   });
 
-  socket.on("chat:message", (msg) => {
-    // CURRENT_USER 로드 전이면 무시 (초기 경쟁 상태 방지)
-    if (!CURRENT_USER) return;
+socket.on("chat:message", msg => {
+  const roomId = String(msg.room_id || msg.roomId);
+  const senderId = Number(msg.sender_id);
 
-    const roomId = safeStr(msg.room_id || msg.roomId);
-    const senderId = Number(msg.sender_id);
+  // 🔥 내가 보낸 메시지는 무시 (중복 방지)
+  if (senderId === CURRENT_USER.id) return;
 
+  const preview =
+    msg.message_type === "image"
+      ? "📷 이미지"
+      : (msg.message || "");
 
+  updateLeftLastMsg(roomId, preview);
 
-    const preview =
-      msg.message_type === "image"
-        ? "📷 이미지"
-        : (msg.message || "");
+  if (ROOM_ID && roomId === String(ROOM_ID)) {
+    renderMsg(msg);
+    scrollBottom();
+    markRoomAsRead(roomId);
+    return;
+  }
 
-    // 좌측 마지막 메시지 갱신
-    updateLeftLastMsg(roomId, preview);
+  showUnreadBadge(roomId);
+});
 
-    // 내가 현재 보고 있는 방
-    if (ROOM_ID && roomId === safeStr(ROOM_ID)) {
-      // 내가 보낸 메시지는 여기서 렌더하면 중복됨 (낙관적 렌더 이미 했음)
-      if (senderId === Number(CURRENT_USER.id)) return;
-
-      if (senderId === CURRENT_USER.id) return; // 🔥 이 줄 필수
-
-      renderMsg(msg);
-      scrollBottom();
-
-      // 즉시 읽음 처리
-      markRoomAsRead(roomId);
-      return;
-    }
-
-    // 다른 방에서 온 메시지 → 빨간 뱃지
-    showUnreadBadge(roomId);
-  });
 }
 
 /* ======================================================

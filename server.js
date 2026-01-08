@@ -4459,48 +4459,55 @@ app.get("/chat/rooms", async (req, res) => {
     const [rows] = await db.query(
       `
       SELECT
-        r.id AS roomId,
-        r.last_msg,
-        r.updated_at,
-
-        -- 상대방 닉네임
-        CASE
-          WHEN r.buyer_id = ? THEN ep.nickname
-          ELSE u.nickname
-        END AS nickname,
-
-        -- 상대방 프로필 이미지
-        CASE
-          WHEN r.buyer_id = ? THEN
-            COALESCE(ep.avatar_url, '/assets/default_profile.png')
-          ELSE
-            COALESCE(u.avatar_url, '/assets/default_profile.png')
-        END AS avatar,
-
-        -- 안 읽은 메시지 수
+        x.roomId,
+        x.last_msg,
+        x.updated_at,
+        x.nickname,
+        x.avatar,
         COALESCE(cu.count, 0) AS unread
+      FROM (
+        SELECT
+          r.id AS roomId,
+          r.last_msg,
+          r.updated_at,
 
-      FROM service_chat_rooms r
+          -- 상대방 ID
+          CASE
+            WHEN r.buyer_id = ? THEN r.expert_id
+            ELSE r.buyer_id
+          END AS other_id,
 
-      -- buyer 정보
-      LEFT JOIN users u
-        ON u.id = r.buyer_id
+          -- 상대방 닉네임
+          CASE
+            WHEN r.buyer_id = ? THEN ep.nickname
+            ELSE u.nickname
+          END AS nickname,
 
-      -- expert 프로필
-      LEFT JOIN expert_profiles ep
-        ON ep.user_id = r.expert_id
+          -- 상대방 아바타
+          CASE
+            WHEN r.buyer_id = ? THEN
+              COALESCE(ep.avatar_url, '/assets/default_profile.png')
+            ELSE
+              COALESCE(u.avatar_url, '/assets/default_profile.png')
+          END AS avatar
 
-      -- 안 읽은 메시지
+        FROM service_chat_rooms r
+        LEFT JOIN users u ON u.id = r.buyer_id
+        LEFT JOIN expert_profiles ep ON ep.user_id = r.expert_id
+        WHERE r.buyer_id = ? OR r.expert_id = ?
+        ORDER BY r.updated_at DESC
+      ) x
+
+      -- 🔥 상대방 기준으로 1개만
+      GROUP BY x.other_id
+
       LEFT JOIN chat_unread cu
-        ON cu.room_id = r.id
+        ON cu.room_id = x.roomId
        AND cu.user_id = ?
 
-      WHERE r.buyer_id = ?
-         OR r.expert_id = ?
-
-      ORDER BY r.updated_at DESC
+      ORDER BY x.updated_at DESC
       `,
-      [myId, myId, myId, myId, myId]
+      [myId, myId, myId, myId, myId, myId]
     );
 
     return res.json({ success: true, rooms: rows });
@@ -4510,6 +4517,7 @@ app.get("/chat/rooms", async (req, res) => {
     return res.json({ success: false, rooms: [] });
   }
 });
+
 
 
 
