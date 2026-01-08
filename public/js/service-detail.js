@@ -54,6 +54,7 @@ window.openChat = async function () {
     // ✅ 서비스 문의 전용 채팅 페이지로 이동
     location.href = `/service-chat.html?roomId=${data.roomId}`;
 
+
   } catch (err) {
     console.error("❌ openChat error:", err);
     showToast("채팅 연결 중 오류가 발생했습니다.");
