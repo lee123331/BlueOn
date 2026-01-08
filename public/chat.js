@@ -96,7 +96,7 @@ function updateLeftLastMsg(roomId, text) {
    삭제 확인 모달 열기
 ========================= */
 function openDeleteConfirm(messageId, rowEl) {
-  DELETE_TARGET_ID = messageId;
+  DELETE_TARGET_MSG_ID = messageId;
   DELETE_TARGET_ROW = rowEl;
 
   if (deleteModal) {
@@ -108,7 +108,7 @@ function openDeleteConfirm(messageId, rowEl) {
    삭제 확인 모달 닫기
 ========================= */
 function closeDeleteConfirm() {
-  DELETE_TARGET_ID = null;
+  DELETE_TARGET_MSG_ID = null;
   DELETE_TARGET_ROW = null;
 
   if (deleteModal) {
@@ -128,14 +128,13 @@ if (confirmCancelBtn) {
 ========================= */
 if (confirmDeleteBtn) {
   confirmDeleteBtn.onclick = async () => {
-    if (!DELETE_TARGET_ID) return;
+    if (!DELETE_TARGET_MSG_ID) return;
 
-    const targetId = DELETE_TARGET_ID;
+    const targetId = DELETE_TARGET_MSG_ID;
     const targetRow = DELETE_TARGET_ROW;
 
-    // ✅ UI 즉시 제거 (UX)
+    // UI 즉시 제거
     if (targetRow) targetRow.remove();
-
     closeDeleteConfirm();
 
     try {
@@ -153,15 +152,6 @@ if (confirmDeleteBtn) {
       if (!data.success) {
         console.warn("❌ 서버 삭제 실패", data);
       }
-
-      // ✅ 소켓 브로드캐스트 (있으면)
-      if (socket) {
-        socket.emit("chat:delete", {
-          roomId: ROOM_ID,
-          messageId: targetId,
-        });
-      }
-
     } catch (e) {
       console.warn("❌ delete request error", e);
     }
