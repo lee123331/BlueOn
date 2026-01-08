@@ -2189,73 +2189,81 @@ app.post("/service-chat/start", async (req, res) => {
 // ======================================================
 // 🔵 채팅방 상대방 정보 조회 (service_chat_rooms)
 // ======================================================
+// ✅ 채팅방 상단 정보 (roomId 기준)
 app.get("/chat/room-info", async (req, res) => {
   try {
     if (!req.session.user) {
-      return res.json({ success: false });
+      return res.json({ success: false, message: "LOGIN_REQUIRED" });
     }
 
-    const myId = req.session.user.id;
     const roomId = req.query.roomId;
+    const myId = req.session.user.id;
 
+    if (!roomId) {
+      return res.json({ success: false, message: "ROOM_ID_REQUIRED" });
+    }
+
+    /**
+     * service_chat_rooms 구조
+     * - id
+     * - buyer_id
+     * - expert_id
+     */
     const [rows] = await db.query(
       `
       SELECT
+        r.id AS roomId,
+
         -- 상대방 ID
         CASE
-          WHEN r.user_id = ? THEN r.expert_id
-          ELSE r.user_id
-        END AS other_id,
+          WHEN r.buyer_id = ? THEN r.expert_id
+          ELSE r.buyer_id
+        END AS otherId,
 
-        -- 상대방 역할
+        -- 상대방 닉네임 (전문가 / 일반유저 분기)
         CASE
-          WHEN r.user_id = ? THEN 'expert'
-          ELSE 'user'
-        END AS other_role,
-
-        -- 닉네임 (역할에 따라 분기)
-        CASE
-          WHEN r.user_id = ?
-            THEN ep.nickname
+          WHEN r.buyer_id = ?
+            THEN COALESCE(ep.nickname, u.nickname, '전문가')
           ELSE u.nickname
         END AS nickname,
 
-        -- 프로필 이미지 (역할에 따라 분기)
+        -- 상대방 프로필 이미지
         CASE
-          WHEN r.user_id = ?
-            THEN ep.avatar_url
-          ELSE u.avatar_url
+          WHEN r.buyer_id = ?
+            THEN COALESCE(ep.avatar_url, '/assets/default_profile.png')
+          ELSE COALESCE(u.avatar_url, '/assets/default_profile.png')
         END AS avatar
 
       FROM service_chat_rooms r
 
       LEFT JOIN users u
-        ON u.id = r.user_id
+        ON u.id = r.buyer_id
 
       LEFT JOIN expert_profiles ep
         ON ep.user_id = r.expert_id
 
       WHERE r.id = ?
+        AND (r.buyer_id = ? OR r.expert_id = ?)
       `,
-      [myId, myId, myId, myId, roomId]
+      [myId, myId, myId, roomId, myId, myId]
     );
 
     if (rows.length === 0) {
-      return res.json({ success: false });
+      return res.json({ success: false, message: "ROOM_NOT_FOUND" });
     }
 
-    const row = rows[0];
+    const room = rows[0];
 
-    res.json({
+    return res.json({
       success: true,
-      nickname: row.nickname || "상대방",
-      avatar: row.avatar || "/assets/default_profile.png",
-      role: row.other_role
+      nickname: room.nickname,
+      avatar: room.avatar,
+      targetId: room.otherId
     });
 
   } catch (err) {
     console.error("❌ /chat/room-info error:", err);
-    res.json({ success: false });
+    return res.status(500).json({ success: false });
   }
 });
 
