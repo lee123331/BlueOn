@@ -48,11 +48,8 @@ async function loadMe() {
    좌측 채팅방 목록
 ====================================================== */
 async function loadChatList() {
-  const res = await fetch(`${API}/chat/rooms`, {
-    credentials: "include"
-  });
+  const res = await fetch(`${API}/chat/rooms`, { credentials: "include" });
   const data = await res.json();
-
   if (!data.success) return;
 
   chatListArea.innerHTML = "<h2>메시지</h2>";
@@ -60,7 +57,7 @@ async function loadChatList() {
   data.rooms.forEach(room => {
     const div = document.createElement("div");
     div.className = "chat-item";
-    div.dataset.roomId = room.roomId; // ✅ roomId
+    div.dataset.roomId = room.roomId;
 
     div.onclick = () => {
       location.href = `/chat.html?roomId=${room.roomId}`;
@@ -87,7 +84,6 @@ async function loadChatList() {
   });
 }
 
-
 /* ======================================================
    채팅방 상단 정보
 ====================================================== */
@@ -99,7 +95,6 @@ async function loadRoomInfo() {
     { credentials: "include" }
   );
   const data = await res.json();
-
   if (!data.success) return;
 
   headerImg.src = data.avatar || "/assets/default_profile.png";
@@ -117,7 +112,6 @@ async function loadMessages() {
     { credentials: "include" }
   );
   const data = await res.json();
-
   if (!data.success) return;
 
   chatBody.innerHTML = "";
@@ -151,7 +145,7 @@ function markRead() {
 function renderMsg(msg) {
   const sender  = msg.sender_id;
   const type    = msg.message_type;
-  const content = msg.message || msg.content;
+  const content = msg.message;
   const isRead  = msg.is_read;
 
   if (!content) return;
@@ -164,6 +158,7 @@ function renderMsg(msg) {
     img.src = content;
     img.style.maxWidth = "180px";
     img.style.borderRadius = "10px";
+    img.style.cursor = "pointer";
     img.onclick = () => {
       document.getElementById("imgModalView").src = content;
       document.getElementById("imgModal").style.display = "flex";
@@ -186,25 +181,38 @@ function renderMsg(msg) {
 /* ======================================================
    메시지 전송
 ====================================================== */
-async function sendMessage(content) {
-  await fetch(`${API}/chat/send-message`, {
+async function sendMessage(type, content) {
+  const res = await fetch(`${API}/chat/send-message`, {
     method: "POST",
     credentials: "include",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       roomId: ROOM_ID,
+      message_type: type,
       message: content
     })
   });
+
+  const data = await res.json();
+  if (!data.success) return;
+
+  // 🔥 보낸 사람도 즉시 렌더
+  renderMsg({
+    sender_id: CURRENT_USER.id,
+    message_type: type,
+    message: content,
+    is_read: 0
+  });
+
+  scrollBottom();
 }
 
 async function sendText() {
   const text = msgInput.value.trim();
   if (!text) return;
   msgInput.value = "";
-  await sendMessage(text);
+  await sendMessage("text", text);
 }
-
 
 /* ======================================================
    이미지 전송
@@ -238,8 +246,9 @@ function initSocket() {
     if (ROOM_ID) socket.emit("chat:join", ROOM_ID);
   });
 
-  socket.on("chat:new", msg => {
-    if (String(msg.room_id) !== String(ROOM_ID)) return;
+  // 🔥 실시간 수신 (핵심)
+  socket.on("chat:message", msg => {
+    if (String(msg.roomId || msg.room_id) !== String(ROOM_ID)) return;
     if (msg.sender_id === CURRENT_USER.id) return;
 
     renderMsg(msg);
