@@ -310,7 +310,13 @@ imgModal.onclick = () => {
 ====================================================== */
 (async function init() {
   await loadMe();
-  await loadChatList(); // ⭐ 이게 없어서 왼쪽이 비어있던 거다
+  await loadChatList();   // 🔥 이거 반드시
+
+  if (ROOM_ID) {
+    await loadRoomInfo(); // 🔥 상단 이름/프로필
+    await loadMessages(); // 🔥 메시지 불러오기
+  }
+
   initSocket();
 })();
 
