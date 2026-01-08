@@ -343,6 +343,8 @@ function initSocket() {
     const roomId = safeStr(msg.room_id || msg.roomId);
     const senderId = Number(msg.sender_id);
 
+
+
     const preview =
       msg.message_type === "image"
         ? "📷 이미지"
@@ -355,6 +357,8 @@ function initSocket() {
     if (ROOM_ID && roomId === safeStr(ROOM_ID)) {
       // 내가 보낸 메시지는 여기서 렌더하면 중복됨 (낙관적 렌더 이미 했음)
       if (senderId === Number(CURRENT_USER.id)) return;
+
+      if (senderId === CURRENT_USER.id) return; // 🔥 이 줄 필수
 
       renderMsg(msg);
       scrollBottom();

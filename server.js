@@ -598,19 +598,21 @@ app.get("/api/task-chat/messages", async (req, res) => {
 
     const [messages] = await db.query(
       `
-      SELECT
-        id,
-        room_id,
-        sender_id,
-        message,
-        type,
-        file_url,
-        file_name,
-        is_read,
-        created_at
-      FROM chat_messages
-      WHERE room_id = ?
-      ORDER BY id ASC
+      SELECT 
+  m.id,
+  m.sender_id,
+  m.message,
+  m.message_type,
+  m.file_url,
+  m.created_at,
+  CASE 
+    WHEN m.sender_id = ? THEN m.is_read 
+    ELSE 0
+  END AS is_read
+FROM chat_messages m
+WHERE m.room_id = ?
+ORDER BY m.id ASC
+
       `,
       [roomId]
     );
@@ -2453,7 +2455,8 @@ app.get("/chat/messages", async (req, res) => {
          END AS is_read
        FROM chat_messages m
        WHERE m.room_id = ?
-       ORDER BY m.created_at ASC`,
+       ORDER BY m.id ASC
+`,
       [userId, roomId]
     );
 
