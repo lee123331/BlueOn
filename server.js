@@ -2196,9 +2196,9 @@ app.get("/chat/room-info", async (req, res) => {
     }
 
     const myId = req.session.user.id;
-    const roomId = req.query.roomId;
+    const { roomId } = req.query;
 
-    const [[row]] = await db.query(
+    const [rows] = await db.query(
       `
       SELECT
         CASE
@@ -2206,7 +2206,7 @@ app.get("/chat/room-info", async (req, res) => {
           ELSE r.user_id
         END AS other_id,
 
-        u.nickname AS nickname,
+        COALESCE(u.nickname, u.name, '상대방') AS nickname,
         COALESCE(u.avatar_url, '/assets/default_profile.png') AS avatar
 
       FROM service_chat_rooms r
@@ -2220,15 +2220,14 @@ app.get("/chat/room-info", async (req, res) => {
       [myId, myId, roomId]
     );
 
-    if (!row) {
+    if (rows.length === 0) {
       return res.json({ success: false });
     }
 
     res.json({
       success: true,
-      targetId: row.other_id,
-      nickname: row.nickname,
-      avatar: row.avatar
+      nickname: rows[0].nickname,
+      avatar: rows[0].avatar
     });
   } catch (err) {
     console.error("❌ /chat/room-info error:", err);
@@ -4253,7 +4252,7 @@ app.post("/expert/tasks/start", async (req, res) => {
 
 
 // ======================================================
-// ✅ 채팅방 목록 (service_chat_rooms 기준)
+// ✅ 채팅방 목록 (좌측 리스트 최종본)
 app.get("/chat/rooms", async (req, res) => {
   try {
     if (!req.session.user) {
@@ -4269,14 +4268,19 @@ app.get("/chat/rooms", async (req, res) => {
         r.last_msg,
         r.updated_at,
 
+        -- 상대방 ID
         CASE
           WHEN r.user_id = ? THEN r.expert_id
           ELSE r.user_id
         END AS other_id,
 
-        u.nickname AS other_nickname,
+        -- 상대방 닉네임
+        COALESCE(u.nickname, u.name, '상대방') AS other_nickname,
+
+        -- 상대방 프로필
         COALESCE(u.avatar_url, '/assets/default_profile.png') AS other_avatar,
 
+        -- 안 읽은 메시지 수
         COALESCE(cu.count, 0) AS unread
 
       FROM service_chat_rooms r
@@ -4300,6 +4304,7 @@ app.get("/chat/rooms", async (req, res) => {
     res.json({ success: false, rooms: [] });
   }
 });
+
 
 
 

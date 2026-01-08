@@ -60,7 +60,7 @@ async function loadChatList() {
   data.rooms.forEach(room => {
     const div = document.createElement("div");
     div.className = "chat-item";
-    div.dataset.roomId = room.roomId;
+    div.dataset.roomId = room.roomId; // ✅ roomId
 
     div.onclick = () => {
       location.href = `/chat.html?roomId=${room.roomId}`;
@@ -86,6 +86,7 @@ async function loadChatList() {
     chatListArea.appendChild(div);
   });
 }
+
 
 /* ======================================================
    채팅방 상단 정보
