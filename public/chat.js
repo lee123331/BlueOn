@@ -60,24 +60,27 @@ async function loadChatList() {
   data.rooms.forEach(room => {
     const div = document.createElement("div");
     div.className = "chat-item";
-    div.dataset.roomId = room.room_id;
+    div.dataset.roomId = room.roomId;
 
     div.onclick = () => {
-      location.href = `/chat.html?roomId=${room.room_id}`;
+      location.href = `/chat.html?roomId=${room.roomId}`;
     };
 
     div.innerHTML = `
       <div class="chat-left">
-        <img src="${room.other_avatar}">
+        <img src="${room.avatar || "/assets/default_profile.png"}">
         <div>
-          <div style="font-weight:700">${room.other_nickname}</div>
+          <div style="font-weight:700">
+            ${room.nickname || "상대방"}
+          </div>
           <div style="font-size:12px;color:#6b7280">
             ${room.last_msg || ""}
           </div>
         </div>
       </div>
       <div class="chat-unread-badge"
-           style="display:${room.unread > 0 ? "block" : "none"}"></div>
+           style="display:${Number(room.unread) > 0 ? "block" : "none"}">
+      </div>
     `;
 
     chatListArea.appendChild(div);
