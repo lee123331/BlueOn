@@ -42,6 +42,8 @@ const PENDING_CLIENT_IDS = new Set();
 let DELETE_TARGET_MSG_ID = null;
 let DELETE_TARGET_ROW = null;
 
+
+
 /* ======================================================
    공통 유틸
 ====================================================== */
@@ -86,46 +88,86 @@ function updateLeftLastMsg(roomId, text) {
 /* ======================================================
    삭제 모달
 ====================================================== */
-function openDeleteConfirm(msgId, rowEl) {
-  if (!deleteModal) return;
-  DELETE_TARGET_MSG_ID = msgId;
+/* ======================================================
+   🗑 메시지 삭제 처리 (완성 안정판)
+====================================================== */
+
+/* =========================
+   삭제 확인 모달 열기
+========================= */
+function openDeleteConfirm(messageId, rowEl) {
+  DELETE_TARGET_ID = messageId;
   DELETE_TARGET_ROW = rowEl;
-  deleteModal.style.display = "flex";
+
+  if (deleteModal) {
+    deleteModal.style.display = "flex";
+  }
 }
 
+/* =========================
+   삭제 확인 모달 닫기
+========================= */
 function closeDeleteConfirm() {
-  if (!deleteModal) return;
-  DELETE_TARGET_MSG_ID = null;
+  DELETE_TARGET_ID = null;
   DELETE_TARGET_ROW = null;
-  deleteModal.style.display = "none";
+
+  if (deleteModal) {
+    deleteModal.style.display = "none";
+  }
 }
 
-if (confirmCancelBtn) confirmCancelBtn.onclick = closeDeleteConfirm;
+/* =========================
+   취소 버튼
+========================= */
+if (confirmCancelBtn) {
+  confirmCancelBtn.onclick = closeDeleteConfirm;
+}
 
+/* =========================
+   삭제 확정 버튼
+========================= */
 if (confirmDeleteBtn) {
   confirmDeleteBtn.onclick = async () => {
-    if (!DELETE_TARGET_MSG_ID) return;
+    if (!DELETE_TARGET_ID) return;
 
-    // UI 즉시 제거
-    if (DELETE_TARGET_ROW) DELETE_TARGET_ROW.remove();
+    const targetId = DELETE_TARGET_ID;
+    const targetRow = DELETE_TARGET_ROW;
+
+    // ✅ UI 즉시 제거 (UX)
+    if (targetRow) targetRow.remove();
+
+    closeDeleteConfirm();
 
     try {
-      await fetch(`${API}/chat/delete`, {
+      const res = await fetch(`${API}/chat/delete`, {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           roomId: ROOM_ID,
-          messageId: DELETE_TARGET_MSG_ID,
+          messageId: targetId,
         }),
       });
-    } catch (e) {
-      console.warn("delete failed", e);
-    }
 
-    closeDeleteConfirm();
+      const data = await res.json();
+      if (!data.success) {
+        console.warn("❌ 서버 삭제 실패", data);
+      }
+
+      // ✅ 소켓 브로드캐스트 (있으면)
+      if (socket) {
+        socket.emit("chat:delete", {
+          roomId: ROOM_ID,
+          messageId: targetId,
+        });
+      }
+
+    } catch (e) {
+      console.warn("❌ delete request error", e);
+    }
   };
 }
+
 
 /* ======================================================
    로그인 유저
