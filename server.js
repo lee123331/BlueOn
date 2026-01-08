@@ -2185,37 +2185,48 @@ app.post("/service-chat/start", async (req, res) => {
     });
   }
 });
-/* ======================================================
-   🔵 채팅방 상대 정보 조회
-====================================================== */
+
+// ======================================================
+// 🔵 채팅방 상대방 정보 조회 (service_chat_rooms)
+// ======================================================
 app.get("/chat/room-info", async (req, res) => {
   try {
     if (!req.session.user) {
       return res.json({ success: false, message: "LOGIN_REQUIRED" });
     }
 
-    const roomId = req.query.roomId;
     const myId = req.session.user.id;
+    const roomId = req.query.roomId;
 
     if (!roomId) {
       return res.json({ success: false, message: "ROOM_ID_REQUIRED" });
     }
 
+    /*
+      service_chat_rooms 구조:
+      - id
+      - service_id
+      - user_id
+      - expert_id
+    */
     const [rows] = await db.query(
       `
       SELECT
         r.id AS room_id,
+
         CASE
-          WHEN r.user1_id = ? THEN r.user2_id
-          ELSE r.user1_id
+          WHEN r.user_id = ? THEN r.expert_id
+          ELSE r.user_id
         END AS other_id,
-        u.nickname,
-        u.avatar_url
-      FROM chat_rooms r
+
+        u.nickname AS nickname,
+        COALESCE(u.avatar_url, '/assets/default_profile.png') AS avatar
+
+      FROM service_chat_rooms r
       JOIN users u
         ON u.id = CASE
-                    WHEN r.user1_id = ? THEN r.user2_id
-                    ELSE r.user1_id
+                    WHEN r.user_id = ? THEN r.expert_id
+                    ELSE r.user_id
                   END
       WHERE r.id = ?
       `,
@@ -2228,16 +2239,17 @@ app.get("/chat/room-info", async (req, res) => {
 
     const other = rows[0];
 
-    res.json({
+    return res.json({
       success: true,
+      roomId: other.room_id,
       targetId: other.other_id,
       nickname: other.nickname,
-      avatar: other.avatar_url
+      avatar: other.avatar
     });
 
   } catch (err) {
     console.error("❌ /chat/room-info error:", err);
-    res.status(500).json({ success: false });
+    return res.status(500).json({ success: false });
   }
 });
 
@@ -4254,59 +4266,59 @@ app.post("/expert/tasks/start", async (req, res) => {
   }
 });
 
-/* ======================================================
-   🔵 채팅방 목록 (프로필 이미지 완전 보정)
-====================================================== */
+// ======================================================
+// 🔵 채팅방 목록 (service_chat_rooms 기준)
+// ======================================================
 app.get("/chat/rooms", async (req, res) => {
   try {
-    const user = req.session.user;
-    if (!user) return res.json({ success: false });
+    if (!req.session.user) {
+      return res.json({ success: false, rooms: [] });
+    }
 
-    const myId = user.id;
+    const myId = req.session.user.id;
 
     const [rows] = await db.query(
       `
-      SELECT 
+      SELECT
         r.id AS room_id,
-        r.user1_id,
-        r.user2_id,
         r.last_msg,
         r.updated_at,
 
-        u.id AS other_id,
-
-        COALESCE(ep.nickname, u.nickname, u.name, '사용자') AS other_nickname,
-
         CASE
-          WHEN ep.avatar_url IS NOT NULL AND ep.avatar_url <> '' THEN ep.avatar_url
-          WHEN u.avatar_url IS NOT NULL AND u.avatar_url <> '' THEN u.avatar_url
-          ELSE '/assets/default_profile.png'
-        END AS other_avatar
+          WHEN r.user_id = ? THEN r.expert_id
+          ELSE r.user_id
+        END AS other_id,
 
-      FROM chat_rooms r
+        u.nickname AS other_nickname,
+        COALESCE(u.avatar_url, '/assets/default_profile.png') AS other_avatar,
 
-      LEFT JOIN users u
-        ON u.id = CASE 
-                    WHEN r.user1_id = ? THEN r.user2_id
-                    ELSE r.user1_id
+        COALESCE(cu.count, 0) AS unread
+
+      FROM service_chat_rooms r
+      JOIN users u
+        ON u.id = CASE
+                    WHEN r.user_id = ? THEN r.expert_id
+                    ELSE r.user_id
                   END
 
-      LEFT JOIN expert_profiles ep
-        ON ep.user_id = u.id
+      LEFT JOIN chat_unread cu
+        ON cu.room_id = r.id
+       AND cu.user_id = ?
 
-      WHERE r.user1_id = ? OR r.user2_id = ?
+      WHERE r.user_id = ? OR r.expert_id = ?
       ORDER BY r.updated_at DESC
       `,
-      [myId, myId, myId]
+      [myId, myId, myId, myId, myId]
     );
 
     return res.json({ success: true, rooms: rows });
 
   } catch (err) {
     console.error("❌ /chat/rooms error:", err);
-    return res.json({ success: false });
+    return res.json({ success: false, rooms: [] });
   }
 });
+
 
 /* ======================================================
    🔵 전문가 작업 요약
