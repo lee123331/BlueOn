@@ -2058,6 +2058,38 @@ if (ADMIN_ID && String(user.id) === ADMIN_ID) {
     socket.on("chat:delete", ({ roomId, messageId }) => {
       socket.to(String(roomId)).emit("chat:delete", { messageId });
     });
+app.post("/chat/delete", async (req, res) => {
+  try {
+    const { messageId } = req.body;
+    const userId = req.session.user?.id;
+    if (!messageId || !userId) {
+      return res.json({ success: false });
+    }
+
+    // 🔥 본인 메시지만 삭제 가능
+    const [[msg]] = await db.query(
+      `SELECT room_id, sender_id FROM chat_messages WHERE id = ?`,
+      [messageId]
+    );
+
+    if (!msg || msg.sender_id !== userId) {
+      return res.status(403).json({ success: false });
+    }
+
+    await db.query(
+      `DELETE FROM chat_messages WHERE id = ?`,
+      [messageId]
+    );
+
+    // 🔥 실시간 삭제 브로드캐스트
+    io.to(String(msg.room_id)).emit("chat:delete", { messageId });
+
+    return res.json({ success: true });
+  } catch (e) {
+    console.error("❌ chat delete error:", e);
+    res.status(500).json({ success: false });
+  }
+});
 
     /* ======================================================
        4️⃣ 연결 종료
@@ -4480,54 +4512,51 @@ app.get("/chat/rooms", async (req, res) => {
     const [rows] = await db.query(
       `
       SELECT
-        r.id AS roomId,
-        r.last_msg,
-        r.updated_at,
+  t.roomId,
+  t.last_msg,
+  t.updated_at,
+  t.other_id,
+  t.nickname,
+  t.avatar,
+  COALESCE(cu.count, 0) AS unread
+FROM (
+  SELECT
+    r.id AS roomId,
+    r.last_msg,
+    r.updated_at,
 
-        -- 상대방 닉네임
-        CASE
-          WHEN r.buyer_id = ? THEN ep.nickname
-          ELSE u.nickname
-        END AS nickname,
+    -- 상대방 ID
+    CASE
+      WHEN r.buyer_id = ? THEN r.expert_id
+      ELSE r.buyer_id
+    END AS other_id,
 
-        -- 상대방 아바타
-        CASE
-          WHEN r.buyer_id = ? THEN
-            COALESCE(ep.avatar_url, '/assets/default_profile.png')
-          ELSE
-            COALESCE(u.avatar_url, '/assets/default_profile.png')
-        END AS avatar,
+    -- 상대방 닉네임
+    CASE
+      WHEN r.buyer_id = ? THEN ep.nickname
+      ELSE u.nickname
+    END AS nickname,
 
-        COALESCE(cu.count, 0) AS unread
+    -- 상대방 아바타
+    CASE
+      WHEN r.buyer_id = ? THEN
+        COALESCE(ep.avatar_url, '/assets/default_profile.png')
+      ELSE
+        COALESCE(u.avatar_url, '/assets/default_profile.png')
+    END AS avatar
 
-      FROM service_chat_rooms r
+  FROM service_chat_rooms r
+  LEFT JOIN users u ON u.id = r.buyer_id
+  LEFT JOIN expert_profiles ep ON ep.user_id = r.expert_id
+  WHERE r.buyer_id = ? OR r.expert_id = ?
+) t
+LEFT JOIN chat_unread cu
+  ON cu.room_id = t.roomId
+ AND cu.user_id = ?
+-- 🔥 사람 기준 1개
+GROUP BY t.other_id
+ORDER BY MAX(t.updated_at) DESC;
 
-      -- 🔹 unread
-      LEFT JOIN chat_unread cu
-        ON cu.room_id = r.id
-       AND cu.user_id = ?
-
-      -- 🔹 buyer 정보
-      LEFT JOIN users u
-        ON u.id = r.buyer_id
-
-      -- 🔹 expert 정보
-      LEFT JOIN expert_profiles ep
-        ON ep.user_id = r.expert_id
-
-      -- 🔹 내가 포함된 방 중
-      WHERE r.id IN (
-        SELECT MAX(r2.id)
-        FROM service_chat_rooms r2
-        WHERE r2.buyer_id = ? OR r2.expert_id = ?
-        GROUP BY
-          CASE
-            WHEN r2.buyer_id = ? THEN r2.expert_id
-            ELSE r2.buyer_id
-          END
-      )
-
-      ORDER BY r.updated_at DESC
       `,
       [
         myId, // nickname case

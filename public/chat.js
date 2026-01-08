@@ -30,6 +30,9 @@ const imgView  = document.getElementById("imgModalView");
 let CURRENT_USER = null;
 let socket = null;
 
+// 내가 낙관적으로 그려둔 메시지들(중복 방지용)
+const PENDING_CLIENT_IDS = new Set();
+
 /* ======================================================
    공통 유틸
 ====================================================== */
@@ -41,6 +44,11 @@ function safeStr(v) {
 function scrollBottom() {
   if (!chatBody) return;
   chatBody.scrollTop = chatBody.scrollHeight;
+}
+
+function genClientMsgId() {
+  // 클라 전용 임시 ID (중복 방지/매칭에 도움)
+  return `c_${Date.now()}_${Math.random().toString(16).slice(2)}`;
 }
 
 /* ======================================================
@@ -87,23 +95,37 @@ function updateLeftLastMsg(roomId, text) {
 
 /* ======================================================
    좌측 채팅방 목록
+   ✅ 프론트에서 한번 더 roomId 기준 중복 방지
 ====================================================== */
 async function loadChatList() {
-  const res = await fetch(`${API}/chat/rooms`, {
-    credentials: "include",
-  });
+  const res = await fetch(`${API}/chat/rooms`, { credentials: "include" });
   const data = await res.json();
   if (!data.success) return;
 
   if (!chatListArea) return;
   chatListArea.innerHTML = "<h2>메시지</h2>";
 
-  data.rooms.forEach((room) => {
+  const rooms = Array.isArray(data.rooms) ? data.rooms : [];
+
+  // ✅ roomId 기준으로 마지막 것만 남김(중복 보호)
+  const map = new Map();
+  for (const r of rooms) {
+    const rid = safeStr(r.roomId);
+    if (!rid) continue;
+    map.set(rid, r);
+  }
+  const uniqRooms = Array.from(map.values());
+
+  uniqRooms.forEach((room) => {
     const roomId = safeStr(room.roomId);
+    if (!roomId) return;
+
+    // ✅ DOM 중복 방지(같은 roomId 이미 있으면 추가 안 함)
+    if (getChatItem(roomId)) return;
 
     const item = document.createElement("div");
     item.className = "chat-item";
-    item.dataset.roomId = roomId; // ⭐ 핵심
+    item.dataset.roomId = roomId;
 
     const unreadOn = Number(room.unread) > 0;
 
@@ -162,8 +184,55 @@ async function loadMessages() {
 
   if (!chatBody) return;
   chatBody.innerHTML = "";
+
   (data.messages || []).forEach(renderMsg);
   scrollBottom();
+}
+
+/* ======================================================
+   ✅ 삭제 UI (우클릭)
+====================================================== */
+function showDeleteBtn(row, messageId, senderId) {
+  if (!CURRENT_USER) return;
+
+  // 내 메시지만 삭제 가능
+  if (Number(senderId) !== Number(CURRENT_USER.id)) return;
+
+  // 중복 생성 방지
+  if (row.querySelector(".msg-delete-btn")) return;
+
+  const btn = document.createElement("button");
+  btn.className = "msg-delete-btn";
+  btn.textContent = "삭제";
+
+  btn.onclick = async () => {
+    if (!confirm("메시지를 삭제할까요?")) return;
+    await deleteMessage(messageId);
+  };
+
+  row.appendChild(btn);
+
+  // 다른 곳 클릭하면 버튼 제거
+  document.addEventListener("click", () => btn.remove(), { once: true });
+}
+
+async function deleteMessage(messageId) {
+  if (!messageId) return;
+
+  // UI 즉시 제거(낙관적)
+  const el = document.querySelector(`.msg-row[data-message-id="${safeStr(messageId)}"]`);
+  if (el) el.remove();
+
+  try {
+    await fetch(`${API}/chat/delete`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ messageId }),
+    });
+  } catch (e) {
+    console.warn("❌ delete network error:", e);
+  }
 }
 
 /* ======================================================
@@ -184,6 +253,12 @@ function renderMsg(msg) {
 
   const row = document.createElement("div");
   row.className = "msg-row " + (senderId === Number(CURRENT_USER.id) ? "me" : "other");
+
+  // ✅ 서버 메시지 id(삭제/중복 방지 핵심)
+  if (msg.id != null) row.dataset.messageId = safeStr(msg.id);
+
+  // ✅ clientMsgId가 있으면 붙여둠 (서버가 브로드캐스트에 실어주면 완벽 중복 방지)
+  if (msg.clientMsgId) row.dataset.clientMsgId = safeStr(msg.clientMsgId);
 
   const bubble = document.createElement("div");
   bubble.className = "msg-bubble";
@@ -206,6 +281,12 @@ function renderMsg(msg) {
     read.textContent = msg.is_read ? "읽음" : "";
     row.appendChild(read);
   }
+
+  // ✅ 우클릭 삭제 버튼 (내 메시지일 때만 뜸)
+  row.addEventListener("contextmenu", (e) => {
+    e.preventDefault();
+    showDeleteBtn(row, msg.id, senderId);
+  });
 
   chatBody.appendChild(row);
 }
@@ -233,8 +314,13 @@ async function sendMessage(type, content) {
   if (!ROOM_ID || !CURRENT_USER) return;
   if (!content) return;
 
+  const clientMsgId = genClientMsgId();
+  PENDING_CLIENT_IDS.add(clientMsgId);
+
   // 1) UI 즉시 반영(낙관적)
   renderMsg({
+    id: `pending_${clientMsgId}`,          // 임시 id
+    clientMsgId,                          // 임시 clientMsgId
     sender_id: CURRENT_USER.id,
     message_type: type,
     message: type === "text" ? content : null,
@@ -246,7 +332,7 @@ async function sendMessage(type, content) {
   // 2) 좌측 프리뷰 즉시 반영
   updateLeftLastMsg(ROOM_ID, type === "text" ? content : "📷 이미지");
 
-  // 3) 서버 저장 (실패해도 UI는 유지)
+  // 3) 서버 저장
   try {
     const res = await fetch(`${API}/chat/send-message`, {
       method: "POST",
@@ -257,14 +343,16 @@ async function sendMessage(type, content) {
         message_type: type,
         message: type === "text" ? content : null,
         file_url: type === "image" ? content : null,
+        clientMsgId, // ✅ 서버가 그대로 브로드캐스트에 넣어주면 중복 완전 해결
       }),
     });
 
     const data = await res.json().catch(() => null);
 
-    // 서버가 saved message를 주면, socket 중복 방지용으로 여기서는 추가 렌더 안 함
-    // (이미 UI에 렌더된 상태라 중복 출력되기 쉬움)
-    if (!data || !data.success) {
+    // 성공이면 pending 표시만 해제(서버가 별도 반환해도 여기서 추가 렌더는 안 함)
+    if (data && data.success) {
+      PENDING_CLIENT_IDS.delete(clientMsgId);
+    } else {
       console.warn("❌ send-message failed:", data);
     }
   } catch (e) {
@@ -318,7 +406,6 @@ if (fileBtn && fileInput) {
    Socket.io
 ====================================================== */
 function initSocket() {
-  // ✅ 반드시 서버 URL 명시 (Railway에서 상대경로 연결 꼬이는 거 방지)
   socket = io(API, { withCredentials: true });
 
   socket.on("connect", () => {
@@ -330,36 +417,47 @@ function initSocket() {
     if (!ROOM_ID) return;
     if (safeStr(roomId) !== safeStr(ROOM_ID)) return;
 
-    // 내가 보낸 메시지들의 읽음 표시 켬
     document.querySelectorAll(".msg-row.me .read-state").forEach((el) => {
       el.textContent = "읽음";
     });
   });
 
-socket.on("chat:message", msg => {
-  const roomId = String(msg.room_id || msg.roomId);
-  const senderId = Number(msg.sender_id);
+  // ✅ 삭제 이벤트 수신
+  socket.on("chat:delete", ({ messageId }) => {
+    const el = document.querySelector(`.msg-row[data-message-id="${safeStr(messageId)}"]`);
+    if (el) el.remove();
+  });
 
-  // 🔥 내가 보낸 메시지는 무시 (중복 방지)
-  if (senderId === CURRENT_USER.id) return;
+  socket.on("chat:message", (msg) => {
+    if (!CURRENT_USER) return;
 
-  const preview =
-    msg.message_type === "image"
-      ? "📷 이미지"
-      : (msg.message || "");
+    const roomId = safeStr(msg.room_id || msg.roomId);
+    const senderId = Number(msg.sender_id);
 
-  updateLeftLastMsg(roomId, preview);
+    // ✅ 내가 보낸 메시지는 무시(중복 방지 핵심)
+    if (senderId === Number(CURRENT_USER.id)) return;
 
-  if (ROOM_ID && roomId === String(ROOM_ID)) {
-    renderMsg(msg);
-    scrollBottom();
-    markRoomAsRead(roomId);
-    return;
-  }
+    // ✅ (서버가 clientMsgId를 넣어준다면) pending 중복 완벽 차단
+    if (msg.clientMsgId && PENDING_CLIENT_IDS.has(msg.clientMsgId)) {
+      return;
+    }
 
-  showUnreadBadge(roomId);
-});
+    const preview =
+      (msg.message_type === "image" ? "📷 이미지" : (msg.message || msg.content || ""));
 
+    updateLeftLastMsg(roomId, preview);
+
+    // 내가 보고 있는 방이면 렌더 + 즉시 읽음 처리
+    if (ROOM_ID && roomId === safeStr(ROOM_ID)) {
+      renderMsg(msg);
+      scrollBottom();
+      markRoomAsRead(roomId);
+      return;
+    }
+
+    // 다른 방이면 뱃지
+    showUnreadBadge(roomId);
+  });
 }
 
 /* ======================================================
@@ -389,7 +487,6 @@ if (imgModal) {
     await loadRoomInfo();
     await loadMessages();
 
-    // 방 들어오면 즉시 읽음 처리 + 뱃지 제거
     markRoomAsRead(ROOM_ID);
     hideUnreadBadge(ROOM_ID);
   }
