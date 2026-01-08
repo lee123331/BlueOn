@@ -5,20 +5,14 @@ const API = "https://blueon.up.railway.app";
 /* ======================================================
    URL 파라미터 & 모드 결정
 ====================================================== */
-const params    = new URLSearchParams(location.search);
-const serviceId = params.get("serviceId");
-const taskKey   = params.get("taskKey");
-const orderId   = params.get("orderId");
+const params = new URLSearchParams(location.search);
+const ROOM_ID = params.get("roomId");
 
-let MODE = null; // "service" | "task"
-
-if (serviceId) MODE = "service";
-if (taskKey || orderId) MODE = "task";
-
-if (!MODE) {
+if (!ROOM_ID) {
   alert("잘못된 접근입니다.");
   location.href = "/";
 }
+
 
 /* ======================================================
    DOM
