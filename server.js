@@ -2196,37 +2196,30 @@ app.get("/chat/room-info", async (req, res) => {
     }
 
     const myId = req.session.user.id;
-    const roomId = req.query.roomId;
+    const { roomId } = req.query;
 
     if (!roomId) {
       return res.json({ success: false, message: "ROOM_ID_REQUIRED" });
     }
 
-    /*
-      service_chat_rooms 구조:
-      - id
-      - service_id
-      - user_id
-      - expert_id
-    */
     const [rows] = await db.query(
       `
       SELECT
-        r.id AS room_id,
+        r.id AS roomId,
 
         CASE
-          WHEN r.user_id = ? THEN r.expert_id
-          ELSE r.user_id
+          WHEN r.buyer_id = ? THEN r.expert_id
+          ELSE r.buyer_id
         END AS other_id,
 
-        u.nickname AS nickname,
+        u.nickname,
         COALESCE(u.avatar_url, '/assets/default_profile.png') AS avatar
 
       FROM service_chat_rooms r
       JOIN users u
         ON u.id = CASE
-                    WHEN r.user_id = ? THEN r.expert_id
-                    ELSE r.user_id
+                    WHEN r.buyer_id = ? THEN r.expert_id
+                    ELSE r.buyer_id
                   END
       WHERE r.id = ?
       `,
@@ -2237,21 +2230,17 @@ app.get("/chat/room-info", async (req, res) => {
       return res.json({ success: false, message: "ROOM_NOT_FOUND" });
     }
 
-    const other = rows[0];
-
-    return res.json({
+    res.json({
       success: true,
-      roomId: other.room_id,
-      targetId: other.other_id,
-      nickname: other.nickname,
-      avatar: other.avatar
+      ...rows[0]
     });
 
   } catch (err) {
     console.error("❌ /chat/room-info error:", err);
-    return res.status(500).json({ success: false });
+    res.status(500).json({ success: false });
   }
 });
+
 
 /* ======================================================
    🔵 채팅방 메시지 불러오기
@@ -4266,9 +4255,9 @@ app.post("/expert/tasks/start", async (req, res) => {
   }
 });
 
+
 // ======================================================
-// 🔵 채팅방 목록 (service_chat_rooms 기준)
-// ======================================================
+// ✅ 채팅방 목록 (service_chat_rooms 기준)
 app.get("/chat/rooms", async (req, res) => {
   try {
     if (!req.session.user) {
@@ -4280,44 +4269,45 @@ app.get("/chat/rooms", async (req, res) => {
     const [rows] = await db.query(
       `
       SELECT
-        r.id AS room_id,
+        r.id AS roomId,
         r.last_msg,
         r.updated_at,
 
+        -- 상대방 id
         CASE
-          WHEN r.user_id = ? THEN r.expert_id
-          ELSE r.user_id
+          WHEN r.buyer_id = ? THEN r.expert_id
+          ELSE r.buyer_id
         END AS other_id,
 
-        u.nickname AS other_nickname,
-        COALESCE(u.avatar_url, '/assets/default_profile.png') AS other_avatar,
+        u.nickname AS nickname,
+        COALESCE(u.avatar_url, '/assets/default_profile.png') AS avatar,
 
         COALESCE(cu.count, 0) AS unread
 
       FROM service_chat_rooms r
       JOIN users u
         ON u.id = CASE
-                    WHEN r.user_id = ? THEN r.expert_id
-                    ELSE r.user_id
+                    WHEN r.buyer_id = ? THEN r.expert_id
+                    ELSE r.buyer_id
                   END
 
       LEFT JOIN chat_unread cu
-        ON cu.room_id = r.id
-       AND cu.user_id = ?
+        ON cu.room_id = r.id AND cu.user_id = ?
 
-      WHERE r.user_id = ? OR r.expert_id = ?
+      WHERE r.buyer_id = ? OR r.expert_id = ?
       ORDER BY r.updated_at DESC
       `,
       [myId, myId, myId, myId, myId]
     );
 
-    return res.json({ success: true, rooms: rows });
+    res.json({ success: true, rooms: rows });
 
   } catch (err) {
     console.error("❌ /chat/rooms error:", err);
-    return res.json({ success: false, rooms: [] });
+    res.json({ success: false, rooms: [] });
   }
 });
+
 
 
 /* ======================================================
