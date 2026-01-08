@@ -1,4 +1,4 @@
-console.log("🔥 chat.js FINAL loaded");
+console.log("🔥 chat.js FINAL FIX loaded");
 
 const API = "https://blueon.up.railway.app";
 
@@ -22,11 +22,10 @@ const headerName      = document.getElementById("chatProfileName");
 const typingIndicator = document.getElementById("typingIndicator");
 
 /* ======================================================
-   전역 상태
+   상태
 ====================================================== */
 let CURRENT_USER = null;
 let socket = null;
-let typingTimer = null;
 
 /* ======================================================
    로그인 유저
@@ -34,14 +33,8 @@ let typingTimer = null;
 async function loadMe() {
   const res = await fetch(`${API}/auth/me`, { credentials: "include" });
   const data = await res.json();
-
-  if (!data.success) {
-    location.href = "/login.html";
-    return;
-  }
-
+  if (!data.success) location.href = "/login.html";
   CURRENT_USER = data.user;
-  console.log("👤 CURRENT_USER =", CURRENT_USER);
 }
 
 /* ======================================================
@@ -57,43 +50,30 @@ async function loadChatList() {
   data.rooms.forEach(room => {
     const div = document.createElement("div");
     div.className = "chat-item";
-    div.dataset.roomId = room.roomId;
-
-    div.onclick = () => {
+    div.onclick = () =>
       location.href = `/chat.html?roomId=${room.roomId}`;
-    };
 
     div.innerHTML = `
       <div class="chat-left">
         <img src="${room.avatar || "/assets/default_profile.png"}">
         <div>
-          <div style="font-weight:700">
-            ${room.nickname || "상대방"}
-          </div>
-          <div style="font-size:12px;color:#6b7280">
-            ${room.last_msg || ""}
-          </div>
+          <div style="font-weight:700">${room.nickname || "상대방"}</div>
+          <div style="font-size:12px;color:#6b7280">${room.last_msg || ""}</div>
         </div>
       </div>
-      <div class="chat-unread-badge"
-           style="display:${Number(room.unread) > 0 ? "block" : "none"}">
-      </div>
     `;
-
     chatListArea.appendChild(div);
   });
 }
 
 /* ======================================================
-   채팅방 상단 정보
+   채팅방 상단
 ====================================================== */
 async function loadRoomInfo() {
   if (!ROOM_ID) return;
-
-  const res = await fetch(
-    `${API}/chat/room-info?roomId=${ROOM_ID}`,
-    { credentials: "include" }
-  );
+  const res = await fetch(`${API}/chat/room-info?roomId=${ROOM_ID}`, {
+    credentials: "include"
+  });
   const data = await res.json();
   if (!data.success) return;
 
@@ -106,52 +86,29 @@ async function loadRoomInfo() {
 ====================================================== */
 async function loadMessages() {
   if (!ROOM_ID) return;
-
-  const res = await fetch(
-    `${API}/chat/messages?roomId=${ROOM_ID}`,
-    { credentials: "include" }
-  );
+  const res = await fetch(`${API}/chat/messages?roomId=${ROOM_ID}`, {
+    credentials: "include"
+  });
   const data = await res.json();
   if (!data.success) return;
 
   chatBody.innerHTML = "";
   data.messages.forEach(renderMsg);
   scrollBottom();
-  markRead();
 }
 
 /* ======================================================
-   읽음 처리
-====================================================== */
-function markRead() {
-  fetch(`${API}/chat/read`, {
-    method: "POST",
-    credentials: "include",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ roomId: ROOM_ID })
-  });
-
-  if (socket) {
-    socket.emit("chat:read", {
-      roomId: ROOM_ID,
-      userId: CURRENT_USER.id
-    });
-  }
-}
-
-/* ======================================================
-   메시지 렌더링
+   메시지 렌더 (🔥 핵심 수정)
 ====================================================== */
 function renderMsg(msg) {
-  const sender  = msg.sender_id;
-  const type    = msg.message_type;
-  const content = msg.message;
-  const isRead  = msg.is_read;
+  const isMe = msg.sender_id === CURRENT_USER.id;
+  const type = msg.message_type;
+  const content = msg.content; // 🔥 통일
 
   if (!content) return;
 
   const wrap = document.createElement("div");
-  wrap.className = "msg " + (sender === CURRENT_USER.id ? "me" : "other");
+  wrap.className = "msg " + (isMe ? "me" : "other");
 
   if (type === "image") {
     const img = document.createElement("img");
@@ -168,50 +125,41 @@ function renderMsg(msg) {
     wrap.textContent = content;
   }
 
-  if (sender === CURRENT_USER.id) {
-    const readEl = document.createElement("div");
-    readEl.className = "read-state";
-    readEl.textContent = isRead ? "읽음" : "";
-    wrap.appendChild(readEl);
-  }
-
   chatBody.appendChild(wrap);
 }
 
 /* ======================================================
-   메시지 전송
+   메시지 전송 (🔥 즉시 렌더)
 ====================================================== */
-async function sendMessage(type, content) {
-  const res = await fetch(`${API}/chat/send-message`, {
+function sendMessage(type, content) {
+  // ✅ 1. 즉시 렌더
+  renderMsg({
+    sender_id: CURRENT_USER.id,
+    message_type: type,
+    content
+  });
+  scrollBottom();
+
+  // ✅ 2. 서버 전송 (백그라운드)
+  fetch(`${API}/chat/send-message`, {
     method: "POST",
     credentials: "include",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       roomId: ROOM_ID,
       message_type: type,
-      message: content
+      content
     })
+  }).catch(err => {
+    console.error("❌ send-message fail", err);
   });
-
-  const data = await res.json();
-  if (!data.success) return;
-
-  // 🔥 보낸 사람도 즉시 렌더
-  renderMsg({
-    sender_id: CURRENT_USER.id,
-    message_type: type,
-    message: content,
-    is_read: 0
-  });
-
-  scrollBottom();
 }
 
-async function sendText() {
+function sendText() {
   const text = msgInput.value.trim();
   if (!text) return;
   msgInput.value = "";
-  await sendMessage("text", text);
+  sendMessage("text", text);
 }
 
 /* ======================================================
@@ -224,8 +172,8 @@ fileInput.onchange = () => {
   if (!file) return;
 
   const reader = new FileReader();
-  reader.onload = async () => {
-    await sendMessage("image", reader.result);
+  reader.onload = () => {
+    sendMessage("image", reader.result);
     fileInput.value = "";
   };
   reader.readAsDataURL(file);
@@ -235,68 +183,34 @@ fileInput.onchange = () => {
    socket.io
 ====================================================== */
 function initSocket() {
-  socket = io({
-    withCredentials: true,
-    transports: ["polling"],
-    upgrade: false
-  });
+  socket = io({ withCredentials: true });
 
   socket.on("connect", () => {
-    console.log("🔌 socket connected");
-    if (ROOM_ID) socket.emit("chat:join", ROOM_ID);
+    socket.emit("chat:join", ROOM_ID);
   });
 
-  // 🔥 실시간 수신 (핵심)
   socket.on("chat:message", msg => {
     if (String(msg.roomId || msg.room_id) !== String(ROOM_ID)) return;
     if (msg.sender_id === CURRENT_USER.id) return;
-
     renderMsg(msg);
     scrollBottom();
-    markRead();
-  });
-
-  socket.on("chat:typing", ({ roomId, userId, isTyping }) => {
-    if (roomId !== ROOM_ID) return;
-    if (userId === CURRENT_USER.id) return;
-    typingIndicator.style.display = isTyping ? "block" : "none";
-  });
-
-  socket.on("chat:read", ({ roomId }) => {
-    if (roomId !== ROOM_ID) return;
-    document
-      .querySelectorAll(".msg.me .read-state")
-      .forEach(el => (el.textContent = "읽음"));
   });
 }
 
 /* ======================================================
-   스크롤
-====================================================== */
-function scrollBottom() {
-  chatBody.scrollTop = chatBody.scrollHeight;
-}
-
-/* ======================================================
-   초기 실행
+   실행
 ====================================================== */
 (async function init() {
   await loadMe();
   await loadChatList();
-
   if (ROOM_ID) {
     await loadRoomInfo();
     await loadMessages();
   }
-
   initSocket();
 })();
 
-/* ======================================================
-   이벤트
-====================================================== */
 sendBtn.onclick = sendText;
-
 msgInput.addEventListener("keydown", e => {
   if (e.key === "Enter") {
     e.preventDefault();
@@ -304,6 +218,6 @@ msgInput.addEventListener("keydown", e => {
   }
 });
 
-document.getElementById("imgModal").onclick = () => {
-  document.getElementById("imgModal").style.display = "none";
-};
+function scrollBottom() {
+  chatBody.scrollTop = chatBody.scrollHeight;
+}
