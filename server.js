@@ -2198,36 +2198,32 @@ app.get("/chat/room-info", async (req, res) => {
     const roomId = req.query.roomId;
     const myId = req.session.user.id;
 
-    const [rows] = await db.query(
+    const [[row]] = await db.query(
       `
       SELECT
         CASE
-          WHEN r.user1_id = ? THEN r.user2_id
-          ELSE r.user1_id
-        END AS other_id,
+          WHEN r.user_id = ? THEN r.expert_id
+          ELSE r.user_id
+        END AS otherId,
         u.nickname,
-        u.avatar_url
+        COALESCE(u.avatar_url, '/assets/default_profile.png') AS avatar
       FROM service_chat_rooms r
       JOIN users u
         ON u.id = CASE
-                    WHEN r.user1_id = ? THEN r.user2_id
-                    ELSE r.user1_id
+                    WHEN r.user_id = ? THEN r.expert_id
+                    ELSE r.user_id
                   END
       WHERE r.id = ?
       `,
       [myId, myId, roomId]
     );
 
-    if (rows.length === 0) {
-      return res.json({ success: false });
-    }
-
-    const other = rows[0];
+    if (!row) return res.json({ success: false });
 
     res.json({
       success: true,
-      nickname: other.nickname,
-      avatar: other.avatar_url
+      nickname: row.nickname,
+      avatar: row.avatar
     });
 
   } catch (err) {
@@ -4255,7 +4251,7 @@ app.post("/expert/tasks/start", async (req, res) => {
 
 
 // ======================================================
-// ✅ 채팅방 목록 (좌측 리스트 최종본)
+// ✅ 채팅방 목록 (service_chat_rooms 기준 - 최종)
 app.get("/chat/rooms", async (req, res) => {
   try {
     if (!req.session.user) {
@@ -4273,12 +4269,12 @@ app.get("/chat/rooms", async (req, res) => {
 
         -- 상대방 ID
         CASE
-          WHEN r.user1_id = ? THEN r.user2_id
-          ELSE r.user1_id
-        END AS other_id,
+          WHEN r.user_id = ? THEN r.expert_id
+          ELSE r.user_id
+        END AS otherId,
 
         -- 상대방 닉네임
-        COALESCE(u.nickname, u.name, '상대방') AS nickname,
+        u.nickname AS nickname,
 
         -- 상대방 프로필
         COALESCE(u.avatar_url, '/assets/default_profile.png') AS avatar,
@@ -4290,14 +4286,17 @@ app.get("/chat/rooms", async (req, res) => {
 
       JOIN users u
         ON u.id = CASE
-                    WHEN r.user1_id = ? THEN r.user2_id
-                    ELSE r.user1_id
+                    WHEN r.user_id = ? THEN r.expert_id
+                    ELSE r.user_id
                   END
 
       LEFT JOIN chat_unread cu
-        ON cu.room_id = r.id AND cu.user_id = ?
+        ON cu.room_id = r.id
+       AND cu.user_id = ?
 
-      WHERE r.user1_id = ? OR r.user2_id = ?
+      WHERE r.user_id = ?
+         OR r.expert_id = ?
+
       ORDER BY r.updated_at DESC
       `,
       [myId, myId, myId, myId, myId]
@@ -4307,7 +4306,7 @@ app.get("/chat/rooms", async (req, res) => {
 
   } catch (err) {
     console.error("❌ /chat/rooms error:", err);
-    res.json({ success: false, rooms: [] });
+    res.status(500).json({ success: false, rooms: [] });
   }
 });
 
