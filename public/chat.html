@@ -43,8 +43,10 @@ body{
 /* 채팅 아이템 */
 .chat-item{
   position:relative;
+  width:100%;
   display:flex;
   align-items:center;
+  justify-content:space-between;
   gap:12px;
   padding:10px;
   background:#f8f9fc;
@@ -59,7 +61,7 @@ body{
   display:flex;
   align-items:center;
   gap:12px;
-  min-width:0;
+  min-width:0; /* 긴 텍스트 줄임 처리 */
 }
 .chat-item img{
   width:46px;
@@ -67,7 +69,9 @@ body{
   border-radius:50%;
   object-fit:cover;
 }
-.chat-texts{min-width:0;}
+.chat-texts{
+  min-width:0;
+}
 .chat-name{
   font-weight:800;
   font-size:14px;
@@ -82,14 +86,16 @@ body{
   white-space:nowrap;
   overflow:hidden;
   text-overflow:ellipsis;
+  margin-top:2px;
 }
 
-/* 안읽음 점 */
+/* ✅ 빨간 점(안읽음) — 오른쪽 끝 */
 .chat-unread-badge{
   width:10px;
   height:10px;
   background:#ff3b30;
   border-radius:999px;
+  flex:0 0 auto;
   display:none;
 }
 
@@ -117,11 +123,21 @@ body{
   width:45px;
   height:45px;
   border-radius:50%;
+  object-fit:cover;
 }
 
 #chatProfileName{
   font-size:17px;
   font-weight:900;
+  color:var(--text-dark);
+}
+
+#typingIndicator{
+  height:26px;
+  padding-left:20px;
+  font-size:13px;
+  color:#6b7280;
+  display:none;
 }
 
 /* =========================
@@ -131,70 +147,49 @@ body{
   flex:1;
   padding:20px;
   overflow-y:auto;
-  overflow-x:visible;   /* 🔥 삭제 버튼 잘리던 원인 해결 */
+  overflow-x: visible;   /* 🔥 중요 */
   background:#eef2ff80;
 }
 
-.msg-row{
-  display:flex;
-  margin-bottom:10px;
-  position:relative;
-  overflow:visible;
+.msg-row {
+  display: flex;
+  margin-bottom: 10px;
+  position: relative;
+  overflow: visible;
 }
 
-.msg-row.me{justify-content:flex-end;}
-.msg-row.other{justify-content:flex-start;}
-
-.msg-bubble{
-  max-width:70%;
-  padding:10px 14px;
-  border-radius:14px;
-  background:#fff;
+.msg-row.me {
+  justify-content: flex-end;
 }
 
-.msg-row.me .msg-bubble{
-  background:#0056ff;
-  color:#fff;
-}
-
-.msg-bubble img{
-  max-width:180px;
-  border-radius:10px;
-}
-
-/* 읽음 표시 */
-.read-state{
-  font-size:11px;
-  color:#6b7280;
-  margin-left:6px;
-  align-self:flex-end;
+.msg-row.other {
+  justify-content: flex-start;
 }
 
 /* =========================
-   🔥 삭제 버튼 (핵심)
+   말풍선
 ========================= */
-.msg-delete-btn{
-  position:absolute;
-  top:-6px;
-  right:-6px;
-  padding:4px 8px;
-  font-size:12px;
-  border-radius:6px;
-  border:none;
-  background:#ef4444;
-  color:#fff;
-  cursor:pointer;
-  display:none;
-  z-index:50;
+.msg-bubble {
+  max-width: 70%;
+  padding: 10px 14px;
+  border-radius: 14px;
+  background: #ffffff;
 }
 
-/* ✅ JS가 붙이는 상태 */
-.msg-delete-btn.show{
-  display:block;
+.msg-row.me .msg-bubble {
+  background: #0056ff;
+  color: white;
 }
 
-.msg-delete-btn:hover{
-  background:#dc2626;
+/* =========================
+   읽음 표시
+========================= */
+.read-state{
+  font-size:11px;
+  color:#6b7280;
+  white-space:nowrap;
+  line-height:1;
+  transform:translateY(-2px);
 }
 
 /* =========================
@@ -205,7 +200,7 @@ body{
   gap:10px;
   padding:12px;
   border-top:1px solid var(--line);
-  background:#fff;
+  background:var(--white);
 }
 
 textarea{
@@ -215,6 +210,7 @@ textarea{
   padding:12px;
   border-radius:10px;
   border:1px solid var(--line);
+  outline:none;
 }
 
 .file-btn{
@@ -224,6 +220,9 @@ textarea{
   border-radius:12px;
   border:none;
   cursor:pointer;
+  display:flex;
+  align-items:center;
+  justify-content:center;
 }
 
 .send-btn{
@@ -231,8 +230,9 @@ textarea{
   background:var(--primary);
   border:none;
   border-radius:10px;
-  color:#fff;
+  color:var(--white);
   font-weight:800;
+  cursor:pointer;
 }
 
 /* =========================
@@ -241,7 +241,7 @@ textarea{
 #imgModal{
   position:fixed;
   inset:0;
-  background:rgba(0,0,0,.75);
+  background:rgba(0,0,0,0.75);
   display:none;
   justify-content:center;
   align-items:center;
@@ -254,41 +254,112 @@ textarea{
 }
 
 /* =========================
+   글로벌 알림 토스트
+========================= */
+#globalChatAlert{
+  position:fixed;
+  top:12px;
+  right:20px;
+  background:#ff3b30;
+  color:white;
+  padding:8px 14px;
+  border-radius:12px;
+  font-size:13px;
+  font-weight:800;
+  display:none;
+  box-shadow:0 3px 10px rgba(0,0,0,0.25);
+  z-index:99999;
+}
+/* =========================
+   🔥 삭제 버튼 (핵심)
+========================= */
+.msg-delete-btn {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  padding: 4px 8px;
+  font-size: 12px;
+  border-radius: 6px;
+  border: none;
+  background: #ef4444;
+  color: white;
+  cursor: pointer;
+  display: none;          /* 기본 숨김 */
+  z-index: 30;
+}
+
+/* ✅ 이 줄이 없어서 지금까지 안 보였던 것 */
+.msg-row.me:hover .msg-delete-btn {
+  display: block;
+}
+
+.msg-delete-btn:hover {
+  background: #dc2626;
+}
+.msg-row {
+  position: relative;
+}
+
+/* =========================
    삭제 확인 모달
 ========================= */
-.confirm-modal{
-  position:fixed;
-  inset:0;
-  background:rgba(0,0,0,.45);
-  display:none;
-  align-items:center;
-  justify-content:center;
-  z-index:100000;
+.confirm-modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.45);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 100000;
 }
 
-.confirm-box{
-  background:#fff;
-  width:280px;
-  border-radius:14px;
-  padding:20px;
-  text-align:center;
+.confirm-box {
+  background: white;
+  width: 280px;
+  border-radius: 14px;
+  padding: 20px;
+  text-align: center;
+  animation: pop 0.15s ease-out;
 }
 
-.confirm-actions{
-  display:flex;
-  gap:10px;
-}
-.confirm-actions button{
-  flex:1;
-  padding:8px 0;
-  border-radius:8px;
-  border:none;
-  cursor:pointer;
-  font-weight:800;
+@keyframes pop {
+  from { transform: scale(0.9); opacity: 0; }
+  to   { transform: scale(1); opacity: 1; }
 }
 
-#confirmCancel{background:#e5e7eb;}
-#confirmDelete{background:#ef4444;color:#fff;}
+.confirm-title {
+  font-weight: 800;
+  margin-bottom: 6px;
+}
+
+.confirm-desc {
+  font-size: 14px;
+  color: #6b7280;
+  margin-bottom: 16px;
+}
+
+.confirm-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.confirm-actions button {
+  flex: 1;
+  padding: 8px 0;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  font-weight: 800;
+}
+
+#confirmCancel {
+  background: #e5e7eb;
+}
+
+#confirmDelete {
+  background: #ef4444;
+  color: white;
+}
 
 </style>
 </head>

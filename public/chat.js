@@ -261,7 +261,7 @@ function markRoomAsRead(roomId) {
 }
 
 /* ======================================================
-   ✅ 메시지 렌더 (삭제 / 읽음 / 이미지 / 중복치환 안정판)
+   ✅ 메시지 렌더 (삭제 / 읽음 / 이미지 / 중복치환 최종 안정판)
 ====================================================== */
 function renderMsg(msg) {
   if (!chatBody || !CURRENT_USER) return;
@@ -286,22 +286,18 @@ function renderMsg(msg) {
     );
 
     if (pendingEl && msg.id != null) {
-      // 실제 messageId로 교체
       pendingEl.dataset.messageId = safeStr(msg.id);
 
-      // 읽음 상태 갱신
       const readEl = pendingEl.querySelector(".read-state");
-      if (readEl) {
-        readEl.textContent = msg.is_read ? "읽음" : "";
-      }
+      if (readEl) readEl.textContent = msg.is_read ? "읽음" : "";
 
       PENDING_CLIENT_IDS.delete(msg.clientMsgId);
-      return; // ⚠️ 새로 렌더하지 않음
+      return;
     }
   }
 
   /* ======================================================
-     2️⃣ messageId 기준 중복 렌더 방지
+     2️⃣ messageId 기준 중복 방지
   ====================================================== */
   if (msg.id != null) {
     const exist = document.querySelector(
@@ -348,49 +344,29 @@ function renderMsg(msg) {
   }
 
   /* ======================================================
-     6️⃣ 삭제 버튼 (내 메시지 + 서버 id 있을 때만)
+     6️⃣ 🔥 삭제 버튼 (내 메시지면 무조건 생성)
+     - display 제어는 CSS에만 맡긴다
   ====================================================== */
- // ✅ 삭제 버튼 (내 메시지 + 서버 id 있을 때만)
-if (isMe && msg.id != null) {
-  const delBtn = document.createElement("button");
-  delBtn.className = "msg-delete-btn";
-  delBtn.textContent = "삭제";
+  if (isMe) {
+    const delBtn = document.createElement("button");
+    delBtn.className = "msg-delete-btn";
+    delBtn.textContent = "삭제";
 
-  delBtn.onclick = (e) => {
-    e.stopPropagation();
-    openDeleteConfirm(msg.id, row);
-  };
+    delBtn.onclick = (e) => {
+      e.stopPropagation();
+      if (!msg.id) return; // pending 메시지는 삭제 불가
+      openDeleteConfirm(msg.id, row);
+    };
 
-  row.appendChild(delBtn);
-
-  // ✅ 우클릭 시 표시
-  row.addEventListener("contextmenu", (e) => {
-    e.preventDefault();
-
-    // 다른 메시지의 삭제 버튼 전부 숨김
-    document
-      .querySelectorAll(".msg-delete-btn")
-      .forEach(btn => (btn.style.display = "none"));
-
-    delBtn.style.display = "block";
-
-    // 바깥 클릭 시 숨김
-    document.addEventListener(
-      "click",
-      () => {
-        delBtn.style.display = "none";
-      },
-      { once: true }
-    );
-  });
-}
-
+    row.appendChild(delBtn);
+  }
 
   /* ======================================================
      7️⃣ DOM 추가
   ====================================================== */
   chatBody.appendChild(row);
 }
+
 
 /* ======================================================
    메시지 전송 (중복 방지: pending + socket 차단)
