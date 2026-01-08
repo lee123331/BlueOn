@@ -400,6 +400,23 @@ textarea{
   <img id="imgModalView" alt="preview" />
 </div>
 
+<!-- =========================
+     메시지 삭제 확인 모달
+========================= -->
+<div id="deleteConfirmModal" class="confirm-modal">
+  <div class="confirm-box">
+    <div class="confirm-title">메시지 삭제</div>
+    <div class="confirm-desc">
+      이 메시지를 삭제하시겠습니까?
+    </div>
+    <div class="confirm-actions">
+      <button id="confirmCancel">취소</button>
+      <button id="confirmDelete">삭제</button>
+    </div>
+  </div>
+</div>
+
+
 <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
 <script src="chat.js"></script>
 
@@ -419,21 +436,6 @@ textarea{
     }
   };
 </script>
-<!-- =========================
-     메시지 삭제 확인 모달
-========================= -->
-<div id="deleteConfirmModal" class="confirm-modal">
-  <div class="confirm-box">
-    <div class="confirm-title">메시지 삭제</div>
-    <div class="confirm-desc">
-      이 메시지를 삭제하시겠습니까?
-    </div>
-    <div class="confirm-actions">
-      <button id="confirmCancel">취소</button>
-      <button id="confirmDelete">삭제</button>
-    </div>
-  </div>
-</div>
 
 </body>
 </html>
