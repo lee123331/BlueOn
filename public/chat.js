@@ -287,6 +287,11 @@ function markRoomAsRead(roomId) {
 function renderMsg(msg) {
   if (!chatBody || !CURRENT_USER) return;
 
+   // 🔥 이 줄 추가
+  if (msg.id == null && msg.message_id != null) {
+    msg.id = msg.message_id;
+  }
+  
   const senderId = Number(msg.sender_id);
   const isMe = senderId === Number(CURRENT_USER.id);
   const type = msg.message_type || msg.type || "text";
