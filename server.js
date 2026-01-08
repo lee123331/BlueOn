@@ -2185,6 +2185,61 @@ app.post("/service-chat/start", async (req, res) => {
     });
   }
 });
+/* ======================================================
+   🔵 채팅방 상대 정보 조회
+====================================================== */
+app.get("/chat/room-info", async (req, res) => {
+  try {
+    if (!req.session.user) {
+      return res.json({ success: false, message: "LOGIN_REQUIRED" });
+    }
+
+    const roomId = req.query.roomId;
+    const myId = req.session.user.id;
+
+    if (!roomId) {
+      return res.json({ success: false, message: "ROOM_ID_REQUIRED" });
+    }
+
+    const [rows] = await db.query(
+      `
+      SELECT
+        r.id AS room_id,
+        CASE
+          WHEN r.user1_id = ? THEN r.user2_id
+          ELSE r.user1_id
+        END AS other_id,
+        u.nickname,
+        u.avatar_url
+      FROM chat_rooms r
+      JOIN users u
+        ON u.id = CASE
+                    WHEN r.user1_id = ? THEN r.user2_id
+                    ELSE r.user1_id
+                  END
+      WHERE r.id = ?
+      `,
+      [myId, myId, roomId]
+    );
+
+    if (rows.length === 0) {
+      return res.json({ success: false, message: "ROOM_NOT_FOUND" });
+    }
+
+    const other = rows[0];
+
+    res.json({
+      success: true,
+      targetId: other.other_id,
+      nickname: other.nickname,
+      avatar: other.avatar_url
+    });
+
+  } catch (err) {
+    console.error("❌ /chat/room-info error:", err);
+    res.status(500).json({ success: false });
+  }
+});
 
 /* ======================================================
    🔵 채팅방 메시지 불러오기
