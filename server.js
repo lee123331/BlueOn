@@ -4445,8 +4445,7 @@ app.post("/expert/tasks/start", async (req, res) => {
 
 
 // ======================================================
-// ✅ 채팅방 목록 (service_chat_rooms 기준 - 최종)
-// ✅ 채팅방 목록 (service_chat_rooms 기준 - FINAL)
+
 // ✅ 채팅방 목록 (좌측 리스트 최종본)
 app.get("/chat/rooms", async (req, res) => {
   try {
@@ -4459,13 +4458,14 @@ app.get("/chat/rooms", async (req, res) => {
     const [rows] = await db.query(
       `
       SELECT
-        x.roomId,
-        x.last_msg,
-        x.updated_at,
-        x.nickname,
-        x.avatar,
+        t.roomId,
+        t.last_msg,
+        t.updated_at,
+        t.nickname,
+        t.avatar,
         COALESCE(cu.count, 0) AS unread
       FROM (
+        -- 🔹 상대방 기준으로 최신 방 1개만 추출
         SELECT
           r.id AS roomId,
           r.last_msg,
@@ -4496,16 +4496,14 @@ app.get("/chat/rooms", async (req, res) => {
         LEFT JOIN expert_profiles ep ON ep.user_id = r.expert_id
         WHERE r.buyer_id = ? OR r.expert_id = ?
         ORDER BY r.updated_at DESC
-      ) x
-
-      -- 🔥 상대방 기준으로 1개만
-      GROUP BY x.other_id
+      ) t
+      GROUP BY t.other_id   -- ✅ 여기서 사람당 1개로 압축
 
       LEFT JOIN chat_unread cu
-        ON cu.room_id = x.roomId
+        ON cu.room_id = t.roomId
        AND cu.user_id = ?
 
-      ORDER BY x.updated_at DESC
+      ORDER BY t.updated_at DESC
       `,
       [myId, myId, myId, myId, myId, myId]
     );
@@ -4517,6 +4515,7 @@ app.get("/chat/rooms", async (req, res) => {
     return res.json({ success: false, rooms: [] });
   }
 });
+
 
 
 
