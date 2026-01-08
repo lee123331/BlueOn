@@ -1,13 +1,13 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>BlueOn | 채팅</title>
-<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;800&display=swap" rel="stylesheet" />
 
 <style>
-  :root {
+:root{
   --primary:#0056ff;
   --bg:#f4f6fb;
   --white:#ffffff;
@@ -24,69 +24,84 @@ body{
   background:var(--bg);
 }
 
-/* 왼쪽 채팅 목록 */
+/* =========================
+   왼쪽 채팅 목록
+========================= */
 .chat-list{
   width:300px;
-  background:white;
+  background:var(--white);
   border-right:1px solid var(--line);
   padding:20px;
   overflow-y:auto;
 }
 .chat-list h2{
   font-size:20px;
-  font-weight:700;
+  font-weight:800;
   margin-bottom:20px;
 }
 
-.chat-item {
-  position: relative; 
-  width: 100%;       /* ⭐ 꼭 추가 */
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 10px;
-  background: #f8f9fc;
-  border-radius: 12px;
-  margin-bottom: 12px;
-  cursor: pointer;
-  transition: 0.15s;
+/* 채팅 아이템 */
+.chat-item{
+  position:relative;
+  width:100%;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  padding:10px;
+  background:#f8f9fc;
+  border-radius:12px;
+  margin-bottom:12px;
+  cursor:pointer;
+  transition:0.15s;
 }
-
-
-.chat-item:hover{
-  background:#eef2ff;
-}
+.chat-item:hover{background:#eef2ff;}
 
 .chat-left{
   display:flex;
   align-items:center;
   gap:12px;
+  min-width:0; /* 긴 텍스트 줄임 처리 */
 }
-
 .chat-item img{
   width:46px;
   height:46px;
   border-radius:50%;
   object-fit:cover;
 }
-
-/* 🔥 왼쪽 목록의 빨간 배지 — 최종 단일 버전 */
-.chat-unread-badge {
-  width: 12px;
-  height: 12px;
-  background: red;
-  border-radius: 50%;
-  position: absolute;
-  right: 12px;        /* ← 오른쪽 끝 */
-  top: 50%;
-  transform: translateY(-50%);
-  display: none;
-  z-index: 9999;
+.chat-texts{
+  min-width:0;
+}
+.chat-name{
+  font-weight:800;
+  font-size:14px;
+  color:var(--text-dark);
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+.chat-last{
+  font-size:12px;
+  color:var(--text-gray);
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  margin-top:2px;
 }
 
+/* ✅ 빨간 점(안읽음) — 오른쪽 끝 */
+.chat-unread-badge{
+  width:10px;
+  height:10px;
+  background:#ff3b30;
+  border-radius:999px;
+  flex:0 0 auto;
+  display:none;
+}
 
-/* 채팅창 */
+/* =========================
+   채팅창
+========================= */
 .chat-window{
   flex:1;
   display:flex;
@@ -100,7 +115,7 @@ body{
   align-items:center;
   gap:12px;
   padding:0 20px;
-  background:white;
+  background:var(--white);
   border-bottom:1px solid var(--line);
 }
 
@@ -113,7 +128,8 @@ body{
 
 #chatProfileName{
   font-size:17px;
-  font-weight:800;
+  font-weight:900;
+  color:var(--text-dark);
 }
 
 #typingIndicator{
@@ -124,7 +140,9 @@ body{
   display:none;
 }
 
-/* 메시지 영역 */
+/* =========================
+   메시지 영역
+========================= */
 .chat-body{
   flex:1;
   padding:20px;
@@ -132,56 +150,58 @@ body{
   background:#eef2ff80;
 }
 
-.msg {
-  position: relative;
-  max-width: 70%;
+/* ✅ “메시지 + 읽음”을 하나의 row로 묶는다 (카톡 방식) */
+.msg-row{
+  display:flex;
+  align-items:flex-end;
+  gap:6px;
+  margin:6px 0;
 }
+.msg-row.me{justify-content:flex-end;}
+.msg-row.other{justify-content:flex-start;}
 
-.msg.me {
-  margin-left: auto;
-  text-align: right;
-}
-
-.msg.me .read-state {
-  position: absolute;
-  right: -28px;      /* 말풍선 오른쪽으로 빼기 */
-  bottom: 2px;
-  font-size: 11px;
-  color: #6b7280;
-  white-space: nowrap;
-}
-
-.msg.other{
-  background:white;
+/* 말풍선 */
+.msg-bubble{
+  max-width:65%;
+  padding:10px 12px;
+  border-radius:14px;
+  background:var(--white);
   border:1px solid var(--line);
-  color:#111;
-  border-bottom-left-radius:4px;
+  color:var(--text-dark);
+  word-break:break-word;
 }
-
-.msg-delete-btn{
-  position:absolute;
-  top:-6px;
-  right:-6px;
-  background:#ef4444;
+.msg-row.me .msg-bubble{
+  background:var(--primary);
   border:none;
-  padding:4px 8px;
-  color:white;
-  border-radius:6px;
-  font-size:12px;
-  cursor:pointer;
-  display:none;
-}
-.msg.me:hover .msg-delete-btn{
-  display:block;
+  color:#fff;
 }
 
-/* 입력창 */
+/* 이미지 메시지 */
+.msg-bubble img{
+  max-width:220px;
+  border-radius:12px;
+  display:block;
+  cursor:pointer;
+}
+
+/* ✅ 읽음 표시: 말풍선 “옆” (겹침/깨짐 방지) */
+.read-state{
+  font-size:11px;
+  color:#6b7280;
+  white-space:nowrap;
+  line-height:1;
+  transform:translateY(-2px);
+}
+
+/* =========================
+   입력창
+========================= */
 .chat-input{
   display:flex;
   gap:10px;
   padding:12px;
   border-top:1px solid var(--line);
-  background:white;
+  background:var(--white);
 }
 
 textarea{
@@ -191,12 +211,13 @@ textarea{
   padding:12px;
   border-radius:10px;
   border:1px solid var(--line);
+  outline:none;
 }
 
 .file-btn{
   width:42px;
   height:42px;
-  background:#0056ff;
+  background:var(--primary);
   border-radius:12px;
   border:none;
   cursor:pointer;
@@ -210,12 +231,14 @@ textarea{
   background:var(--primary);
   border:none;
   border-radius:10px;
-  color:white;
-  font-weight:700;
+  color:var(--white);
+  font-weight:800;
   cursor:pointer;
 }
 
-/* 이미지 모달 */
+/* =========================
+   이미지 모달
+========================= */
 #imgModal{
   position:fixed;
   inset:0;
@@ -225,23 +248,29 @@ textarea{
   align-items:center;
   z-index:9999;
 }
-
 #imgModalView{
   max-width:90%;
   max-height:90%;
-  border-radius:10px;
+  border-radius:12px;
 }
 
-/* 읽음 표시 */
-.read-state {
-  font-size: 11px;
-  color: #ffffff;
-  margin-top: 4px;
-  text-align: right;
-  opacity: 0.9;
+/* =========================
+   글로벌 알림 토스트
+========================= */
+#globalChatAlert{
+  position:fixed;
+  top:12px;
+  right:20px;
+  background:#ff3b30;
+  color:white;
+  padding:8px 14px;
+  border-radius:12px;
+  font-size:13px;
+  font-weight:800;
+  display:none;
+  box-shadow:0 3px 10px rgba(0,0,0,0.25);
+  z-index:99999;
 }
-
-
 </style>
 </head>
 
@@ -252,42 +281,18 @@ textarea{
   <h2>메시지</h2>
 </div>
 
-<div id="globalChatAlert"
-     style="
-       position:fixed;
-       top:12px;
-       right:20px;
-       background:#ff3b30;
-       color:white;
-       padding:8px 14px;
-       border-radius:12px;
-       font-size:13px;
-       font-weight:700;
-       display:none;
-       box-shadow:0 3px 10px rgba(0,0,0,0.25);
-       z-index:99999;
-     ">
-  🔔 새 메시지가 도착했습니다
-</div>
+<div id="globalChatAlert">🔔 새 메시지가 도착했습니다</div>
 
 <!-- 채팅창 -->
 <div class="chat-window">
 
   <div class="chat-header">
+    <button id="viewBrandPlanBtn"
+      style="display:none;padding:6px 12px;background:#0056ff;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:13px;">
+      브랜드 설계 보기
+    </button>
 
-    <button id="viewBrandPlanBtn" 
-        style="display:none;
-               padding:6px 12px;
-               background:#0056ff;
-               color:#fff;
-               border:none;
-               border-radius:8px;
-               cursor:pointer;
-               font-size:13px;">
-  브랜드 설계 보기
-</button>
-
-    <img id="chatProfileImg" src="/assets/default_profile.png">
+    <img id="chatProfileImg" src="/assets/default_profile.png" alt="profile" />
     <div id="chatProfileName">Loading...</div>
   </div>
 
@@ -296,17 +301,16 @@ textarea{
   <div class="chat-body" id="chatBody"></div>
 
   <div class="chat-input">
-    <button class="file-btn" id="fileBtn" type="button">
+    <button class="file-btn" id="fileBtn" type="button" aria-label="이미지 전송">
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
         <path d="M4 7H7L9 4H15L17 7H20C21.1 7 22 7.9 22 9V19C22 20.1 21.1 21 20 21H4C2.9 21 2 20.1 2 19V9C2 7.9 2.9 7 4 7Z" stroke="white" stroke-width="2"/>
         <circle cx="12" cy="14" r="3" stroke="white" stroke-width="2"/>
       </svg>
     </button>
 
-    <input type="file" id="fileInput" accept="image/*" style="display:none">
+    <input type="file" id="fileInput" accept="image/*" style="display:none" />
 
     <textarea id="msgInput" placeholder="메시지를 입력하세요"></textarea>
-
     <button id="sendBtn" class="send-btn" type="button">전송</button>
   </div>
 
@@ -314,28 +318,23 @@ textarea{
 
 <!-- 이미지 확대 모달 -->
 <div id="imgModal">
-  <img id="imgModalView">
+  <img id="imgModalView" alt="preview" />
 </div>
 
 <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
-
-
 <script src="chat.js"></script>
 
 <script>
-  // 헤더 알람 동기화용
+  // 헤더 알람 동기화용 (필요 시 유지)
   window.refreshHeaderBadge = async () => {
     try {
-      const res = await fetch("/chat/unread-count", {
-        credentials: "include"
-      });
+      const res = await fetch("/chat/unread-count", { credentials: "include" });
       const data = await res.json();
 
       const badge = document.getElementById("chatBadge");
       if (!badge) return;
 
-      badge.style.display =
-        data.success && data.total > 0 ? "block" : "none";
+      badge.style.display = (data.success && data.total > 0) ? "block" : "none";
     } catch (e) {
       console.warn("header badge sync fail", e);
     }
