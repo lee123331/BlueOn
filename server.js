@@ -589,6 +589,104 @@ app.get("/api/task-chat/messages", async (req, res) => {
   }
 });
 
+/* ======================================================
+   🔵 일반 채팅 메시지 전송 (service_chat_rooms)
+   POST /chat/send-message
+====================================================== */
+app.post("/chat/send-message", async (req, res) => {
+  try {
+    if (!req.session.user) {
+      return res.status(401).json({
+        success: false,
+        message: "LOGIN_REQUIRED"
+      });
+    }
+
+    const senderId = req.session.user.id;
+    const { roomId, message } = req.body;
+
+    if (!roomId || !message || !message.trim()) {
+      return res.json({
+        success: false,
+        message: "INVALID_PARAMS"
+      });
+    }
+
+    /* 1️⃣ 권한 체크 (buyer or expert) */
+    const [[room]] = await db.query(
+      `
+      SELECT buyer_id, expert_id
+      FROM service_chat_rooms
+      WHERE id = ?
+      `,
+      [roomId]
+    );
+
+    if (!room) {
+      return res.json({ success: false, message: "ROOM_NOT_FOUND" });
+    }
+
+    if (room.buyer_id !== senderId && room.expert_id !== senderId) {
+      return res.status(403).json({
+        success: false,
+        message: "NO_ACCESS"
+      });
+    }
+
+    const now = nowStr();
+
+    /* 2️⃣ 메시지 저장 */
+    const [result] = await db.query(
+      `
+      INSERT INTO chat_messages
+      (
+        room_id,
+        sender_id,
+        message,
+        message_type,
+        is_read,
+        created_at
+      )
+      VALUES (?, ?, ?, 'text', 0, ?)
+      `,
+      [roomId, senderId, message, now]
+    );
+
+    /* 3️⃣ 마지막 메시지 업데이트 */
+    await db.query(
+      `
+      UPDATE service_chat_rooms
+      SET last_msg = ?, updated_at = ?
+      WHERE id = ?
+      `,
+      [message, now, roomId]
+    );
+
+    const savedMessage = {
+      id: result.insertId,
+      room_id: roomId,
+      sender_id: senderId,
+      message,
+      message_type: "text",
+      created_at: now
+    };
+
+    /* 4️⃣ 실시간 전송 */
+    io.to(String(roomId)).emit("chat:new", savedMessage);
+
+    return res.json({
+      success: true,
+      message: savedMessage
+    });
+
+  } catch (err) {
+    console.error("❌ /chat/send-message error:", err);
+    return res.status(500).json({
+      success: false,
+      message: "SERVER_ERROR"
+    });
+  }
+});
 
 /* ======================================================
    🧩 작업 채팅 메시지 전송 (최종)

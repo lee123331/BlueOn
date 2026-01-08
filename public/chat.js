@@ -186,14 +186,13 @@ function renderMsg(msg) {
 /* ======================================================
    메시지 전송
 ====================================================== */
-async function sendMessage(type, content) {
+async function sendMessage(content) {
   await fetch(`${API}/chat/send-message`, {
     method: "POST",
     credentials: "include",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       roomId: ROOM_ID,
-      message_type: type,
       message: content
     })
   });
@@ -203,8 +202,9 @@ async function sendText() {
   const text = msgInput.value.trim();
   if (!text) return;
   msgInput.value = "";
-  await sendMessage("text", text);
+  await sendMessage(text);
 }
+
 
 /* ======================================================
    이미지 전송
@@ -238,8 +238,8 @@ function initSocket() {
     if (ROOM_ID) socket.emit("chat:join", ROOM_ID);
   });
 
-  socket.on("chat:message", msg => {
-    if (msg.roomId !== ROOM_ID) return;
+  socket.on("chat:new", msg => {
+    if (String(msg.room_id) !== String(ROOM_ID)) return;
     if (msg.sender_id === CURRENT_USER.id) return;
 
     renderMsg(msg);
