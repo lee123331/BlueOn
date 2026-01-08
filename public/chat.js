@@ -50,16 +50,13 @@ async function loadMe() {
 }
 
 /* ======================================================
-   좌측 채팅 리스트 ✅ (이게 빠져 있었음)
+   좌측 채팅 리스트
 ====================================================== */
 async function loadChatList() {
   if (!chatListArea) return;
 
   const res = await fetch(`${API}/chat/rooms`, { credentials: "include" });
   const data = await res.json();
-
-  console.log("🧪 chat rooms response =", data);
-
   if (!data.success) return;
 
   chatListArea.innerHTML = "<h2>메시지</h2>";
@@ -91,7 +88,24 @@ async function loadChatList() {
 }
 
 /* ======================================================
-   메시지 로드 ✅
+   채팅방 상단 정보
+====================================================== */
+async function loadRoomInfo() {
+  if (!ROOM_ID) return;
+
+  const res = await fetch(
+    `${API}/chat/room-info?roomId=${encodeURIComponent(ROOM_ID)}`,
+    { credentials: "include" }
+  );
+  const data = await res.json();
+  if (!data.success) return;
+
+  headerImg.src = data.avatar || "/assets/default_profile.png";
+  headerName.textContent = data.nickname || "상대방";
+}
+
+/* ======================================================
+   메시지 로드
 ====================================================== */
 async function loadMessages() {
   if (!ROOM_ID || !chatBody) return;
@@ -119,7 +133,7 @@ function renderMsg(msg) {
   const content = type === "image" ? msg.file_url : msg.message;
   if (!content) return;
 
-  // pending → 서버 메시지 치환
+  // ✅ pending 메시지 → 서버 메시지로 치환
   if (msg.clientMsgId) {
     const pending = document.querySelector(
       `.msg-row[data-client-msg-id="${msg.clientMsgId}"]`
@@ -149,11 +163,21 @@ function renderMsg(msg) {
   }
 
   row.appendChild(bubble);
+  socket.on("chat:read", ({ roomId }) => {
+  if (safeStr(roomId) !== safeStr(ROOM_ID)) return;
+
+  document
+    .querySelectorAll(".msg-row.me .read-state")
+    .forEach(el => {
+      el.textContent = "읽음";
+    });
+});
+
   chatBody.appendChild(row);
 }
 
 /* ======================================================
-   메시지 전송
+   메시지 전송 (중복 방지 완성판)
 ====================================================== */
 async function sendMessage(type, content) {
   if (!ROOM_ID || !CURRENT_USER || !content) return;
@@ -161,6 +185,7 @@ async function sendMessage(type, content) {
   const clientMsgId = genClientMsgId();
   PENDING_CLIENT_IDS.add(clientMsgId);
 
+  // 1️⃣ UI에 즉시 표시
   renderMsg({
     id: `pending_${clientMsgId}`,
     clientMsgId,
@@ -173,6 +198,7 @@ async function sendMessage(type, content) {
 
   scrollBottom();
 
+  // 2️⃣ 서버 전송
   await fetch(`${API}/chat/send-message`, {
     method: "POST",
     credentials: "include",
@@ -186,9 +212,19 @@ async function sendMessage(type, content) {
     })
   });
 }
+function markRoomAsRead(roomId) {
+  if (!roomId) return;
+
+  fetch(`${API}/chat/read`, {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ roomId }),
+  }).catch(() => {});
+}
 
 /* ======================================================
-   Socket.io
+   Socket.io (🔥 중복 완전 차단)
 ====================================================== */
 function initSocket() {
   socket = io(API, { withCredentials: true });
@@ -198,9 +234,28 @@ function initSocket() {
   });
 
   socket.on("chat:message", msg => {
+    // ✅ 다른 방 메시지 무시
     if (safeStr(msg.room_id) !== safeStr(ROOM_ID)) return;
+
+    // ✅ 내가 보낸 메시지는 socket에서 무시
+    if (Number(msg.sender_id) === Number(CURRENT_USER.id)) return;
+
+    // ✅ pending clientMsgId 중복 차단
+    if (msg.clientMsgId && PENDING_CLIENT_IDS.has(msg.clientMsgId)) return;
+
     renderMsg(msg);
     scrollBottom();
+    
+    socket.on("chat:read", ({ roomId }) => {
+  if (safeStr(roomId) !== safeStr(ROOM_ID)) return;
+
+  document
+    .querySelectorAll(".msg-row.me .read-state")
+    .forEach(el => {
+      el.textContent = "읽음";
+    });
+});
+
   });
 }
 
@@ -218,12 +273,19 @@ imgModal.onclick = () => {
 };
 
 /* ======================================================
-   실행 🔥
+   실행
 ====================================================== */
 (async function init() {
   await loadMe();
-  await loadChatList();   // ✅ 이게 핵심
-  if (ROOM_ID) await loadMessages(); // ✅ 이게 핵심
+  await loadChatList();
+
+  if (ROOM_ID) {
+  await loadRoomInfo();
+  await loadMessages();
+  markRoomAsRead(ROOM_ID); // 🔥 이 줄 추가
+}
+
+
   initSocket();
 })();
 
