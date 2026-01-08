@@ -4281,6 +4281,7 @@ app.post("/expert/tasks/start", async (req, res) => {
 // ======================================================
 // ✅ 채팅방 목록 (service_chat_rooms 기준 - 최종)
 // ✅ 채팅방 목록 (service_chat_rooms 기준 - FINAL)
+// ✅ 채팅방 목록 (좌측 리스트 최종본)
 app.get("/chat/rooms", async (req, res) => {
   try {
     if (!req.session.user) {
@@ -4296,18 +4297,18 @@ app.get("/chat/rooms", async (req, res) => {
         r.last_msg,
         r.updated_at,
 
-        -- 상대방 닉네임 (역할 분기)
+        -- 상대방 닉네임
         CASE
-          WHEN r.user_id = ?
-            THEN ep.nickname
+          WHEN r.buyer_id = ? THEN ep.nickname
           ELSE u.nickname
         END AS nickname,
 
-        -- 상대방 프로필 이미지 (역할 분기)
+        -- 상대방 프로필 이미지
         CASE
-          WHEN r.user_id = ?
-            THEN ep.avatar_url
-          ELSE u.avatar_url
+          WHEN r.buyer_id = ? THEN
+            COALESCE(ep.avatar_url, '/assets/default_profile.png')
+          ELSE
+            COALESCE(u.avatar_url, '/assets/default_profile.png')
         END AS avatar,
 
         -- 안 읽은 메시지 수
@@ -4315,11 +4316,11 @@ app.get("/chat/rooms", async (req, res) => {
 
       FROM service_chat_rooms r
 
-      -- 일반 유저 정보
+      -- buyer 정보
       LEFT JOIN users u
-        ON u.id = r.user_id
+        ON u.id = r.buyer_id
 
-      -- 전문가 프로필
+      -- expert 프로필
       LEFT JOIN expert_profiles ep
         ON ep.user_id = r.expert_id
 
@@ -4328,7 +4329,7 @@ app.get("/chat/rooms", async (req, res) => {
         ON cu.room_id = r.id
        AND cu.user_id = ?
 
-      WHERE r.user_id = ?
+      WHERE r.buyer_id = ?
          OR r.expert_id = ?
 
       ORDER BY r.updated_at DESC
