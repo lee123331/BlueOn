@@ -267,6 +267,89 @@ textarea{
   box-shadow:0 3px 10px rgba(0,0,0,0.25);
   z-index:99999;
 }
+.msg-delete-btn {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  padding: 4px 8px;
+  font-size: 12px;
+  border-radius: 6px;
+  border: none;
+  background: #ef4444;
+  color: white;
+  cursor: pointer;
+  display: none;
+  z-index: 30;
+}
+
+.msg-row.me:hover .msg-delete-btn {
+  display: block;
+}
+
+.msg-delete-btn:hover {
+  background: #dc2626;
+}
+/* =========================
+   삭제 확인 모달
+========================= */
+.confirm-modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.45);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 100000;
+}
+
+.confirm-box {
+  background: white;
+  width: 280px;
+  border-radius: 14px;
+  padding: 20px;
+  text-align: center;
+  animation: pop 0.15s ease-out;
+}
+
+@keyframes pop {
+  from { transform: scale(0.9); opacity: 0; }
+  to   { transform: scale(1); opacity: 1; }
+}
+
+.confirm-title {
+  font-weight: 800;
+  margin-bottom: 6px;
+}
+
+.confirm-desc {
+  font-size: 14px;
+  color: #6b7280;
+  margin-bottom: 16px;
+}
+
+.confirm-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.confirm-actions button {
+  flex: 1;
+  padding: 8px 0;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  font-weight: 800;
+}
+
+#confirmCancel {
+  background: #e5e7eb;
+}
+
+#confirmDelete {
+  background: #ef4444;
+  color: white;
+}
+
 </style>
 </head>
 
@@ -336,5 +419,21 @@ textarea{
     }
   };
 </script>
+<!-- =========================
+     메시지 삭제 확인 모달
+========================= -->
+<div id="deleteConfirmModal" class="confirm-modal">
+  <div class="confirm-box">
+    <div class="confirm-title">메시지 삭제</div>
+    <div class="confirm-desc">
+      이 메시지를 삭제하시겠습니까?
+    </div>
+    <div class="confirm-actions">
+      <button id="confirmCancel">취소</button>
+      <button id="confirmDelete">삭제</button>
+    </div>
+  </div>
+</div>
+
 </body>
 </html>
