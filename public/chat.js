@@ -186,6 +186,49 @@ function renderMsg(msg) {
 
   chatBody.appendChild(row);
 }
+async function loadChatList() {
+  if (!chatListArea) return;
+
+  const res = await fetch(`${API}/chat/rooms`, {
+    credentials: "include"
+  });
+  const data = await res.json();
+
+  console.log("🧪 chat rooms response =", data);
+
+  if (!data.success) return;
+
+  chatListArea.innerHTML = "<h2>메시지</h2>";
+
+  const rooms = Array.isArray(data.rooms) ? data.rooms : [];
+
+  rooms.forEach(room => {
+    if (!room.roomId) return;
+
+    const item = document.createElement("div");
+    item.className = "chat-item";
+    item.dataset.roomId = room.roomId;
+
+    const unreadOn = Number(room.unread) > 0;
+
+    item.innerHTML = `
+      <div class="chat-left">
+        <span class="chat-unread-badge" style="display:${unreadOn ? "block" : "none"}"></span>
+        <img src="${room.avatar || "/assets/default_profile.png"}">
+        <div class="chat-texts">
+          <div class="chat-name">${room.nickname || "상대방"}</div>
+          <div class="chat-last">${room.last_msg || ""}</div>
+        </div>
+      </div>
+    `;
+
+    item.onclick = () => {
+      location.href = `/chat.html?roomId=${room.roomId}`;
+    };
+
+    chatListArea.appendChild(item);
+  });
+}
 
 /* ======================================================
    메시지 전송
@@ -267,6 +310,7 @@ imgModal.onclick = () => {
 ====================================================== */
 (async function init() {
   await loadMe();
+  await loadChatList(); // ⭐ 이게 없어서 왼쪽이 비어있던 거다
   initSocket();
 })();
 
