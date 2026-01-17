@@ -2178,11 +2178,24 @@ if (ADMIN_ID && String(user.id) === ADMIN_ID) {
     ====================================================== */
 
     /* 채팅방 입장 */
-    socket.on("chat:join", (roomId) => {
-      if (!roomId) return;
-      socket.join(String(roomId));
-      console.log(`📌 chat:join → room ${roomId}`);
-    });
+   socket.on("chat:join", (roomId, cb) => {
+  if (!roomId) {
+    if (typeof cb === "function") cb(false);
+    return;
+  }
+
+  const rid = String(roomId);
+  socket.join(rid);
+
+  console.log(`📌 chat:join → room ${rid} | socket=${socket.id}`);
+
+  // ✅ 클라로 join 완료 이벤트
+  socket.emit("chat:joined", rid);
+
+  // ✅ ack 응답
+  if (typeof cb === "function") cb(true);
+});
+
 
     /* typing 표시 */
     socket.on("chat:typing", ({ roomId, userId, isTyping }) => {

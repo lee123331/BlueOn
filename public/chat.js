@@ -547,17 +547,42 @@ if (fileBtn && fileInput) {
    Socket.io (최종 안정판)
 ====================================================== */
 function initSocket() {
-  socket = io(API, { withCredentials: true });
+  // ✅ socket.io 로드 체크
+  if (typeof window.io !== "function") {
+    console.warn("❌ socket.io not loaded (window.io undefined)");
+    return;
+  }
+
+  socket = window.io(API, {
+    withCredentials: true,
+    transports: ["polling", "websocket"],
+    upgrade: true,
+    reconnection: true,
+    reconnectionAttempts: 20,
+    reconnectionDelay: 800,
+    timeout: 10000,
+  });
 
   socket.on("connect", () => {
+    console.log("✅ socket connected:", socket.id, "ROOM_ID =", ROOM_ID);
+
     if (ROOM_ID) {
-      socket.emit("chat:join", ROOM_ID);
+      // ✅ 방 join을 “문자열”로 강제
+      socket.emit("chat:join", String(ROOM_ID), (ok) => {
+        console.log("✅ chat:join ack =", ok);
+      });
     }
   });
 
-  /* =========================
-     메시지 수신
-  ========================= */
+  socket.on("connect_error", (e) => {
+    console.warn("❌ socket connect_error:", e?.message || e);
+  });
+
+  // ✅ 서버가 join 완료를 알려주면 찍힘(서버 패치에서 추가할 이벤트)
+  socket.on("chat:joined", (rid) => {
+    console.log("✅ joined room:", rid);
+  });
+
   socket.on("chat:message", async (msg) => {
     if (!CURRENT_USER) return;
 
@@ -569,47 +594,41 @@ function initSocket() {
         ? "📷 이미지"
         : (msg.message || msg.content || "");
 
-    // ✅ 좌측 리스트 미리보기 항상 갱신
     updateLeftLastMsg(roomId, preview);
 
-    // ✅ 내가 보고 있는 방이 아니면 뱃지만 표시
-   if (!ROOM_ID || roomId !== safeStr(ROOM_ID)) {
-  await applyRoomUnreadCounts(); // ✅ DB 기준으로 확정 반영
-  return;
-}
-
-
-    // ✅ 내가 보낸 메시지는 socket에서 무시 (중복 방지 핵심)
-    if (Number(msg.sender_id) === Number(CURRENT_USER.id)) {
+    // ✅ 내가 보고 있는 방이 아니면 unread를 DB로 확정 반영
+    if (!ROOM_ID || roomId !== safeStr(ROOM_ID)) {
+      await applyRoomUnreadCounts();
       return;
     }
 
-    // ✅ pending 메시지 중복 차단
-    if (msg.clientMsgId && PENDING_CLIENT_IDS.has(msg.clientMsgId)) {
-      return;
-    }
+    // ✅ 내가 보낸 메시지는 중복 방지
+    if (Number(msg.sender_id) === Number(CURRENT_USER.id)) return;
+    if (msg.clientMsgId && PENDING_CLIENT_IDS.has(msg.clientMsgId)) return;
 
-    // ✅ 실제 렌더
     renderMsg(msg);
     scrollBottom();
-
-    // ✅ 읽음 처리
     markRoomAsRead(ROOM_ID);
   });
 
-  /* =========================
-     읽음 이벤트 (⚠️ 반드시 여기서 한 번만!)
-  ========================= */
+  socket.on("chat:delete", ({ messageId, roomId }) => {
+    if (roomId && ROOM_ID && safeStr(roomId) !== safeStr(ROOM_ID)) return;
+
+    const el = document.querySelector(
+      `.msg-row[data-message-id="${safeStr(messageId)}"]`
+    );
+    if (el) el.remove();
+  });
+
   socket.on("chat:read", ({ roomId }) => {
     if (!ROOM_ID) return;
     if (safeStr(roomId) !== safeStr(ROOM_ID)) return;
 
-    document
-      .querySelectorAll(".msg-row.me .read-state")
-      .forEach((el) => {
-        el.textContent = "읽음";
-      });
+    document.querySelectorAll(".msg-row.me .read-state").forEach((el) => {
+      el.textContent = "읽음";
+    });
   });
+
 
   /* =========================
      삭제 이벤트
