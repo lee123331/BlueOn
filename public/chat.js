@@ -51,6 +51,11 @@ function safeStr(v) {
   return v == null ? "" : String(v);
 }
 
+function pickRoomId(r) {
+  // 서버/프론트 키가 섞여도 무조건 roomId 뽑아냄
+  return safeStr(r?.roomId || r?.room_id || r?.id || r?.room);
+}
+
 function scrollBottom() {
   if (!chatBody) return;
   chatBody.scrollTop = chatBody.scrollHeight;
@@ -224,7 +229,7 @@ async function loadChatList() {
 
   const rooms = Array.isArray(data.rooms) ? data.rooms : [];
 
-  // ✅ roomId 기준 중복 제거 (room_id / roomId 모두 대응)
+  // ✅ roomId 기준 중복 제거 (snake/camel 모두 대응)
   const map = new Map();
   for (const r of rooms) {
     const rid = pickRoomId(r);
@@ -238,14 +243,13 @@ async function loadChatList() {
     const roomId = pickRoomId(room);
     if (!roomId) return;
 
-    // DOM 중복 방지
     if (getChatItem(roomId)) return;
 
     const item = document.createElement("div");
     item.className = "chat-item";
-    item.dataset.roomId = roomId; // ✅ dataset key
+    item.dataset.roomId = roomId;
 
-    // ⚠️ room.unread는 서버가 줄 수도 있고 안 줄 수도 있음
+    // unread가 없을 수도 있으니 0 처리
     const unreadOn = Number(room.unread || 0) > 0;
 
     item.innerHTML = `
@@ -267,6 +271,7 @@ async function loadChatList() {
     chatListArea.appendChild(item);
   });
 }
+
 
 /* ======================================================
    상단 방 정보

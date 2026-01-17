@@ -774,6 +774,8 @@
     <iframe src="login.html" title="로그인" style="width:min(520px,92vw);height:560px;border:0;border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.25);"></iframe>
   </div>
 
+  <script src="https://blueon.up.railway.app/socket.io/socket.io.js"></script>
+  
 <script>
 /* ================================================================
    전역 기본 설정
@@ -939,44 +941,117 @@ function formatDate(dateString) {
 ================================================================ */
 
 document.addEventListener("DOMContentLoaded", () => {
-
   const chatBadge = document.getElementById("chatBadge");
+  let indexSocket = null;
 
-let indexSocket = null;
+  /* ================================
+     💬 채팅 unread 배지 로드
+  ================================ */
+  async function loadChatUnreadBadge() {
+    try {
+      const meRes = await fetch(`${API_URL}/auth/me`, { credentials: "include", cache: "no-store" });
+      const me = await meRes.json().catch(() => null);
 
-async function initIndexChatSocket() {
-  try {
-    // 1) 로그인 확인
-    const meRes = await fetch(`${API_URL}/auth/me`, { credentials: "include" });
-    const me = await meRes.json();
-    if (!me.success) return;
+      if (!me || !me.success) {
+        if (chatBadge) {
+          chatBadge.style.display = "none";
+          chatBadge.textContent = "";
+        }
+        return;
+      }
 
-    // 2) ✅ 같은 도메인으로 소켓 연결 (핵심)
-    //    io(API_URL) ❌  -> io() ✅
-    indexSocket = io({
-      withCredentials: true,
-      transports: ["polling", "websocket"],
-    });
+      const res = await fetch(`${API_URL}/chat/unread-count`, { credentials: "include", cache: "no-store" });
+      const data = await res.json().catch(() => null);
 
-    indexSocket.on("connect", () => {
-      console.log("✅ index socket connected:", indexSocket.id);
-    });
+      const total = Number(data?.total || 0);
 
-    indexSocket.on("connect_error", (e) => {
-      console.warn("❌ index socket connect_error:", e?.message || e);
-    });
-
-    // 3) 새 메시지 이벤트 받으면 unread 다시 조회해서 배지 확정
-    indexSocket.on("chat:message", async () => {
-      console.log("📩 chat:message received on index");
-      await loadChatUnreadBadge(); // 너가 이미 만든 함수 재사용
-    });
-
-  } catch (e) {
-    console.warn("index socket init fail", e);
+      if (data?.success && total > 0) {
+        chatBadge.style.display = "flex";
+        chatBadge.textContent = String(total);
+      } else {
+        chatBadge.style.display = "none";
+        chatBadge.textContent = "";
+      }
+    } catch (e) {
+      if (chatBadge) {
+        chatBadge.style.display = "none";
+        chatBadge.textContent = "";
+      }
+    }
   }
-}
 
+  /* ================================
+     (보조) 폴링
+  ================================ */
+  function startChatBadgePolling() {
+    setInterval(loadChatUnreadBadge, 3000);
+    window.addEventListener("focus", loadChatUnreadBadge);
+  }
+
+  /* ================================
+     소켓 연결
+  ================================ */
+  async function initIndexChatSocket() {
+    try {
+      if (typeof window.io !== "function") {
+        console.warn("❌ socket.io not loaded: window.io is undefined");
+        startChatBadgePolling();
+        return;
+      }
+
+      const meRes = await fetch(`${API_URL}/auth/me`, { credentials: "include", cache: "no-store" });
+      const me = await meRes.json().catch(() => null);
+      if (!me || !me.success) return;
+
+      if (indexSocket) {
+        try { indexSocket.disconnect(); } catch {}
+        indexSocket = null;
+      }
+
+      indexSocket = window.io(API_URL, {
+        withCredentials: true,
+        transports: ["polling", "websocket"],
+        upgrade: true,
+        reconnection: true,
+        reconnectionAttempts: 20,
+        reconnectionDelay: 800,
+        reconnectionDelayMax: 3000,
+        timeout: 10000,
+      });
+
+      indexSocket.on("connect", async () => {
+        console.log("✅ index socket connected:", indexSocket.id);
+        await loadChatUnreadBadge();
+      });
+
+      indexSocket.on("chat:message", async (msg) => {
+        console.log("📩 chat:message received on index", msg);
+        await loadChatUnreadBadge();
+      });
+
+      indexSocket.on("connect_error", (e) => {
+        console.warn("❌ index socket connect_error:", e?.message || e);
+      });
+
+      indexSocket.on("disconnect", (reason) => {
+        console.warn("🔌 index socket disconnected:", reason);
+      });
+
+      // 소켓 + 폴링 같이 돌리면 가장 안정적
+      startChatBadgePolling();
+    } catch (e) {
+      console.warn("❌ index socket init fail", e);
+      startChatBadgePolling();
+    }
+  }
+
+  /* ================================
+     ✅ 초기 실행 (순서 고정)
+  ================================ */
+  loadUserState();
+  // loadUnreadBadge();  // 알림 배지 함수 있으면 여기서 같이
+  loadChatUnreadBadge();
+  initIndexChatSocket();
 
 
 /* ================================
@@ -1313,10 +1388,11 @@ document.addEventListener("click", (e) => {
   /* ================================
      초기 실행
   ================================ */
- loadUnreadBadge();
-loadChatUnreadBadge();
-initIndexChatSocket(); 
-loadUserState();
+loadUserState();        // ✅ 먼저 (로그인/헤더 UI 세팅)
+loadUnreadBadge();      // 🔔 알림 배지
+loadChatUnreadBadge();  // 💬 채팅 배지(초기)
+initIndexChatSocket();  // 💬 실시간(이후 이벤트로 unread 재조회)
+
 
 
 });
@@ -1479,8 +1555,7 @@ async function forceRenderNotices() {
 
 </script>
 
-<script src="/socket.io/socket.io.js"></script>
-<script src="/header-chat.js"></script>
+
 </body>
 </html>
 
