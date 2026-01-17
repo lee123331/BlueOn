@@ -639,7 +639,7 @@ app.post("/chat/send-message", async (req, res) => {
       return res.status(401).json({ success: false });
     }
 
-    const { roomId, message, message_type, file_url } = req.body;
+    const { roomId, message, message_type, file_url, clientMsgId } = req.body;
     const senderId = req.session.user.id;
     const now = nowStr();
 
@@ -671,15 +671,17 @@ app.post("/chat/send-message", async (req, res) => {
     );
 
     const saved = {
-      id: result.insertId,
-      room_id: roomId,
-      sender_id: senderId,
-      message,
-      message_type,
-      file_url,
-      is_read: 0,
-      created_at: now
-    };
+  id: result.insertId,
+  room_id: roomId,
+  sender_id: senderId,
+  message,
+  message_type,
+  file_url,
+  clientMsgId: clientMsgId || null,
+  is_read: 0,
+  created_at: now
+};
+
 
     /* ===============================
        2️⃣ 상대방 ID 찾기
@@ -2520,7 +2522,7 @@ app.get("/chat/messages", async (req, res) => {
 
 /* ======================================================
    🔵 2) 메시지 삭제 API
-====================================================== */
+====================================================== 
 app.delete("/chat/message/:id", async (req, res) => {
   try {
     const messageId = req.params.id;

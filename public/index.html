@@ -586,25 +586,32 @@
       </div>
 
       <div class="category-inline">
-        <div class="category">
-          <img src="https://img.icons8.com/3d-fluency/94/paint-palette.png" alt="디자인">
-          <p>브랜드 디자인</p>
-        </div>
-        <div class="category">
-          <img src="https://img.icons8.com/3d-fluency/94/source-code.png" alt="프로그래밍">
-          <p>웹 개발</p>
-        </div>
-        <div class="category">
-          <img src="https://img.icons8.com/3d-fluency/94/camera.png" alt="사진·영상">
-          <p>콘텐츠 제작</p>
-        </div>
-        <div class="category">
-          <img src="https://img.icons8.com/3d-fluency/94/megaphone.png" alt="마케팅">
-          <p>브랜딩·마케팅</p>
-        </div>
-        <div class="category">
-          <img src="https://img.icons8.com/3d-fluency/94/document.png" alt="글쓰기">
-          <p>카피라이팅</p>
+  <div class="category" data-category="design">
+    <img src="https://img.icons8.com/3d-fluency/94/paint-palette.png" alt="디자인">
+    <p>브랜드 디자인</p>
+  </div>
+
+  <div class="category" data-category="dev">
+    <img src="https://img.icons8.com/3d-fluency/94/source-code.png" alt="프로그래밍">
+    <p>웹 개발</p>
+  </div>
+
+  <div class="category" data-category="content">
+    <img src="https://img.icons8.com/3d-fluency/94/camera.png" alt="사진·영상">
+    <p>콘텐츠 제작</p>
+  </div>
+
+  <div class="category" data-category="marketing">
+    <img src="https://img.icons8.com/3d-fluency/94/megaphone.png" alt="마케팅">
+    <p>브랜딩·마케팅</p>
+  </div>
+
+  <div class="category" data-category="copy">
+    <img src="https://img.icons8.com/3d-fluency/94/document.png" alt="글쓰기">
+    <p>카피라이팅</p>
+  </div>
+</div>
+
         </div>
       </div>
     </div>
@@ -922,7 +929,59 @@ function formatDate(dateString) {
 /* ================================================================
    DOMContentLoaded — 전체 초기화
 ================================================================ */
+
 document.addEventListener("DOMContentLoaded", () => {
+
+  const chatBadge = document.getElementById("chatBadge");
+
+let indexSocket = null;
+
+async function initIndexChatSocket() {
+  try {
+    const meRes = await fetch(`${API_URL}/auth/me`, { credentials: "include" });
+    const me = await meRes.json();
+    if (!me.success) return;
+
+    indexSocket = io(API_URL, { withCredentials: true });
+
+    indexSocket.on("chat:message", () => {
+      if (chatBadge) chatBadge.style.display = "block";
+    });
+  } catch (e) {
+    console.warn("index socket init fail", e);
+  }
+}
+
+
+/* ================================
+   💬 채팅 unread 배지 로드
+================================ */
+async function loadChatUnreadBadge() {
+  try {
+    const meRes = await fetch(`${API_URL}/auth/me`, { credentials: "include" });
+    const me = await meRes.json();
+
+    if (!me.success) {
+      if (chatBadge) chatBadge.style.display = "none";
+      return;
+    }
+
+    const res = await fetch(`${API_URL}/chat/unread-count`, { credentials: "include" });
+    const data = await res.json();
+
+    // ✅ 서버는 total을 준다!
+    const total = Number(data.total || 0);
+
+    if (data.success && total > 0) {
+      chatBadge.style.display = "block";
+    } else {
+      chatBadge.style.display = "none";
+    }
+  } catch (e) {
+    if (chatBadge) chatBadge.style.display = "none";
+  }
+}
+
 
   /* ============================================================
      브랜드 설계 시작 버튼
@@ -998,13 +1057,15 @@ if (openChatBtn) {
         return;
       }
 
-      // ✅ 핵심: room 파라미터를 붙여서 들어간다
-      // targetId가 있으면 같이 붙여주면 더 안정적
-      if (targetId) {
-        location.href = `chat.html?room=${encodeURIComponent(roomId)}&target=${encodeURIComponent(targetId)}`;
-      } else {
-        location.href = `chat.html?room=${encodeURIComponent(roomId)}`;
-      }
+// ✅ 핵심: chat.js와 동일한 roomId 파라미터 사용
+if (targetId) {
+  location.href =
+    `chat.html?roomId=${encodeURIComponent(roomId)}&target=${encodeURIComponent(targetId)}`;
+} else {
+  location.href =
+    `chat.html?roomId=${encodeURIComponent(roomId)}`;
+}
+
 
     } catch (err) {
       console.error("채팅 이동 실패:", err);
@@ -1223,8 +1284,11 @@ document.addEventListener("click", (e) => {
   /* ================================
      초기 실행
   ================================ */
-  loadUnreadBadge();
-  loadUserState();
+ loadUnreadBadge();
+loadChatUnreadBadge();
+initIndexChatSocket(); 
+loadUserState();
+
 
 });
 
