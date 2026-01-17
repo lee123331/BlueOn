@@ -679,47 +679,41 @@ app.post("/chat/upload-image", chatImageUpload.single("image"), (req, res) => {
 ====================================================== */
 app.get("/api/task-chat/messages", async (req, res) => {
   try {
-    if (!req.session.user) {
-      return res.status(401).json({ success: false });
-    }
+    if (!req.session.user) return res.status(401).json({ success: false });
 
     const { roomId } = req.query;
-    if (!roomId) {
-      return res.status(400).json({ success: false });
-    }
+    if (!roomId) return res.status(400).json({ success: false });
+
+    const myId = req.session.user.id;
 
     const [messages] = await db.query(
       `
       SELECT 
-  m.id,
-  m.sender_id,
-  m.message,
-  m.message_type,
-  m.file_url,
-  m.created_at,
-  CASE 
-    WHEN m.sender_id = ? THEN m.is_read 
-    ELSE 0
-  END AS is_read
-FROM chat_messages m
-WHERE m.room_id = ?
-ORDER BY m.id ASC
-
+        m.id,
+        m.sender_id,
+        m.message,
+        m.message_type,
+        m.file_url,
+        m.created_at,
+        CASE 
+          WHEN m.sender_id = ? THEN m.is_read 
+          ELSE 0
+        END AS is_read
+      FROM chat_messages m
+      WHERE m.room_id = ?
+      ORDER BY m.id ASC
       `,
-      [roomId]
+      [myId, roomId]
     );
 
-    return res.json({
-      success: true,
-      messages,
-      myId: req.session.user.id, // 🔥 프론트용
-    });
-
+    return res.json({ success: true, messages, myId });
   } catch (err) {
     console.error("❌ task-chat messages error:", err);
-    res.status(500).json({ success: false });
+    return res.status(500).json({ success: false });
   }
 });
+
+
 
 /* ======================================================
    🔵 일반 채팅 메시지 전송 (service_chat_rooms)
@@ -850,101 +844,114 @@ app.post("/chat/send-message", async (req, res) => {
 ====================================================== */
 app.post("/api/task-chat/send", async (req, res) => {
   try {
-    /* ===============================
-       0️⃣ 로그인 체크
-    =============================== */
     if (!req.session.user) {
-      return res.status(401).json({
-        success: false,
-        message: "로그인 필요",
-      });
+      return res.status(401).json({ success: false, message: "로그인 필요" });
     }
 
     const senderId = req.session.user.id;
-    const { taskKey, roomId: bodyRoomId, message } = req.body;
+    const {
+      taskKey,
+      roomId: bodyRoomId,
+      message,
+      message_type,
+      file_url,
+      clientMsgId
+    } = req.body;
 
-    if (!taskKey || !message) {
-      return res.status(400).json({
-        success: false,
-        message: "파라미터 누락",
-      });
+    if (!taskKey || (!message && !file_url)) {
+      return res.status(400).json({ success: false, message: "파라미터 누락" });
     }
 
-    /* ===============================
-       1️⃣ taskKey → room_id 결정
-       - body.roomId가 와도 서버가 항상 진실
-    =============================== */
+    // 1) roomId 확정 (orders 기준)
     let roomId = bodyRoomId;
-
     if (!roomId) {
       const [[order]] = await db.query(
-        `
-        SELECT room_id
-        FROM orders
-        WHERE task_key = ?
-        LIMIT 1
-        `,
+        `SELECT room_id FROM orders WHERE task_key = ? LIMIT 1`,
         [taskKey]
       );
-
-      if (!order || !order.room_id) {
-        return res.status(404).json({
-          success: false,
-          message: "채팅방 없음",
-        });
+      if (!order?.room_id) {
+        return res.status(404).json({ success: false, message: "채팅방 없음" });
       }
-
       roomId = order.room_id;
     }
 
-    /* ===============================
-       2️⃣ 메시지 DB 저장
-    =============================== */
+    // 2) chat_rooms에서 상대방 찾기
+    const [[room]] = await db.query(
+      `SELECT id, user1_id, user2_id FROM chat_rooms WHERE id = ? LIMIT 1`,
+      [roomId]
+    );
+    if (!room) {
+      return res.status(404).json({ success: false, message: "ROOM_NOT_FOUND" });
+    }
+
+    const targetUserId =
+      Number(room.user1_id) === Number(senderId) ? room.user2_id : room.user1_id;
+
+    // 3) 메시지 저장
     const now = nowStr();
+    const msgType = message_type || (file_url ? "image" : "text");
 
     const [result] = await db.query(
       `
       INSERT INTO chat_messages
-      (
-        room_id,
-        sender_id,
-        message,
-        message_type,
-        is_read,
-        created_at
-      )
-      VALUES (?, ?, ?, 'text', 0, ?)
+      (room_id, sender_id, message, message_type, file_url, is_read, created_at)
+      VALUES (?, ?, ?, ?, ?, 0, ?)
       `,
-      [roomId, senderId, message, now]
+      [
+        roomId,
+        senderId,
+        message || null,
+        msgType,
+        file_url || null,
+        now
+      ]
     );
 
-    /* ===============================
-       3️⃣ 프론트 & socket 공용 응답
-    =============================== */
-    const savedMessage = {
+    const saved = {
       id: result.insertId,
-      roomId: roomId,
+      room_id: roomId,
       sender_id: senderId,
-      message: message,
-      message_type: "text",
+      message: message || null,
+      message_type: msgType,
+      file_url: file_url || null,
+      clientMsgId: clientMsgId || null,
       is_read: 0,
       created_at: now,
+      taskKey
     };
 
-    return res.json({
-      success: true,
-      message: savedMessage,
-    });
+    // 4) ✅ 상대방 unread 증가 (chat_unread)
+    await db.query(
+      `
+      INSERT INTO chat_unread (user_id, room_id, count)
+      VALUES (?, ?, 1)
+      ON DUPLICATE KEY UPDATE count = count + 1
+      `,
+      [targetUserId, roomId]
+    );
 
+    // 5) ✅ chat_rooms의 last_msg + last_sender_id + updated_at 갱신
+    const lastMsg = msgType === "image" ? "📷 이미지" : (message || "");
+
+    await db.query(
+      `
+      UPDATE chat_rooms
+      SET last_msg = ?, last_sender_id = ?, updated_at = ?
+      WHERE id = ?
+      `,
+      [lastMsg, senderId, now, roomId]
+    );
+
+    // 6) ✅ 실시간 전송 (방 + 상대 개인룸)
+    io.to(String(roomId)).emit("chat:message", saved);
+    io.to(`user:${targetUserId}`).emit("chat:message", saved);
+
+    return res.json({ success: true, message: saved });
   } catch (err) {
     console.error("❌ task-chat send error:", err);
-    return res.status(500).json({
-      success: false,
-      message: "서버 오류",
-    });
+    return res.status(500).json({ success: false, message: "서버 오류" });
   }
 });
-
 
 /* ======================================================
    🔵 Socket.io 서버 생성
@@ -2131,100 +2138,114 @@ app.post("/chat/delete", async (req, res) => {
 });
 
 /* ======================================================
-   🔵 Socket.io (보안 강화 + 정상 구조)
+   🔵 Socket.io (최종 안정판: 세션/조인/브로드캐스트 확정)
 ====================================================== */
 io.on("connection", (socket) => {
-  try {
-    console.log("🟢 Socket connected:", socket.id);
+  console.log("🟢 Socket connected:", socket.id);
 
-    const session = socket.request.session;
-    const user = session?.user;
+  try {
+    // ✅ 세션 안전 접근 (환경에 따라 socket.request.session이 없을 수 있음)
+    const sess = socket.request?.session;
+    const user = sess?.user;
 
     /* ======================================================
-       0️⃣ 비로그인 소켓도 허용 (헤더 알림용)
-       - ❌ 여기서 disconnect 하면 안 됨
+       0️⃣ 비로그인 소켓도 허용 (헤더 알림/배지용)
+       - 여기서 disconnect 하면 index 배지용 소켓도 죽음
     ====================================================== */
     if (!user) {
       console.log("ℹ️ 비로그인/헤더 소켓 허용:", socket.id);
 
-      socket.on("disconnect", () => {
-        console.log("🔴 Header socket disconnected:", socket.id);
+      socket.on("disconnect", (reason) => {
+        console.log("🔴 Header socket disconnected:", socket.id, reason);
       });
 
-      return; // ⚠️ 여기서 종료 (채팅/관리자 기능은 안 붙임)
+      return; // ⚠️ 로그인 기능(채팅)은 아래로 안 내려감
     }
 
     /* ======================================================
-       1️⃣ 로그인 유저 개인 room
+       1️⃣ 로그인 유저 개인 room (index.html 배지 핵심)
     ====================================================== */
-    socket.join(`user:${user.id}`);
-    console.log(`➡ user:${user.id} 방 입장`);
-
-  /* ======================================================
-   2️⃣ 관리자 room 연결 (서버 세션 기준)
-====================================================== */
-const ADMIN_ID = String(process.env.ADMIN_USER_ID || "");
-
-if (ADMIN_ID && String(user.id) === ADMIN_ID) {
-  socket.join("admin");
-
-  console.log(
-    `👑 관리자 소켓 연결됨 | userId=${user.id} | socket=${socket.id}`
-  );
-}
+    const uid = String(user.id);
+    socket.join(`user:${uid}`);
+    console.log(`➡ user:${uid} 방 입장 | socket=${socket.id}`);
 
     /* ======================================================
-       3️⃣ 채팅 관련 이벤트 (로그인 유저만)
+       2️⃣ 관리자 room (옵션)
     ====================================================== */
+    const ADMIN_ID = String(process.env.ADMIN_USER_ID || "");
+    if (ADMIN_ID && uid === ADMIN_ID) {
+      socket.join("admin");
+      console.log(`👑 관리자 소켓 연결됨 | userId=${uid} | socket=${socket.id}`);
+    }
 
-    /* 채팅방 입장 */
-   socket.on("chat:join", (roomId, cb) => {
-  if (!roomId) {
-    if (typeof cb === "function") cb(false);
-    return;
-  }
+    /* ======================================================
+       3️⃣ 채팅방 입장
+       - ACK(cb) 지원
+       - join 완료 이벤트(chat:joined)도 발사
+    ====================================================== */
+    socket.on("chat:join", (roomId, cb) => {
+      try {
+        if (!roomId) {
+          if (typeof cb === "function") cb({ ok: false, reason: "NO_ROOM_ID" });
+          return;
+        }
 
-  const rid = String(roomId);
-  socket.join(rid);
+        const rid = String(roomId);
+        socket.join(rid);
 
-  console.log(`📌 chat:join → room ${rid} | socket=${socket.id}`);
+        console.log(`📌 chat:join → room ${rid} | user=${uid} | socket=${socket.id}`);
 
-  // ✅ 클라로 join 완료 이벤트
-  socket.emit("chat:joined", rid);
+        socket.emit("chat:joined", { roomId: rid });
 
-  // ✅ ack 응답
-  if (typeof cb === "function") cb(true);
-});
+        if (typeof cb === "function") cb({ ok: true, roomId: rid });
+      } catch (e) {
+        console.error("❌ chat:join handler error:", e);
+        if (typeof cb === "function") cb({ ok: false, reason: "JOIN_ERROR" });
+      }
+    });
 
-
-    /* typing 표시 */
+    /* ======================================================
+       4️⃣ typing 표시
+    ====================================================== */
     socket.on("chat:typing", ({ roomId, userId, isTyping }) => {
+      if (!roomId) return;
       socket.to(String(roomId)).emit("chat:typing", {
-        roomId,
+        roomId: String(roomId),
         userId,
-        isTyping,
+        isTyping: !!isTyping,
       });
     });
 
-
-
-    /* 메시지 삭제 */
+    /* ======================================================
+       5️⃣ 메시지 삭제 브로드캐스트
+       - roomId 포함해서 보내야 프론트에서 필터링 가능
+       - socket.to(room)면 본인은 제외됨 (원하면 io.to(room)로 바꿀 것)
+    ====================================================== */
     socket.on("chat:delete", ({ roomId, messageId }) => {
-      socket.to(String(roomId)).emit("chat:delete", { messageId });
+      if (!roomId || !messageId) return;
+
+      const rid = String(roomId);
+      socket.to(rid).emit("chat:delete", {
+        roomId: rid,
+        messageId,
+      });
+
+      console.log(`🗑 chat:delete broadcast | room=${rid} | msg=${messageId}`);
     });
 
     /* ======================================================
-       4️⃣ 연결 종료
+       6️⃣ 연결 종료
     ====================================================== */
-    socket.on("disconnect", () => {
-      console.log("🔴 User socket disconnected:", socket.id);
+    socket.on("disconnect", (reason) => {
+      console.log("🔴 User socket disconnected:", socket.id, reason);
     });
 
   } catch (err) {
     console.error("❌ Socket connection error:", err);
-    socket.disconnect();
+    try { socket.disconnect(true); } catch {}
   }
 });
+
 /* ======================================================
    🧩 작업 채팅 전용 Socket Namespace
    namespace: /task

@@ -553,40 +553,70 @@ function initSocket() {
     return;
   }
 
+  // ✅ 기존 소켓 있으면 정리(재실행/핫리로드 대비)
+  if (socket) {
+    try { socket.disconnect(); } catch {}
+    socket = null;
+  }
+
   socket = window.io(API, {
     withCredentials: true,
     transports: ["polling", "websocket"],
     upgrade: true,
+
     reconnection: true,
     reconnectionAttempts: 20,
     reconnectionDelay: 800,
+    reconnectionDelayMax: 3000,
     timeout: 10000,
   });
 
+  function joinRoomIfNeeded() {
+    if (!ROOM_ID) return;
+
+    const rid = String(ROOM_ID);
+
+    // ✅ 서버가 (ok) boolean으로 주든, ({ok:true})로 주든 다 대응
+    socket.emit("chat:join", rid, (ack) => {
+      const ok =
+        ack === true ||
+        ack === "OK" ||
+        (ack && typeof ack === "object" && ack.ok === true);
+
+      console.log("✅ chat:join ack =", ack, "parsed ok =", ok, "room =", rid);
+    });
+  }
+
   socket.on("connect", () => {
     console.log("✅ socket connected:", socket.id, "ROOM_ID =", ROOM_ID);
+    joinRoomIfNeeded();
+  });
 
-    if (ROOM_ID) {
-      // ✅ 방 join을 “문자열”로 강제
-      socket.emit("chat:join", String(ROOM_ID), (ok) => {
-        console.log("✅ chat:join ack =", ok);
-      });
-    }
+  // ✅ 재연결 될 때도 방 join 보장
+  socket.on("reconnect", (attempt) => {
+    console.log("🔁 socket reconnected:", attempt, "ROOM_ID =", ROOM_ID);
+    joinRoomIfNeeded();
   });
 
   socket.on("connect_error", (e) => {
     console.warn("❌ socket connect_error:", e?.message || e);
   });
 
-  // ✅ 서버가 join 완료를 알려주면 찍힘(서버 패치에서 추가할 이벤트)
-  socket.on("chat:joined", (rid) => {
-    console.log("✅ joined room:", rid);
+  socket.on("disconnect", (reason) => {
+    console.warn("🔌 socket disconnected:", reason);
+  });
+
+  // ✅ 서버가 join 완료를 알려주면 찍힘
+  // - 서버가 문자열로 보내도 되고, {roomId:"11"}로 보내도 되니 둘 다 처리
+  socket.on("chat:joined", (payload) => {
+    const rid = safeStr(payload?.roomId || payload);
+    console.log("✅ joined room:", rid, "payload =", payload);
   });
 
   socket.on("chat:message", async (msg) => {
     if (!CURRENT_USER) return;
 
-    const roomId = safeStr(msg.room_id || msg.roomId);
+    const roomId = safeStr(msg?.room_id || msg?.roomId);
     if (!roomId) return;
 
     const preview =
@@ -594,6 +624,7 @@ function initSocket() {
         ? "📷 이미지"
         : (msg.message || msg.content || "");
 
+    // ✅ 좌측 리스트 미리보기 갱신
     updateLeftLastMsg(roomId, preview);
 
     // ✅ 내가 보고 있는 방이 아니면 unread를 DB로 확정 반영
@@ -602,16 +633,21 @@ function initSocket() {
       return;
     }
 
-    // ✅ 내가 보낸 메시지는 중복 방지
+    // ✅ 내가 보낸 메시지는 socket에서 무시 (중복 방지)
     if (Number(msg.sender_id) === Number(CURRENT_USER.id)) return;
+
+    // ✅ pending 중복 차단
     if (msg.clientMsgId && PENDING_CLIENT_IDS.has(msg.clientMsgId)) return;
 
     renderMsg(msg);
     scrollBottom();
+
+    // ✅ 읽음 처리
     markRoomAsRead(ROOM_ID);
   });
 
   socket.on("chat:delete", ({ messageId, roomId }) => {
+    // roomId가 있으면 같은 방만 처리
     if (roomId && ROOM_ID && safeStr(roomId) !== safeStr(ROOM_ID)) return;
 
     const el = document.querySelector(
@@ -628,6 +664,7 @@ function initSocket() {
       el.textContent = "읽음";
     });
   });
+
 
 
   /* =========================
