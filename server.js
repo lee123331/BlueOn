@@ -854,78 +854,62 @@ app.post("/api/task-chat/send", async (req, res) => {
     }
 
     const senderId = req.session.user.id;
-    const {
-      taskKey,
-      roomId: bodyRoomId,
-      message,
-      message_type,
-      file_url,
-      clientMsgId
-    } = req.body;
+    const { taskKey, roomId: bodyRoomId, message } = req.body;
 
-    if (!taskKey || (!message && !file_url)) {
+    if (!taskKey || !message) {
       return res.status(400).json({ success: false, message: "파라미터 누락" });
     }
 
-    // 1) roomId 확정 (orders 기준)
-    let roomId = bodyRoomId;
-    if (!roomId) {
-      const [[order]] = await db.query(
-        `SELECT room_id FROM orders WHERE task_key = ? LIMIT 1`,
-        [taskKey]
-      );
-      if (!order?.room_id) {
-        return res.status(404).json({ success: false, message: "채팅방 없음" });
-      }
-      roomId = order.room_id;
-    }
-
-    // 2) chat_rooms에서 상대방 찾기
-    const [[room]] = await db.query(
-      `SELECT id, user1_id, user2_id FROM chat_rooms WHERE id = ? LIMIT 1`,
-      [roomId]
+    // ✅ 1) taskKey로 주문 조회해서 room_id + 상대방 id 확보 (단일 진실)
+    const [[order]] = await db.query(
+      `
+      SELECT user_id AS buyer_id, expert_id, room_id
+      FROM orders
+      WHERE task_key = ?
+      LIMIT 1
+      `,
+      [taskKey]
     );
-    if (!room) {
-      return res.status(404).json({ success: false, message: "ROOM_NOT_FOUND" });
+
+    if (!order) {
+      return res.status(404).json({ success: false, message: "주문 없음" });
     }
 
+    // ✅ 2) roomId 결정 (서버가 진실)
+    const roomId = order.room_id || bodyRoomId;
+    if (!roomId) {
+      return res.status(404).json({ success: false, message: "채팅방 없음" });
+    }
+
+    // ✅ 3) 상대방(target) 계산
     const targetUserId =
-      Number(room.user1_id) === Number(senderId) ? room.user2_id : room.user1_id;
+      Number(senderId) === Number(order.buyer_id) ? order.expert_id : order.buyer_id;
 
-    // 3) 메시지 저장
     const now = nowStr();
-    const msgType = message_type || (file_url ? "image" : "text");
 
+    // ✅ 4) 메시지 저장
     const [result] = await db.query(
       `
       INSERT INTO chat_messages
-      (room_id, sender_id, message, message_type, file_url, is_read, created_at)
-      VALUES (?, ?, ?, ?, ?, 0, ?)
+      (room_id, sender_id, message, message_type, is_read, created_at)
+      VALUES (?, ?, ?, 'text', 0, ?)
       `,
-      [
-        roomId,
-        senderId,
-        message || null,
-        msgType,
-        file_url || null,
-        now
-      ]
+      [roomId, senderId, message, now]
     );
 
-    const saved = {
+    const savedMessage = {
       id: result.insertId,
-      room_id: roomId,
+      room_id: roomId,          // ✅ 통일
+      roomId: roomId,           // ✅ 프론트 호환
       sender_id: senderId,
-      message: message || null,
-      message_type: msgType,
-      file_url: file_url || null,
-      clientMsgId: clientMsgId || null,
+      message,
+      message_type: "text",
       is_read: 0,
       created_at: now,
       taskKey
     };
 
-    // 4) ✅ 상대방 unread 증가 (chat_unread)
+    // ✅ 5) 🔥 작업채팅도 unread 증가 (핵심!)
     await db.query(
       `
       INSERT INTO chat_unread (user_id, room_id, count)
@@ -935,28 +919,32 @@ app.post("/api/task-chat/send", async (req, res) => {
       [targetUserId, roomId]
     );
 
-    // 5) ✅ chat_rooms의 last_msg + last_sender_id + updated_at 갱신
-    const lastMsg = msgType === "image" ? "📷 이미지" : (message || "");
-
+    // ✅ 6) 🔥 chat_rooms last_msg, updated_at 갱신 (좌측 리스트/정렬용)
     await db.query(
       `
       UPDATE chat_rooms
       SET last_msg = ?, last_sender_id = ?, updated_at = ?
       WHERE id = ?
       `,
-      [lastMsg, senderId, now, roomId]
+      [message, senderId, now, roomId]
     );
 
-    // 6) ✅ 실시간 전송 (방 + 상대 개인룸)
-    io.to(String(roomId)).emit("chat:message", saved);
-    io.to(`user:${targetUserId}`).emit("chat:message", saved);
+    // ✅ 7) 소켓 실시간 전송 (둘 다 받게)
+    io.to(String(roomId)).emit("chat:message", savedMessage);
+    io.to(`user:${targetUserId}`).emit("chat:message", savedMessage);
 
-    return res.json({ success: true, message: saved });
+    // ✅ 8) 메인 뱃지 즉시 갱신용 이벤트(선택)
+    // - 프론트가 이 이벤트를 받으면 바로 뱃지 업데이트 가능
+    io.to(`user:${targetUserId}`).emit("chat:unread:changed", { roomId });
+
+    return res.json({ success: true, message: savedMessage });
+
   } catch (err) {
     console.error("❌ task-chat send error:", err);
     return res.status(500).json({ success: false, message: "서버 오류" });
   }
 });
+
 
 /* ======================================================
    🔵 Socket.io 서버 생성
