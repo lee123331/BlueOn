@@ -3883,24 +3883,23 @@ app.post("/tasks/revision-request", async (req, res) => {
     /* ======================================================
        🔔 4️⃣ 🔥 전문가 알림 생성 (INSERT 바로 아래)
     ====================================================== */
-    const noticeMessage =
-      `${req.session.user.nickname || "고객"}님이 수정 요청을 보냈습니다.`;
+const noticeMessage =
+  `${req.session.user.nickname || "고객"}님이 '${svc.title}' 서비스를 구매했습니다.`;
 
-    // DB 알림 저장
-    await createNotice({
-      targetUserId: task.expert_id,
-      message: noticeMessage,
-      type: "trade",
-      taskKey: taskKey,
-      fromUser: userId
-    });
+await createNotice({
+  targetUserId: order.expert_id,
+  message: noticeMessage,
+  type: "trade",
+  taskKey: taskKey,
+  fromUser: userId
+});
 
-    // 실시간 알림 (헤더/배지 즉시 반영)
-    io.to(`user:${task.expert_id}`).emit("notice:new", {
-      type: "trade",
-      message: noticeMessage,
-      task_key: taskKey
-    });
+io.to(`user:${order.expert_id}`).emit("notice:new", {
+  type: "trade",
+  message: noticeMessage,
+  task_key: taskKey
+});
+
 
     return res.json({ success: true });
 
