@@ -52,17 +52,19 @@ function nowStr() {
 /* ======================================================
    공통: DB_URL 파싱 함수 (1회 선언)
 ====================================================== */
-function parseDbUrl(url) {
+function parseDbUrl(dbUrl) {
   try {
-    const cleaned = url.replace("mysql://", "");
-    const [auth, hostPart] = cleaned.split("@");
-    const [user, password] = auth.split(":");
-    const [hostWithPort, database] = hostPart.split("/");
-    const [host, port] = hostWithPort.split(":");
+    const u = new URL(dbUrl);
 
-    return { host, port, user, password, database };
+    return {
+      host: u.hostname,
+      port: u.port ? Number(u.port) : 3306,
+      user: decodeURIComponent(u.username),
+      password: decodeURIComponent(u.password),
+      database: u.pathname.replace("/", ""),
+    };
   } catch (e) {
-    console.error("❌ DB_URL 파싱 실패:", url, e);
+    console.error("❌ DB_URL 파싱 실패:", e);
     return null;
   }
 }
@@ -73,24 +75,32 @@ function parseDbUrl(url) {
 const dbConf = parseDbUrl(process.env.DB_URL);
 
 if (!dbConf) {
-  console.error("❌ DB_URL이 올바르지 않습니다. Railway Variables 확인 필요.");
-  process.exit(1);
+  console.error("❌ DB_URL이 올바르지 않습니다. (서버는 일단 부팅은 함)");
 }
 
-console.log("🔗 DB 설정:", dbConf);
-
-const db = await mysql.createPool({
-  host: dbConf.host,
-  port: dbConf.port,
-  user: dbConf.user,
-  password: dbConf.password,
-  database: dbConf.database,
+const db = mysql.createPool({
+  host: dbConf?.host,
+  port: dbConf?.port,
+  user: dbConf?.user,
+  password: dbConf?.password,
+  database: dbConf?.database,
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0,
+  connectTimeout: 10000, // ✅ 10초 타임아웃
 });
 
-console.log("✅ DB 연결 성공");
+// ✅ DB 체크를 “await로 막지 말고” 백그라운드로
+async function checkDbOnce() {
+  try {
+    await db.query("SELECT 1");
+    console.log("✅ DB 연결 확인 완료");
+  } catch (e) {
+    console.error("❌ DB 연결 실패:", e.message);
+  }
+}
+checkDbOnce();
+
 
 /* ======================================================
    미들웨어
@@ -135,26 +145,23 @@ app.use(express.static(path.join(process.cwd(), "public")));
 ====================================================== */
 const MySQLStore = MySQLStoreImport(session);
 
-const sessionStore = new MySQLStore({
-  // 🔹 DB 연결 정보
-  host: dbConf.host,
-  port: dbConf.port,
-  user: dbConf.user,
-  password: dbConf.password,
-  database: dbConf.database,
-
-  // 🔹 세션 옵션
-  expiration: 24 * 60 * 60 * 1000, // 1일
-  createDatabaseTable: true,
-  schema: {
-    tableName: "sessions",
-    columnNames: {
-      session_id: "session_id",
-      expires: "expires",
-      data: "data",
+// ✅ 기존 db pool을 세션스토어에 재사용 (2중 연결 제거)
+const sessionStore = new MySQLStore(
+  {
+    expiration: 24 * 60 * 60 * 1000, // 1일
+    createDatabaseTable: true,
+    schema: {
+      tableName: "sessions",
+      columnNames: {
+        session_id: "session_id",
+        expires: "expires",
+        data: "data",
+      },
     },
   },
-});
+  db // 👈 핵심: host/port/user/password/database 대신 pool 전달
+);
+
 
 const sessionMiddleware = session({
   name: "blueon.sid", // key ❌ → name ⭕
@@ -1702,12 +1709,13 @@ app.post("/notice/portfolio-request", async (req, res) => {
 
     // ✅ 여기서 진짜로 DB 저장
     await createNotice({
-      targetUserId: order.expert_id,
-      message,
-      type: "trade",
-      taskKey,             // 포트폴리오 요청은 taskKey 없으면 null이라도 OK
-      fromUser: requesterId
-    });
+  targetUserId: expertId,
+  message,
+  type: "trade",
+  taskKey,
+  fromUser: requesterId
+});
+
 
     // ✅ 실시간 알림도 원하면
     io.to(`user:${expertId}`).emit("notice:new", {
@@ -3233,20 +3241,20 @@ app.post("/orders/create", async (req, res) => {
       `'${svc.title}' 서비스를 구매했습니다.`;
 
     // DB 알림 저장
-    await createNotice({
-      targetUserId: adminId,
-      message: adminMessage,
-      type: "admin",
-      taskKey,
-      fromUser: userId
-    });
+await createNotice({
+  targetUserId: order.expert_id,
+  message: noticeMessage,
+  type: "trade",
+  taskKey,
+  fromUser: userId
+});
 
-    // 실시간 관리자 알림
-    io.to("admin").emit("notice:new", {
-      type: "admin",
-      message: adminMessage,
-      task_key: taskKey
-    });
+io.to(`user:${order.expert_id}`).emit("notice:new", {
+  type: "trade",
+  message: noticeMessage,
+  task_key: taskKey
+});
+
 
     /* ---------------------------
        7️⃣ 성공 응답 (🔥 반드시 필요)
