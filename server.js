@@ -248,19 +248,24 @@ const sessionStore = new MySQLStore(
 );
 
 
+const isProd = process.env.NODE_ENV === "production";
+
 const sessionMiddleware = session({
-  name: "blueon.sid", // key ❌ → name ⭕
+  name: "blueon.sid",
   secret: process.env.SESSION_SECRET || "blueon_secret",
   resave: false,
   saveUninitialized: false,
   store: sessionStore,
+  proxy: true, // ✅ 프록시 환경에서 secure 판단 보조
   cookie: {
     httpOnly: true,
-    secure: false,      // Railway HTTPS면 true로 바꿔도 됨
-    sameSite: "lax",
+    secure: isProd,                 // ✅ prod(https)에서는 true
+    sameSite: isProd ? "none" : "lax", // ✅ cross-site면 none 필요
     maxAge: 1000 * 60 * 60 * 24,
   },
 });
+
+app.set("trust proxy", 1);
 
 app.use(sessionMiddleware);
 
@@ -2142,6 +2147,9 @@ app.post("/chat/delete", async (req, res) => {
 ====================================================== */
 io.on("connection", (socket) => {
   console.log("🟢 Socket connected:", socket.id);
+  console.log("🍪 socket cookie header:", socket.request.headers?.cookie || "(none)");
+console.log("🧩 socket session user:", socket.request?.session?.user || null);
+
 
   try {
     // ✅ 세션 안전 접근 (환경에 따라 socket.request.session이 없을 수 있음)
