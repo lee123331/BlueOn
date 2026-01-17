@@ -536,16 +536,24 @@
         <span class="chat-bubble">💬</span>
 
         <!-- 🔴 새 메시지 badge -->
-        <div id="chatBadge" style="
-          position:absolute;
-          top:-3px;
-          right:-3px;
-          width:10px;
-          height:10px;
-          background:red;
-          border-radius:50%;
-          display:none;
-        "></div>
+       <div id="chatBadge" style="
+  position:absolute;
+  top:-6px;
+  right:-8px;
+  min-width:18px;
+  height:18px;
+  padding:0 5px;
+  background:#ff3b30;
+  color:#fff;
+  border-radius:999px;
+  display:none;
+  align-items:center;
+  justify-content:center;
+  font-size:11px;
+  font-weight:800;
+  line-height:18px;
+"></div>
+
       </div>
 
       <!-- ========================= -->
@@ -938,19 +946,37 @@ let indexSocket = null;
 
 async function initIndexChatSocket() {
   try {
+    // 1) 로그인 확인
     const meRes = await fetch(`${API_URL}/auth/me`, { credentials: "include" });
     const me = await meRes.json();
     if (!me.success) return;
 
-    indexSocket = io(API_URL, { withCredentials: true });
-
-    indexSocket.on("chat:message", () => {
-      if (chatBadge) chatBadge.style.display = "block";
+    // 2) ✅ 같은 도메인으로 소켓 연결 (핵심)
+    //    io(API_URL) ❌  -> io() ✅
+    indexSocket = io({
+      withCredentials: true,
+      transports: ["polling", "websocket"],
     });
+
+    indexSocket.on("connect", () => {
+      console.log("✅ index socket connected:", indexSocket.id);
+    });
+
+    indexSocket.on("connect_error", (e) => {
+      console.warn("❌ index socket connect_error:", e?.message || e);
+    });
+
+    // 3) 새 메시지 이벤트 받으면 unread 다시 조회해서 배지 확정
+    indexSocket.on("chat:message", async () => {
+      console.log("📩 chat:message received on index");
+      await loadChatUnreadBadge(); // 너가 이미 만든 함수 재사용
+    });
+
   } catch (e) {
     console.warn("index socket init fail", e);
   }
 }
+
 
 
 /* ================================
@@ -972,11 +998,14 @@ async function loadChatUnreadBadge() {
     // ✅ 서버는 total을 준다!
     const total = Number(data.total || 0);
 
-    if (data.success && total > 0) {
-      chatBadge.style.display = "block";
-    } else {
-      chatBadge.style.display = "none";
-    }
+   if (data.success && total > 0) {
+  chatBadge.style.display = "flex";
+  chatBadge.textContent = total; // ✅ 숫자 표시
+} else {
+  chatBadge.style.display = "none";
+  chatBadge.textContent = "";
+}
+    
   } catch (e) {
     if (chatBadge) chatBadge.style.display = "none";
   }
