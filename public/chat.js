@@ -85,6 +85,40 @@ function updateLeftLastMsg(roomId, text) {
   if (el) el.textContent = text || "";
 }
 
+function pickRoomId(r) {
+  return safeStr(r?.roomId || r?.room_id || r?.id || r?.room || r?.roomID);
+}
+
+async function applyRoomUnreadCounts() {
+  try {
+    const res = await fetch(`${API}/chat/unread-count`, { credentials: "include" });
+    const data = await res.json().catch(() => null);
+    if (!data || !data.success) return;
+
+    const roomsMap = data.rooms || {};
+
+    document.querySelectorAll(".chat-item[data-room-id]").forEach((item) => {
+      const rid = safeStr(item.dataset.roomId);
+      const cnt = Number(roomsMap[rid] || 0);
+
+      const badge = item.querySelector(".chat-unread-badge");
+      if (!badge) return;
+
+      if (cnt > 0) {
+        badge.style.display = "block";
+        // 점 말고 숫자로 보이게 하고 싶으면 아래처럼:
+        badge.textContent = String(cnt);
+      } else {
+        badge.style.display = "none";
+        badge.textContent = "";
+      }
+    });
+  } catch (e) {
+    console.warn("applyRoomUnreadCounts fail", e);
+  }
+}
+
+
 /* ======================================================
    삭제 모달
 ====================================================== */
@@ -190,17 +224,18 @@ async function loadChatList() {
 
   const rooms = Array.isArray(data.rooms) ? data.rooms : [];
 
-  // (보호) roomId 기준 중복 제거
+  // ✅ roomId 기준 중복 제거 (room_id / roomId 모두 대응)
   const map = new Map();
   for (const r of rooms) {
-    const rid = safeStr(r.roomId);
+    const rid = pickRoomId(r);
     if (!rid) continue;
     map.set(rid, r);
   }
+
   const uniqRooms = Array.from(map.values());
 
   uniqRooms.forEach((room) => {
-    const roomId = safeStr(room.roomId);
+    const roomId = pickRoomId(room);
     if (!roomId) return;
 
     // DOM 중복 방지
@@ -210,7 +245,8 @@ async function loadChatList() {
     item.className = "chat-item";
     item.dataset.roomId = roomId; // ✅ dataset key
 
-    const unreadOn = Number(room.unread) > 0;
+    // ⚠️ room.unread는 서버가 줄 수도 있고 안 줄 수도 있음
+    const unreadOn = Number(room.unread || 0) > 0;
 
     item.innerHTML = `
       <div class="chat-left">
@@ -517,7 +553,7 @@ function initSocket() {
   /* =========================
      메시지 수신
   ========================= */
-  socket.on("chat:message", (msg) => {
+  socket.on("chat:message", async (msg) => {
     if (!CURRENT_USER) return;
 
     const roomId = safeStr(msg.room_id || msg.roomId);
@@ -532,10 +568,11 @@ function initSocket() {
     updateLeftLastMsg(roomId, preview);
 
     // ✅ 내가 보고 있는 방이 아니면 뱃지만 표시
-    if (!ROOM_ID || roomId !== safeStr(ROOM_ID)) {
-      showUnreadBadge(roomId);
-      return;
-    }
+   if (!ROOM_ID || roomId !== safeStr(ROOM_ID)) {
+  await applyRoomUnreadCounts(); // ✅ DB 기준으로 확정 반영
+  return;
+}
+
 
     // ✅ 내가 보낸 메시지는 socket에서 무시 (중복 방지 핵심)
     if (Number(msg.sender_id) === Number(CURRENT_USER.id)) {
@@ -606,6 +643,7 @@ if (imgModal) {
 (async function init() {
   await loadMe();
   await loadChatList();
+  await applyRoomUnreadCounts(); // ✅ 방별 unread 반영
 
   if (ROOM_ID) {
     await loadRoomInfo();     // ✅ 상단 Loading... 해결
