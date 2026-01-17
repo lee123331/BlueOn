@@ -727,118 +727,83 @@ app.get("/api/task-chat/messages", async (req, res) => {
 app.post("/chat/send-message", async (req, res) => {
   try {
     if (!req.session.user) {
-      return res.status(401).json({ success: false });
+      return res.status(401).json({ success: false, message: "LOGIN_REQUIRED" });
     }
 
-    const { roomId, message, message_type, file_url, clientMsgId } = req.body;
-    const senderId = req.session.user.id;
-    const now = nowStr();
+    const senderId = Number(req.session.user.id);
+    const { roomId, message, content, message_type, file_url, clientMsgId } = req.body;
 
-    /* ===============================
-       1️⃣ 메시지 저장
-    =============================== */
-    const [result] = await db.query(
-      `
-      INSERT INTO chat_messages
-      (
-        room_id,
-        sender_id,
-        message,
-        message_type,
-        file_url,
-        is_read,
-        created_at
-      )
-      VALUES (?, ?, ?, ?, ?, 0, ?)
-      `,
+    const realMessage = (message || content || "").trim();
+    const type = message_type || "text";
+
+    if (!roomId) return res.json({ success: false, message: "ROOM_ID_REQUIRED" });
+    if (type === "text" && !realMessage) return res.json({ success: false, message: "EMPTY_MESSAGE" });
+
+    // 1) room 확인 + 상대방 id 추출
+    const [roomRows] = await db.query(
+      `SELECT id, user1_id, user2_id FROM chat_rooms WHERE id = ?`,
+      [roomId]
+    );
+    if (!roomRows.length) return res.json({ success: false, message: "ROOM_NOT_FOUND" });
+
+    const room = roomRows[0];
+    const otherId = Number(room.user1_id) === senderId ? Number(room.user2_id) : Number(room.user1_id);
+
+    // 2) 메시지 저장
+    const [ins] = await db.query(
+      `INSERT INTO chat_messages (room_id, sender_id, message_type, message, file_url, clientMsgId, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, NOW())`,
       [
         roomId,
         senderId,
-        message || null,
-        message_type || "text",
-        file_url || null,
-        now
+        type,
+        type === "text" ? realMessage : null,
+        type === "image" ? (file_url || realMessage) : null,
+        clientMsgId || null
       ]
     );
 
-    const saved = {
-  id: result.insertId,
-  room_id: roomId,
-  sender_id: senderId,
-  message,
-  message_type,
-  file_url,
-  clientMsgId: clientMsgId || null,
-  is_read: 0,
-  created_at: now
-};
+    const messageId = ins.insertId;
 
-
-    /* ===============================
-       2️⃣ 상대방 ID 찾기
-    =============================== */
-    const [[room]] = await db.query(
-      `
-      SELECT buyer_id, expert_id
-      FROM service_chat_rooms
-      WHERE id = ?
-      `,
-      [roomId]
-    );
-
-    if (!room) {
-      return res.json({ success: false });
-    }
-
-    const targetUserId =
-      room.buyer_id === senderId
-        ? room.expert_id
-        : room.buyer_id;
-
-    /* ===============================
-       3️⃣ unread count 증가 (🔥 핵심)
-    =============================== */
+    // 3) chat_rooms last_msg 업데이트
+    const lastPreview = type === "image" ? "📷 이미지" : realMessage;
     await db.query(
-      `
-      INSERT INTO chat_unread (user_id, room_id, count)
-      VALUES (?, ?, 1)
-      ON DUPLICATE KEY UPDATE count = count + 1
-      `,
-      [targetUserId, roomId]
+      `UPDATE chat_rooms
+       SET last_msg = ?, last_sender_id = ?, updated_at = NOW()
+       WHERE id = ?`,
+      [lastPreview, senderId, roomId]
     );
 
-    /* ===============================
-       4️⃣ 채팅방 last_msg 갱신
-    =============================== */
-    const lastMsg =
-      message_type === "image" ? "📷 이미지" : message;
-
+    // 4) ✅ 상대방 unread 증가 (없으면 생성)
     await db.query(
-      `
-      UPDATE service_chat_rooms
-      SET last_msg = ?, updated_at = ?
-      WHERE id = ?
-      `,
-      [lastMsg, now, roomId]
+      `INSERT INTO chat_unread (room_id, user_id, count)
+       VALUES (?, ?, 1)
+       ON DUPLICATE KEY UPDATE count = count + 1`,
+      [roomId, otherId]
     );
 
-    /* ===============================
-       5️⃣ 실시간 전송
-    =============================== */
+    // 5) socket 브로드캐스트 (방 + 개인 notify)
+    const payload = {
+      id: messageId,
+      room_id: String(roomId),
+      sender_id: senderId,
+      message_type: type,
+      message: type === "text" ? realMessage : null,
+      file_url: type === "image" ? (file_url || realMessage) : null,
+      clientMsgId: clientMsgId || null,
+      is_read: 0,
+    };
 
-    // 채팅방에 있는 사람
-    io.to(String(roomId)).emit("chat:message", saved);
+    io.to(String(roomId)).emit("chat:message", payload);
+    io.to(`user:${otherId}`).emit("chat:notify", { roomId: String(roomId), from: senderId });
 
-    // 🔥 상대방 개인 소켓 (다른 방 보고 있어도 받음)
-    io.to(`user:${targetUserId}`).emit("chat:message", saved);
-
-    return res.json({ success: true, message: saved });
-
+    return res.json({ success: true, messageId });
   } catch (e) {
-    console.error("❌ chat send error:", e);
-    res.status(500).json({ success: false });
+    console.error("❌ /chat/send-message error:", e);
+    return res.json({ success: false, message: "SERVER_ERROR" });
   }
 });
+
 
 
 
@@ -2733,40 +2698,30 @@ app.post("/chat/read", async (req, res) => {
 ====================================================== */
 app.get("/chat/unread-count", async (req, res) => {
   try {
-    if (!req.session.user) {
-      return res.json({ success: false, total: 0, rooms: {} });
-    }
+    if (!req.session.user) return res.json({ success: false, total: 0, rooms: {} });
+    const myId = Number(req.session.user.id);
 
-    const userId = req.session.user.id;
-
-    // 1) 방별 unread 목록 가져오기
     const [rows] = await db.query(
-      `SELECT room_id, count 
-       FROM chat_unread 
-       WHERE user_id=?`,
-      [userId]
+      `SELECT room_id, count FROM chat_unread WHERE user_id = ?`,
+      [myId]
     );
 
-    // 2) 방별 { roomId: count } 형태로 변환
     const rooms = {};
-    rows.forEach(r => {
-      rooms[r.room_id] = r.count;
-    });
+    let total = 0;
+    for (const r of rows) {
+      const rid = String(r.room_id);
+      const c = Number(r.count || 0);
+      rooms[rid] = c;
+      total += c;
+    }
 
-    // 3) 총합 계산
-    const total = rows.reduce((sum, r) => sum + r.count, 0);
-
-    return res.json({
-      success: true,
-      total,   // 전체 unread (index.html 용)
-      rooms    // 방별 unread (chat.html 용)
-    });
-
-  } catch (err) {
-    console.error("❌ unread-count error:", err);
+    return res.json({ success: true, total, rooms });
+  } catch (e) {
+    console.error("❌ /chat/unread-count error:", e);
     return res.json({ success: false, total: 0, rooms: {} });
   }
 });
+
 
 /* ============================================================
    🔵 브랜드 설계 조회 API (전문가가 유저 설계 보기)
@@ -4641,98 +4596,42 @@ app.post("/expert/tasks/start", async (req, res) => {
 // ✅ 채팅방 목록 (좌측 리스트 최종본)
 app.get("/chat/rooms", async (req, res) => {
   try {
-    if (!req.session.user) {
-      return res.json({ success: false, rooms: [] });
-    }
-
-    const myId = req.session.user.id;
+    if (!req.session.user) return res.json({ success: false, rooms: [] });
+    const myId = Number(req.session.user.id);
 
     const SQL = `
       SELECT
-        r.id           AS roomId,
+        r.id AS roomId,
         r.last_msg,
         r.updated_at,
-        x.other_id,
-        x.nickname,
-        x.avatar,
+        CASE WHEN r.user1_id = ? THEN r.user2_id ELSE r.user1_id END AS other_id,
+        CASE
+          WHEN r.user1_id = ? THEN COALESCE(ep2.nickname, u2.nickname)
+          ELSE COALESCE(ep1.nickname, u1.nickname)
+        END AS nickname,
+        CASE
+          WHEN r.user1_id = ? THEN COALESCE(ep2.avatar_url, u2.avatar_url, '/assets/default_profile.png')
+          ELSE COALESCE(ep1.avatar_url, u1.avatar_url, '/assets/default_profile.png')
+        END AS avatar,
         COALESCE(cu.count, 0) AS unread
-      FROM service_chat_rooms r
-
-      -- 🔥 사람별 최신 채팅방 1개만 추출
-      JOIN (
-        SELECT
-          CASE
-            WHEN buyer_id = ? THEN expert_id
-            ELSE buyer_id
-          END AS other_id,
-          MAX(updated_at) AS max_updated_at
-        FROM service_chat_rooms
-        WHERE buyer_id = ? OR expert_id = ?
-        GROUP BY other_id
-      ) latest
-        ON latest.max_updated_at = r.updated_at
-       AND (
-            (r.buyer_id = ? AND r.expert_id = latest.other_id)
-         OR (r.expert_id = ? AND r.buyer_id = latest.other_id)
-       )
-
-      -- 상대방 정보 (닉네임 / 아바타 / other_id)
-      JOIN (
-        SELECT
-          r2.id AS roomId,
-          CASE
-            WHEN r2.buyer_id = ? THEN ep.nickname
-            ELSE u.nickname
-          END AS nickname,
-          CASE
-            WHEN r2.buyer_id = ?
-              THEN COALESCE(ep.avatar_url, '/assets/default_profile.png')
-            ELSE
-              COALESCE(u.avatar_url, '/assets/default_profile.png')
-          END AS avatar,
-          CASE
-            WHEN r2.buyer_id = ? THEN r2.expert_id
-            ELSE r2.buyer_id
-          END AS other_id
-        FROM service_chat_rooms r2
-        LEFT JOIN users u ON u.id = r2.buyer_id
-        LEFT JOIN expert_profiles ep ON ep.user_id = r2.expert_id
-      ) x
-        ON x.roomId = r.id
-
+      FROM chat_rooms r
+      LEFT JOIN users u1 ON u1.id = r.user1_id
+      LEFT JOIN users u2 ON u2.id = r.user2_id
+      LEFT JOIN expert_profiles ep1 ON ep1.user_id = r.user1_id
+      LEFT JOIN expert_profiles ep2 ON ep2.user_id = r.user2_id
       LEFT JOIN chat_unread cu
-        ON cu.room_id = r.id
-       AND cu.user_id = ?
-
+        ON cu.room_id = r.id AND cu.user_id = ?
+      WHERE r.user1_id = ? OR r.user2_id = ?
       ORDER BY r.updated_at DESC
     `;
 
-    // ✅ ❗️파라미터 개수·순서 절대 중요
-    const params = [
-      myId, // latest: CASE buyer_id = ?
-      myId, // latest: WHERE buyer_id = ?
-      myId, // latest: OR expert_id = ?
-
-      myId, // JOIN 조건 r.buyer_id = ?
-      myId, // JOIN 조건 r.expert_id = ?
-
-      myId, // nickname CASE
-      myId, // avatar CASE
-      myId, // other_id CASE
-
-      myId  // chat_unread.user_id
-    ];
-
-    const [rows] = await db.query(SQL, params);
-
+    const [rows] = await db.query(SQL, [myId, myId, myId, myId, myId, myId]);
     return res.json({ success: true, rooms: rows });
-
-  } catch (err) {
-    console.error("❌ /chat/rooms error:", err);
+  } catch (e) {
+    console.error("❌ /chat/rooms error:", e);
     return res.json({ success: false, rooms: [] });
   }
 });
-
 
 
 /* ======================================================
