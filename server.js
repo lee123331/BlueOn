@@ -54,6 +54,9 @@ function nowStr() {
 ====================================================== */
 function parseDbUrl(dbUrl) {
   try {
+    if (!dbUrl) return null;
+
+    // DB_URL 예: mysql://user:pass@host:port/dbname
     const u = new URL(dbUrl);
 
     return {
@@ -69,37 +72,119 @@ function parseDbUrl(dbUrl) {
   }
 }
 
+
 /* ======================================================
-   DB 연결 (Railway)
+   ✅ DB 연결 (Railway) - 최종 안정판
+   - DB_URL 파싱 실패해도 서버는 뜸
+   - DB 준비 전: API는 503, 정적파일/헬스체크는 통과
 ====================================================== */
 const dbConf = parseDbUrl(process.env.DB_URL);
 
+// ✅ 파싱 결과 로그 (비번은 찍지 말자)
+console.log("🧪 DB_CONF CHECK =", dbConf ? {
+  host: dbConf.host,
+  port: dbConf.port,
+  user: dbConf.user,
+  database: dbConf.database
+} : null);
+
+// ✅ DB 준비 상태
+let DB_READY = false;
+
+// ✅ dbConf가 없으면 "pool을 만들지 않는다" (중요)
+let db = null;
+
 if (!dbConf) {
-  console.error("❌ DB_URL이 올바르지 않습니다. (서버는 일단 부팅은 함)");
+  console.error("❌ DB_URL 파싱 실패: Railway Variables(DB_URL) 확인 필요");
+} else {
+  // ===============================
+  // ✅ DB Pool 생성
+  // ===============================
+  db = mysql.createPool({
+    host: dbConf.host,
+    port: Number(dbConf.port),
+    user: dbConf.user,
+    password: dbConf.password,
+    database: dbConf.database,
+
+    waitForConnections: true,
+    connectionLimit: 10,
+    queueLimit: 0,
+
+    // ✅ 무한 대기 방지
+    connectTimeout: 10_000,
+    enableKeepAlive: true,
+    keepAliveInitialDelay: 0,
+  });
+
+  // ✅ pool 에러 감지 (선택)
+  db.on("error", (err) => {
+    DB_READY = false;
+    console.error("❌ DB Pool error:", err?.code || err?.message || err);
+  });
+
+  // ✅ DB 워밍업 (짧게 재시도)
+  (async function warmupDb({ retries = 12, intervalMs = 2000 } = {}) {
+    for (let i = 1; i <= retries; i++) {
+      try {
+        await db.query("SELECT 1");
+        DB_READY = true;
+        console.log("✅ DB 연결 확인 완료 (SELECT 1 OK)");
+        return;
+      } catch (e) {
+        DB_READY = false;
+        console.error(`❌ DB 연결 실패 (${i}/${retries}):`, e?.code || e?.message || e);
+        await new Promise((r) => setTimeout(r, intervalMs));
+      }
+    }
+    console.error("🚨 DB 준비 실패: 재시도 횟수 초과");
+  })();
 }
 
-const db = mysql.createPool({
-  host: dbConf?.host,
-  port: dbConf?.port,
-  user: dbConf?.user,
-  password: dbConf?.password,
-  database: dbConf?.database,
-  waitForConnections: true,
-  connectionLimit: 10,
-  queueLimit: 0,
-  connectTimeout: 10000, // ✅ 10초 타임아웃
+/* ======================================================
+   ✅ DB 준비 전 방어 미들웨어
+   - 정적파일(/, /assets, /uploads 등)은 통과
+   - 헬스체크(/health)는 통과 (Railway 안정화)
+   - API만 503 처리
+====================================================== */
+app.get("/health", (req, res) => {
+  res.json({ ok: true, dbReady: DB_READY });
 });
 
-// ✅ DB 체크를 “await로 막지 말고” 백그라운드로
-async function checkDbOnce() {
-  try {
-    await db.query("SELECT 1");
-    console.log("✅ DB 연결 확인 완료");
-  } catch (e) {
-    console.error("❌ DB 연결 실패:", e.message);
+app.use((req, res, next) => {
+  // ✅ DB가 아예 없는 상태(파싱 실패)면 API는 즉시 503
+  // ✅ 정적 파일/헬스체크는 통과
+
+  const path = req.path || "";
+
+  // 통과 목록
+  const allow =
+    path === "/health" ||
+    path.startsWith("/assets") ||
+    path.startsWith("/uploads") ||
+    path === "/" ||
+    path.endsWith(".html") ||
+    path.endsWith(".css") ||
+    path.endsWith(".js") ||
+    path.endsWith(".png") ||
+    path.endsWith(".jpg") ||
+    path.endsWith(".jpeg") ||
+    path.endsWith(".webp") ||
+    path.endsWith(".svg") ||
+    path.endsWith(".ico");
+
+  if (allow) return next();
+
+  // API는 DB 준비될 때까지 막기
+  if (!DB_READY || !db) {
+    return res.status(503).json({
+      success: false,
+      message: "DB is starting up. Please retry.",
+    });
   }
-}
-checkDbOnce();
+
+  next();
+});
 
 
 /* ======================================================
