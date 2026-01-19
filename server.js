@@ -800,8 +800,16 @@ app.post("/chat/send-message", async (req, res) => {
    const [ins] = await db.query(
   `
   INSERT INTO chat_messages
-    (room_id, sender_id, message_type, message, file_url, created_at)
-  VALUES (?, ?, ?, ?, ?, NOW())
+    (
+      room_id,
+      sender_id,
+      message_type,
+      message,
+      file_url,
+      is_read,
+      created_at
+    )
+  VALUES (?, ?, ?, ?, ?, 0, NOW())
   `,
   [
     roomId,
