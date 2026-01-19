@@ -797,23 +797,23 @@ app.post("/chat/send-message", async (req, res) => {
     // ======================================================
     // 2) 메시지 저장
     // ======================================================
-    const [ins] = await db.query(
-      `
-      INSERT INTO chat_messages
-        (room_id, sender_id, message_type, message, file_url, clientMsgId, created_at)
-      VALUES (?, ?, ?, ?, ?, ?, NOW())
-      `,
-      [
-        roomId,
-        senderId,
-        type,
-        type === "text" ? realMessage : null,
-        type === "image" ? (file_url || realMessage) : null,
-        clientMsgId || null,
-      ]
-    );
+   const [ins] = await db.query(
+  `
+  INSERT INTO chat_messages
+    (room_id, sender_id, message_type, message, file_url, created_at)
+  VALUES (?, ?, ?, ?, ?, NOW())
+  `,
+  [
+    roomId,
+    senderId,
+    type,
+    type === "text" ? realMessage : null,
+    type === "image" ? (file_url || realMessage) : null,
+  ]
+);
 
-    const messageId = ins.insertId;
+const messageId = ins.insertId;
+
 
     // ======================================================
     // 3) last_msg / updated_at 갱신
