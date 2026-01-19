@@ -726,14 +726,8 @@ app.get("/api/task-chat/messages", async (req, res) => {
 ====================================================== */
 app.post("/chat/send-message", async (req, res) => {
   try {
-    /* ======================================================
-       0️⃣ 로그인 체크
-    ====================================================== */
     if (!req.session.user) {
-      return res.status(401).json({
-        success: false,
-        message: "LOGIN_REQUIRED",
-      });
+      return res.status(401).json({ success: false, message: "LOGIN_REQUIRED" });
     }
 
     const senderId = Number(req.session.user.id);
@@ -753,47 +747,56 @@ app.post("/chat/send-message", async (req, res) => {
     if (!roomId) {
       return res.json({ success: false, message: "ROOM_ID_REQUIRED" });
     }
-
     if (type === "text" && !realMessage) {
       return res.json({ success: false, message: "EMPTY_MESSAGE" });
     }
 
-   /* 1️⃣ chat_rooms 기준 방 검증 */
-const [roomRows] = await db.query(
-  `
-  SELECT id, user1_id, user2_id
-  FROM chat_rooms
-  WHERE id = ?
-  `,
-  [roomId]
-);
+    // ======================================================
+    // 1) room 검증: chat_rooms(작업) → 없으면 service_chat_rooms(문의)
+    // ======================================================
+    let roomType = null; // 'work'|'task'|'service'
+    let otherId = null;
 
-if (!roomRows.length) {
-  return res.json({
-    success: false,
-    message: "ROOM_NOT_FOUND",
-  });
-}
+    // 1-A) chat_rooms 먼저 조회
+    const [workRows] = await db.query(
+      `SELECT id, user1_id, user2_id, room_type FROM chat_rooms WHERE id = ? LIMIT 1`,
+      [roomId]
+    );
 
-const room = roomRows[0];
+    if (workRows.length) {
+      const r = workRows[0];
+      roomType = r.room_type || "work";
 
-let otherId = null;
+      if (Number(r.user1_id) === senderId) otherId = Number(r.user2_id);
+      else if (Number(r.user2_id) === senderId) otherId = Number(r.user1_id);
+      else {
+        return res.json({ success: false, message: "NO_ROOM_PERMISSION" });
+      }
 
-if (Number(room.user1_id) === senderId) {
-  otherId = Number(room.user2_id);
-} else if (Number(room.user2_id) === senderId) {
-  otherId = Number(room.user1_id);
-} else {
-  return res.json({
-    success: false,
-    message: "NO_ROOM_PERMISSION",
-  });
-}
+    } else {
+      // 1-B) service_chat_rooms 조회
+      const [svcRows] = await db.query(
+        `SELECT id, buyer_id, expert_id FROM service_chat_rooms WHERE id = ? LIMIT 1`,
+        [roomId]
+      );
 
+      if (!svcRows.length) {
+        return res.json({ success: false, message: "ROOM_NOT_FOUND" });
+      }
 
-    /* ======================================================
-       2️⃣ 메시지 저장
-    ====================================================== */
+      const r = svcRows[0];
+      roomType = "service";
+
+      if (Number(r.buyer_id) === senderId) otherId = Number(r.expert_id);
+      else if (Number(r.expert_id) === senderId) otherId = Number(r.buyer_id);
+      else {
+        return res.json({ success: false, message: "NO_ROOM_PERMISSION" });
+      }
+    }
+
+    // ======================================================
+    // 2) 메시지 저장
+    // ======================================================
     const [ins] = await db.query(
       `
       INSERT INTO chat_messages
@@ -812,24 +815,28 @@ if (Number(room.user1_id) === senderId) {
 
     const messageId = ins.insertId;
 
-    /* ======================================================
-       3️⃣ 마지막 메시지 업데이트
-    ====================================================== */
+    // ======================================================
+    // 3) last_msg / updated_at 갱신
+    // - chat_rooms: last_msg + updated_at
+    // - service_chat_rooms: updated_at만
+    // ======================================================
     const lastPreview = type === "image" ? "📷 이미지" : realMessage;
 
-    await db.query(
-      `
-      UPDATE chat_rooms
-SET last_msg = ?, updated_at = NOW()
-WHERE id = ?
+    if (roomType === "service") {
+      await db.query(
+        `UPDATE service_chat_rooms SET updated_at = NOW() WHERE id = ?`,
+        [roomId]
+      );
+    } else {
+      await db.query(
+        `UPDATE chat_rooms SET last_msg = ?, updated_at = NOW() WHERE id = ?`,
+        [lastPreview, roomId]
+      );
+    }
 
-      `,
-      [lastPreview, roomId]
-    );
-
-    /* ======================================================
-       4️⃣ unread 처리 (🔥 핵심 수정)
-    ====================================================== */
+    // ======================================================
+    // 4) unread 증가
+    // ======================================================
     const roomUserKey = `${roomId}_${otherId}`;
 
     await db.query(
@@ -844,9 +851,9 @@ WHERE id = ?
       [roomId, otherId, roomUserKey]
     );
 
-    /* ======================================================
-       5️⃣ socket emit
-    ====================================================== */
+    // ======================================================
+    // 5) socket emit
+    // ======================================================
     const payload = {
       id: messageId,
       room_id: String(roomId),
@@ -858,30 +865,24 @@ WHERE id = ?
       clientMsgId: clientMsgId || null,
       created_at: new Date(),
       is_read: 0,
+      room_type: roomType,
     };
 
     io.to(String(roomId)).emit("chat:message", payload);
-
     io.to(`user:${otherId}`).emit("chat:notify", {
       roomId: String(roomId),
       from: senderId,
+      room_type: roomType,
     });
 
-    /* ======================================================
-       6️⃣ 응답
-    ====================================================== */
-    return res.json({
-      success: true,
-      messageId,
-    });
+    return res.json({ success: true, messageId });
+
   } catch (e) {
     console.error("❌ /chat/send-message error:", e);
-    return res.json({
-      success: false,
-      message: "SERVER_ERROR",
-    });
+    return res.json({ success: false, message: "SERVER_ERROR" });
   }
 });
+
 
 
 /* ======================================================

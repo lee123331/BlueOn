@@ -187,10 +187,11 @@ if (confirmDeleteBtn) {
         }),
       });
 
-      const data = await res.json();
-      if (!data.success) {
-        console.warn("❌ 서버 삭제 실패", data);
-      }
+     const data = await res.json();
+if (!data.success) {
+  console.log("❌ send-message failed:", data, "roomId=", ROOM_ID);
+  return;
+}
     } catch (e) {
       console.warn("❌ delete request error", e);
     }
