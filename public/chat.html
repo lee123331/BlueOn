@@ -49,6 +49,7 @@ body{
   gap:12px;
   padding:10px;
   background:#f8f9fc;
+    padding:10px 44px 10px 10px; /* 오른쪽만 넉넉하게 */
   border-radius:12px;
   margin-bottom:12px;
   cursor:pointer;
@@ -166,26 +167,47 @@ body{
   margin-left:auto;
 }
 
-.chat-del-btn{
+/* =========================
+   채팅 리스트 삭제 버튼 (🗑)
+========================= */
+.room-delete-btn{
+  position:absolute;
+  right:12px;
+  top:50%;
+  transform:translateY(-50%);
+
   width:28px;
   height:28px;
   border:none;
-  border-radius:8px;
+  border-radius:10px;
+
   background:#f3f4f6;
   color:#6b7280;
+
   cursor:pointer;
-  display:none;
+  display:flex;
   align-items:center;
   justify-content:center;
-  font-weight:900;
+
+  opacity:0;
+  pointer-events:none;
+  transition:0.15s;
+  z-index:2;
 }
 
-.chat-item:hover .chat-del-btn{
-  display:flex;
+.chat-item:hover .room-delete-btn{
+  opacity:1;
+  pointer-events:auto;
 }
-.chat-del-btn:hover{
+
+.room-delete-btn:hover{
   background:#fee2e2;
   color:#ef4444;
+  transform:translateY(-50%) scale(1.05);
+}
+
+.room-delete-btn:active{
+  transform:translateY(-50%) scale(0.95);
 }
 
 
@@ -416,6 +438,9 @@ textarea{
   background: #ef4444;
   color: white;
 }
+#roomDeleteCancel { background: #e5e7eb; }
+#roomDeleteConfirm { background: #ef4444; color: white; }
+#roomDeleteConfirm:hover { background: #dc2626; }
 
 </style>
 </head>
@@ -483,6 +508,16 @@ textarea{
   </div>
 </div>
 
+<div id="roomDeleteModal" class="confirm-modal">
+  <div class="confirm-box">
+    <div class="confirm-title">채팅방을 삭제할까요?</div>
+    <div class="confirm-desc">복구 불가 / 상대방 채팅도 함께 삭제됩니다.</div>
+    <div class="confirm-actions">
+      <button id="roomDeleteCancel">취소</button>
+      <button id="roomDeleteConfirm">삭제</button>
+    </div>
+  </div>
+</div>
 
 
 
