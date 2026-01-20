@@ -2808,15 +2808,17 @@ app.post("/chat/read", async (req, res) => {
 
     // ✅ 메시지 읽음 처리: room_type 조건 필수!
     await db.query(
-      `
-      UPDATE chat_messages
-      SET is_read = 1
-      WHERE room_id = ?
-        AND room_type = ?
-        AND sender_id != ?
-      `,
-      [rid, rt, userId]
-    );
+  `
+  UPDATE chat_unread
+  SET count = 0,
+      updated_date = CURDATE()
+  WHERE room_id = ?
+    AND room_type = ?
+    AND user_id = ?
+  `,
+  [rid, rt, userId]
+);
+
 
     // ✅ unread 초기화: 통일 키 사용
     const roomUserKey = `${rt}:${rid}_${userId}`;

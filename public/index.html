@@ -951,30 +951,47 @@ document.addEventListener("DOMContentLoaded", () => {
 
   /* ✅ unread-count 응답에서 total 계산 (서버 호환) */
   function calcChatTotal(data) {
-    if (!data || !data.success) return 0;
+  if (!data || !data.success) return 0;
 
-    const t = Number(data.total);
-    if (!Number.isNaN(t) && t >= 0) return t;
+  // 1) 서버가 total을 주면 그걸 최우선 사용
+  const t = Number(data.total);
+  if (!Number.isNaN(t) && t >= 0) return t;
 
-    const map = data.rooms || data.map || data.unreadMap || {};
-    let sum = 0;
-    for (const k of Object.keys(map)) sum += Number(map[k] || 0);
+  const map = data.rooms || data.map || data.unreadMap || {};
+  const keys = Object.keys(map);
+
+  // ✅ 신형 키(work:14 / service:14)가 있으면 그 키만 합산해서 "중복 2" 방지
+  const hasTypedKey = keys.some((k) => k.includes(":"));
+
+  let sum = 0;
+
+  if (hasTypedKey) {
+    for (const k of keys) {
+      if (!k.includes(":")) continue;
+      sum += Number(map[k] || 0);
+    }
     return sum;
   }
 
-  /* ✅ 뱃지 렌더 */
-  function renderChatBadge(total) {
-    if (!chatBadge) return;
-    const n = Number(total || 0);
+  // ✅ 신형 키가 아예 없을 때만 구형 키를 합산
+  for (const k of keys) sum += Number(map[k] || 0);
+  return sum;
+}
 
-    if (n > 0) {
-      chatBadge.style.display = "flex";
-      chatBadge.textContent = n > 99 ? "99+" : String(n);
-    } else {
-      chatBadge.style.display = "none";
-      chatBadge.textContent = "";
-    }
+/* ✅ 뱃지 렌더 */
+function renderChatBadge(total) {
+  if (!chatBadge) return;
+  const n = Number(total || 0);
+
+  if (n > 0) {
+    chatBadge.style.display = "flex";
+    chatBadge.textContent = n > 99 ? "99+" : String(n);
+  } else {
+    chatBadge.style.display = "none";
+    chatBadge.textContent = "";
   }
+}
+
 
   /* ================================
      💬 채팅 unread 배지 로드
