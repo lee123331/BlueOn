@@ -561,7 +561,7 @@ if (fileBtn && fileInput) {
 }
 
 /* ======================================================
-   Socket.io (최종 안정판)
+   Socket.io (최종 안정판 - 문법/이벤트/뱃지/삭제 모두 포함)
 ====================================================== */
 function initSocket() {
   // ✅ socket.io 로드 체크
@@ -588,12 +588,14 @@ function initSocket() {
     timeout: 10000,
   });
 
+  /* =========================
+     방 join (현재 보고 있는 방만)
+  ========================= */
   function joinRoomIfNeeded() {
     if (!ROOM_ID) return;
 
     const rid = String(ROOM_ID);
 
-    // ✅ 서버가 (ok) boolean으로 주든, ({ok:true})로 주든 다 대응
     socket.emit("chat:join", rid, (ack) => {
       const ok =
         ack === true ||
@@ -604,15 +606,33 @@ function initSocket() {
     });
   }
 
-  socket.on("connect", () => {
+  /* =========================
+     연결/재연결
+  ========================= */
+  socket.on("connect", async () => {
     console.log("✅ socket connected:", socket.id, "ROOM_ID =", ROOM_ID);
     joinRoomIfNeeded();
+
+    // ✅ 연결 직후 상태 동기화 (방 목록/뱃지)
+    try {
+      await loadChatList();
+      await applyRoomUnreadCounts();
+    } catch (e) {
+      console.warn("sync after connect fail", e);
+    }
   });
 
-  // ✅ 재연결 될 때도 방 join 보장
-  socket.on("reconnect", (attempt) => {
+  socket.on("reconnect", async (attempt) => {
     console.log("🔁 socket reconnected:", attempt, "ROOM_ID =", ROOM_ID);
     joinRoomIfNeeded();
+
+    // ✅ 재연결 직후도 동기화
+    try {
+      await loadChatList();
+      await applyRoomUnreadCounts();
+    } catch (e) {
+      console.warn("sync after reconnect fail", e);
+    }
   });
 
   socket.on("connect_error", (e) => {
@@ -623,13 +643,30 @@ function initSocket() {
     console.warn("🔌 socket disconnected:", reason);
   });
 
-  // ✅ 서버가 join 완료를 알려주면 찍힘
-  // - 서버가 문자열로 보내도 되고, {roomId:"11"}로 보내도 되니 둘 다 처리
+  /* =========================
+     join 완료 로그 (옵션)
+  ========================= */
   socket.on("chat:joined", (payload) => {
     const rid = safeStr(payload?.roomId || payload);
     console.log("✅ joined room:", rid, "payload =", payload);
   });
 
+  /* =========================
+     ✅ notify: 방 join 안 해도 받는 알림
+     - 채팅 페이지에서 새로고침 없이 뱃지 갱신하려면 필수
+  ========================= */
+  socket.on("chat:notify", async (p) => {
+    try {
+      await applyRoomUnreadCounts();
+      await loadChatList(); // 새 방 생성/정렬 변경 대응
+    } catch (e) {
+      console.warn("chat:notify handler fail", e);
+    }
+  });
+
+  /* =========================
+     ✅ message: 현재 join한 방의 실시간 메시지
+  ========================= */
   socket.on("chat:message", async (msg) => {
     if (!CURRENT_USER) return;
 
@@ -644,18 +681,21 @@ function initSocket() {
     // ✅ 좌측 리스트 미리보기 갱신
     updateLeftLastMsg(roomId, preview);
 
-    // ✅ 내가 보고 있는 방이 아니면 unread를 DB로 확정 반영
+    // ✅ 내가 보고 있는 방이 아니면 unread만 확정 반영 (목록도 필요시 갱신)
     if (!ROOM_ID || roomId !== safeStr(ROOM_ID)) {
-      await applyRoomUnreadCounts();
+      try {
+        await applyRoomUnreadCounts();
+      } catch {}
       return;
     }
 
-    // ✅ 내가 보낸 메시지는 socket에서 무시 (중복 방지)
-    if (Number(msg.sender_id) === Number(CURRENT_USER.id)) return;
+    // ✅ 내가 보낸 메시지도 pending 치환을 위해 renderMsg는 한번 태운다
+    if (Number(msg.sender_id) === Number(CURRENT_USER.id)) {
+      renderMsg(msg); // renderMsg 내부에서 clientMsgId 기반으로 pending 치환
+      return;
+    }
 
-    // ✅ pending 중복 차단
-    if (msg.clientMsgId && PENDING_CLIENT_IDS.has(msg.clientMsgId)) return;
-
+    // ✅ 상대방 메시지 렌더
     renderMsg(msg);
     scrollBottom();
 
@@ -663,6 +703,9 @@ function initSocket() {
     markRoomAsRead(ROOM_ID);
   });
 
+  /* =========================
+     ✅ delete
+  ========================= */
   socket.on("chat:delete", ({ messageId, roomId }) => {
     // roomId가 있으면 같은 방만 처리
     if (roomId && ROOM_ID && safeStr(roomId) !== safeStr(ROOM_ID)) return;
@@ -673,6 +716,9 @@ function initSocket() {
     if (el) el.remove();
   });
 
+  /* =========================
+     ✅ read
+  ========================= */
   socket.on("chat:read", ({ roomId }) => {
     if (!ROOM_ID) return;
     if (safeStr(roomId) !== safeStr(ROOM_ID)) return;
@@ -680,76 +726,5 @@ function initSocket() {
     document.querySelectorAll(".msg-row.me .read-state").forEach((el) => {
       el.textContent = "읽음";
     });
-  });
-
-
-
-  /* =========================
-     삭제 이벤트
-  ========================= */
-  socket.on("chat:delete", ({ messageId, roomId }) => {
-    // roomId가 있으면 같은 방만 처리 (서버 호환용)
-    if (roomId && ROOM_ID && safeStr(roomId) !== safeStr(ROOM_ID)) return;
-
-    const el = document.querySelector(
-      `.msg-row[data-message-id="${safeStr(messageId)}"]`
-    );
-    if (el) el.remove();
-  });
-}
-
-
-/* ======================================================
-   이미지 모달
-====================================================== */
-function openImageModal(src) {
-  if (!imgModal || !imgView) return;
-  imgView.src = src;
-  imgModal.style.display = "flex";
-}
-
-if (imgModal) {
-  imgModal.onclick = () => {
-    imgModal.style.display = "none";
-    if (imgView) imgView.src = "";
-  };
-}
-
-/* ======================================================
-   실행
-====================================================== */
-(async function init() {
-  await loadMe();
-  await loadChatList();
-  await applyRoomUnreadCounts(); // ✅ 방별 unread 반영
-
-  if (ROOM_ID) {
-    await loadRoomInfo();     // ✅ 상단 Loading... 해결
-    await loadMessages();     // ✅ 채팅 열림
-    markRoomAsRead(ROOM_ID);  // ✅ 들어오자마자 읽음 처리
-    hideUnreadBadge(ROOM_ID);
-  } else {
-    // roomId 없을 때 상단 문구 방치 방지
-    if (headerName && headerName.textContent === "Loading...") {
-      headerName.textContent = "대화를 선택하세요";
-    }
-  }
-
-  initSocket();
-})();
-
-/* ======================================================
-   입력 이벤트 (중복 전송 방지)
-   - sendBtn.onclick은 한 번만 지정
-   - Enter 키도 한 번만 등록
-====================================================== */
-if (sendBtn) sendBtn.onclick = sendText;
-
-if (msgInput) {
-  msgInput.addEventListener("keydown", (e) => {
-    if (e.key === "Enter") {
-      e.preventDefault();
-      sendText();
-    }
   });
 }
