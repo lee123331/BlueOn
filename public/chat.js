@@ -362,21 +362,23 @@ if (roomDeleteConfirm) {
    🗑 채팅방 삭제 버튼 클릭 (전역 1회 / 이벤트 위임)
 ====================================================== */
 if (chatListArea) {
-  chatListArea.addEventListener("click", (e) => {
-    const btn = e.target.closest(".room-delete-btn");
-    if (!btn) return;
+ chatListArea.addEventListener("click", (e) => {
+  const btn = e.target.closest(".room-delete-btn");
+  if (!btn) return;
 
-    // ✅ 여기서 무조건 먼저 끊기
-    e.preventDefault();
-    e.stopPropagation();
-    e.stopImmediatePropagation(); // 🔥 이게 핵심
+  e.preventDefault();
+  e.stopPropagation();
+  e.stopImmediatePropagation(); // ✅ 이거까지
 
-    const item = btn.closest(".chat-item");
-    const roomId = item?.dataset?.roomId;
-    if (!roomId) return;
+  const item = btn.closest(".chat-item");
+  if (!item) return;
 
-    openRoomDeleteModal(roomId);
-  }, true); // 🔥 capture = true
+  const roomId = Number(item.dataset.roomId);
+  if (!roomId) return;
+
+  openRoomDeleteModal(roomId); // ✅ 여기서 모달만 띄움
+});
+
 }
 
 

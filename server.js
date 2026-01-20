@@ -4913,23 +4913,21 @@ ORDER BY x.updated_at DESC
 });
 // POST /chat/delete-room
 app.post("/chat/delete-room", async (req, res) => {
-  let conn;
+  const conn = await db.getConnection();
   try {
-    conn = await db.getConnection();
-
     if (!req.session.user) {
       return res.status(401).json({ success: false, message: "LOGIN_REQUIRED" });
     }
 
-    const userId = req.session.user.id;
+    const userId = Number(req.session.user.id);
     const rid = Number(req.body.roomId);
-
     if (!rid || Number.isNaN(rid)) {
       return res.status(400).json({ success: false, message: "ROOM_ID_REQUIRED" });
     }
 
+    // ✅ chat_rooms 기준으로 권한 확인 (여기 테이블명이 핵심!)
     const [rooms] = await conn.query(
-      `SELECT id, buyer_id, expert_id FROM service_chat_rooms WHERE id = ? LIMIT 1`,
+      `SELECT id, buyer_id, expert_id FROM chat_rooms WHERE id = ? LIMIT 1`,
       [rid]
     );
     if (!rooms.length) {
@@ -4937,34 +4935,33 @@ app.post("/chat/delete-room", async (req, res) => {
     }
 
     const room = rooms[0];
-    if (room.buyer_id !== userId && room.expert_id !== userId) {
+    const isMember = Number(room.buyer_id) === userId || Number(room.expert_id) === userId;
+    if (!isMember) {
       return res.status(403).json({ success: false, message: "FORBIDDEN" });
     }
 
     await conn.beginTransaction();
 
-    // 있으면 먼저 삭제
-    // await conn.query(`DELETE FROM chat_files WHERE room_id = ?`, [rid]);
-
+    // ✅ FK 걸린 순서대로 삭제
     await conn.query(`DELETE FROM chat_messages WHERE room_id = ?`, [rid]);
     await conn.query(`DELETE FROM chat_unread   WHERE room_id = ?`, [rid]);
-    await conn.query(`DELETE FROM service_chat_rooms WHERE id = ?`, [rid]);
+    await conn.query(`DELETE FROM chat_rooms    WHERE id = ?`, [rid]);
 
     await conn.commit();
 
+    // ✅ 실시간 반영
     io.to(String(rid)).emit("chat:room-deleted", { roomId: rid });
 
     return res.json({ success: true });
   } catch (e) {
-    if (conn) {
-      try { await conn.rollback(); } catch {}
-    }
+    try { await conn.rollback(); } catch {}
     console.error("delete-room error:", e);
     return res.status(500).json({ success: false, message: "SERVER_ERROR" });
   } finally {
-    if (conn) conn.release();
+    conn.release();
   }
 });
+
 
 /* ======================================================
    🔵 전문가 작업 요약
