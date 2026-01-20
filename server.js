@@ -2252,26 +2252,45 @@ console.log("🧩 socket session user:", socket.request?.session?.user || null);
        - ACK(cb) 지원
        - join 완료 이벤트(chat:joined)도 발사
     ====================================================== */
-    socket.on("chat:join", (roomId, cb) => {
-      try {
-        if (!roomId) {
-          if (typeof cb === "function") cb({ ok: false, reason: "NO_ROOM_ID" });
-          return;
-        }
+    // ✅ 기존 socket.on("chat:join", ...) 이 블록을 통째로 교체
+socket.on("chat:join", (payload, cb) => {
+  try {
+    let roomId = null;
+    let roomType = "work";
 
-        const rid = String(roomId);
-        socket.join(rid);
+    // 1) 구형 호환: socket.emit("chat:join", roomId, cb)
+    if (typeof payload === "string" || typeof payload === "number") {
+      roomId = Number(payload);
+      roomType = "work";
+    }
+    // 2) 신형 표준: socket.emit("chat:join", { roomType, roomId }, cb)
+    else if (payload && typeof payload === "object") {
+      roomId = Number(payload.roomId);
+      const t = String(payload.roomType || "").trim();
+      if (t === "work" || t === "service") roomType = t;
+    }
 
-        console.log(`📌 chat:join → room ${rid} | user=${uid} | socket=${socket.id}`);
+    if (!roomId || Number.isNaN(roomId)) {
+      if (typeof cb === "function") cb({ ok: false, reason: "NO_ROOM_ID" });
+      return;
+    }
 
-        socket.emit("chat:joined", { roomId: rid });
+    // ✅ 핵심: roomKey 룸으로 join
+    const roomKey = `${roomType}:${roomId}`;
+    socket.join(roomKey);
 
-        if (typeof cb === "function") cb({ ok: true, roomId: rid });
-      } catch (e) {
-        console.error("❌ chat:join handler error:", e);
-        if (typeof cb === "function") cb({ ok: false, reason: "JOIN_ERROR" });
-      }
-    });
+    console.log(
+      `📌 chat:join → roomKey ${roomKey} | user=${uid} | socket=${socket.id}`
+    );
+
+    socket.emit("chat:joined", { roomId, roomType, roomKey });
+
+    if (typeof cb === "function") cb({ ok: true, roomId, roomType, roomKey });
+  } catch (e) {
+    console.error("❌ chat:join handler error:", e);
+    if (typeof cb === "function") cb({ ok: false, reason: "JOIN_ERROR" });
+  }
+});
 
     /* ======================================================
        4️⃣ typing 표시
@@ -4742,6 +4761,18 @@ app.post("/expert/tasks/start", async (req, res) => {
 // ======================================================
 
 // ✅ 채팅방 목록 (좌측 리스트 최종 정답)
+/* ======================================================
+   GET /chat/rooms
+   ✅ 좌측 채팅방 리스트 (work/chat_rooms + service_chat_rooms 통합)
+   - work(작업채팅): chat_rooms
+   - service(문의채팅): service_chat_rooms
+
+   ✅ FIX 핵심
+   1) room_type 고정(work/service)
+   2) id 충돌 대비: room_key = `${room_type}:${roomId}`
+   3) unread JOIN은 room_type까지 포함 (충돌/섞임 차단)
+   4) service last_msg 서브쿼리는 chat_messages.room_type='service' 조건 필수
+====================================================== */
 app.get("/chat/rooms", async (req, res) => {
   try {
     if (!req.session.user) {
@@ -4750,15 +4781,10 @@ app.get("/chat/rooms", async (req, res) => {
 
     const myId = Number(req.session.user.id);
 
-const SQL = `
-/* ======================================================
-   ✅ 좌측 채팅방 리스트 (work/chat_rooms + service_chat_rooms 통합)
-   - work(작업채팅): chat_rooms
-   - service(문의채팅): service_chat_rooms
-====================================================== */
-
+    const SQL = `
 SELECT
   x.roomId,
+  x.room_key,
   x.last_msg,
   x.updated_at,
   x.other_id,
@@ -4773,7 +4799,8 @@ FROM (
   ============================ */
   SELECT
     r.id AS roomId,
-    r.last_msg,
+    CONCAT('work', ':', r.id) AS room_key,
+    COALESCE(r.last_msg, '') AS last_msg,
     r.updated_at,
 
     CASE
@@ -4791,7 +4818,7 @@ FROM (
 
     COALESCE(cu.count, 0) AS unread,
 
-    r.room_type AS room_type
+    'work' AS room_type
 
   FROM chat_rooms r
 
@@ -4804,8 +4831,10 @@ FROM (
   LEFT JOIN expert_profiles ep
     ON ep.user_id = u.id
 
+  /* ✅ unread도 room_type까지 포함해야 충돌 없음 */
   LEFT JOIN chat_unread cu
     ON cu.room_id = r.id
+   AND cu.room_type = 'work'
    AND cu.user_id = ?
 
   WHERE r.user1_id = ? OR r.user2_id = ?
@@ -4814,25 +4843,30 @@ FROM (
 
   /* ===========================
      2) 문의 채팅 (service_chat_rooms)
-     - last_msg는 chat_messages에서 최신 1개를 가져옴
+     ✅ last_msg는 scr.last_msg 우선,
+        없으면 chat_messages에서 가져오되 room_type='service' 필수
   ============================ */
   SELECT
     scr.id AS roomId,
+    CONCAT('service', ':', scr.id) AS room_key,
 
-    /* 마지막 메시지 프리뷰 */
-    (
-      SELECT
-        CASE
-          WHEN m.message_type = 'image' THEN '📷 이미지'
-          ELSE m.message
-        END
-      FROM chat_messages m
-      WHERE m.room_id = scr.id
-      ORDER BY m.id DESC
-      LIMIT 1
+    COALESCE(
+      scr.last_msg,
+      (
+        SELECT
+          CASE
+            WHEN m.message_type = 'image' THEN '📷 이미지'
+            ELSE COALESCE(m.message, '')
+          END
+        FROM chat_messages m
+        WHERE m.room_id = scr.id
+          AND m.room_type = 'service'
+        ORDER BY m.id DESC
+        LIMIT 1
+      ),
+      ''
     ) AS last_msg,
 
-    /* updated_at은 service_chat_rooms.updated_at 사용 */
     scr.updated_at AS updated_at,
 
     CASE
@@ -4840,17 +4874,15 @@ FROM (
       ELSE scr.buyer_id
     END AS other_id,
 
-    /* 상대방 닉네임 */
     COALESCE(ep2.nickname, u2.nickname, '사용자') AS nickname,
 
-    /* 상대방 아바타 */
     COALESCE(
       ep2.avatar_url,
       u2.avatar_url,
       '/assets/default_profile.png'
     ) AS avatar,
 
-    /* unread */
+    /* ✅ unread도 room_type까지 포함해야 충돌 없음 */
     COALESCE(cu2.count, 0) AS unread,
 
     'service' AS room_type
@@ -4868,152 +4900,214 @@ FROM (
 
   LEFT JOIN chat_unread cu2
     ON cu2.room_id = scr.id
+   AND cu2.room_type = 'service'
    AND cu2.user_id = ?
 
   WHERE scr.buyer_id = ? OR scr.expert_id = ?
 
 ) x
-
-/* ✅ 최신순 정렬 */
 ORDER BY x.updated_at DESC
 `;
 
+    const params = [
+      // work(chat_rooms)
+      myId, // CASE 비교
+      myId, // users join CASE 비교
+      myId, // unread user_id
+      myId, // WHERE user1
+      myId, // WHERE user2
 
-   const params = [
-  // (1) chat_rooms 파트: 5개
-  myId, // CASE 비교
-  myId, // users join CASE 비교
-  myId, // unread user_id
-  myId, // WHERE user1
-  myId, // WHERE user2
-
-  // (2) service_chat_rooms 파트: 5개
-  myId, // CASE 비교
-  myId, // users join CASE 비교
-  myId, // unread user_id
-  myId, // WHERE buyer
-  myId, // WHERE expert
-];
-
+      // service(service_chat_rooms)
+      myId, // CASE 비교
+      myId, // users join CASE 비교
+      myId, // unread user_id
+      myId, // WHERE buyer
+      myId, // WHERE expert
+    ];
 
     const [rows] = await db.query(SQL, params);
 
-    return res.json({
-      success: true,
-      rooms: rows,
+    const safeRows = (rows || []).map((r) => {
+      const rt = (r.room_type === "service" || r.room_type === "work") ? r.room_type : "work";
+      const rid = r.roomId;
+
+      return {
+        ...r,
+        roomId: rid,
+        room_type: rt,
+        room_key: r.room_key || `${rt}:${rid}`,
+        last_msg: r.last_msg || "",
+        nickname: r.nickname || "사용자",
+        avatar: r.avatar || "/assets/default_profile.png",
+        unread: Number(r.unread || 0),
+      };
     });
 
+    return res.json({ success: true, rooms: safeRows });
   } catch (e) {
     console.error("❌ /chat/rooms error:", e);
-    return res.json({
-      success: false,
-      rooms: [],
-    });
+    return res.json({ success: false, rooms: [] });
   }
 });
+
+
+/* ======================================================
+   POST /chat/delete-room
+   🗑 채팅방 삭제 (roomType+roomId 기반 완전판)
+   body: { roomId, roomType }
+   ✅ FIX 핵심
+   1) roomType 우선 판단, 없으면 탐색
+   2) chat_messages/chat_unread 삭제는 반드시 room_type 조건 포함
+   3) 소켓 룸도 `${roomType}:${roomId}`로 emit (프론트 join과 통일)
+====================================================== */
+// ======================================================
 // POST /chat/delete-room
-// ===============================
-// 🗑 채팅방 삭제 (완성 안정판 / user룸 브로드캐스트 + FK순서 + 트랜잭션)
-// POST /chat/delete-room
-// body: { roomId }
-// ===============================
+// 🗑 채팅방 삭제 (roomType + roomId 완전판)
+// body: { roomId, roomType }   // roomType: "work" | "service"
+// ======================================================
 app.post("/chat/delete-room", async (req, res) => {
   const conn = await db.getConnection();
   try {
     if (!req.session.user) {
-      return res.status(401).json({ success: false, message: "LOGIN_REQUIRED" });
+      return res
+        .status(401)
+        .json({ success: false, message: "LOGIN_REQUIRED" });
     }
 
     const userId = Number(req.session.user.id);
-    const ridRaw = req.body.roomId;
-    const rid = Number(ridRaw);
-    const roomType = String(req.body.roomType || "work"); // "work" | "service"
 
+    // ✅ roomId 파싱 (string/number 모두 허용)
+    const rid = Number(req.body?.roomId);
     if (!rid || Number.isNaN(rid)) {
-      return res.status(400).json({ success: false, message: "ROOM_ID_REQUIRED" });
+      return res
+        .status(400)
+        .json({ success: false, message: "ROOM_ID_REQUIRED" });
     }
 
-    await conn.beginTransaction();
+    // ✅ roomType 정규화
+    const roomTypeRaw = String(req.body?.roomType || "").trim();
+    const roomType =
+      roomTypeRaw === "work" || roomTypeRaw === "service" ? roomTypeRaw : null;
 
-    // =========================
-    // 1) service 채팅 삭제
-    // =========================
-    if (roomType === "service") {
-      const [rooms] = await conn.query(
-        `SELECT id, buyer_id, expert_id FROM service_chat_rooms WHERE id=? LIMIT 1`,
+    // ------------------------------------------------------
+    // 1) 방 존재 + 멤버 여부 확인 (roomType 우선, 없으면 탐색)
+    // ------------------------------------------------------
+    async function findWorkRoom() {
+      const [rows] = await conn.query(
+        `SELECT id, user1_id, user2_id FROM chat_rooms WHERE id = ? LIMIT 1`,
         [rid]
       );
-      if (!rooms.length) {
-        await conn.rollback();
-        return res.status(404).json({ success: false, message: "ROOM_NOT_FOUND" });
-      }
+      if (!rows || rows.length === 0) return null;
 
-      const room = rooms[0];
-      const buyerId = Number(room.buyer_id);
-      const expertId = Number(room.expert_id);
+      const r = rows[0];
+      const isMember =
+        Number(r.user1_id) === userId || Number(r.user2_id) === userId;
 
-      if (buyerId !== userId && expertId !== userId) {
-        await conn.rollback();
-        return res.status(403).json({ success: false, message: "FORBIDDEN" });
-      }
-
-      // ✅ 주의: chat_messages / chat_unread가 "service도 같은 room_id를 쓰는 구조"라서 삭제
-      await conn.query(`DELETE FROM chat_messages WHERE room_id = ?`, [rid]);
-      await conn.query(`DELETE FROM chat_unread   WHERE room_id = ?`, [rid]);
-      await conn.query(`DELETE FROM service_chat_rooms WHERE id = ?`, [rid]);
-
-      await conn.commit();
-
-      io.to(`user:${buyerId}`).emit("chat:room-deleted", { roomId: rid, roomType: "service" });
-      io.to(`user:${expertId}`).emit("chat:room-deleted", { roomId: rid, roomType: "service" });
-
-      // room socket도 정리(선택)
-      io.to(String(rid)).emit("chat:room-deleted", { roomId: rid, roomType: "service" });
-
-      return res.json({ success: true, roomId: rid, roomType: "service" });
+      if (!isMember) return { forbidden: true };
+      return { type: "work" };
     }
 
-    // =========================
-    // 2) work 채팅 삭제
-    // =========================
-    const [rooms] = await conn.query(
-      `SELECT id, user1_id, user2_id FROM chat_rooms WHERE id=? LIMIT 1`,
-      [rid]
+    async function findServiceRoom() {
+      const [rows] = await conn.query(
+        `SELECT id, buyer_id, expert_id FROM service_chat_rooms WHERE id = ? LIMIT 1`,
+        [rid]
+      );
+      if (!rows || rows.length === 0) return null;
+
+      const r = rows[0];
+      const isMember =
+        Number(r.buyer_id) === userId || Number(r.expert_id) === userId;
+
+      if (!isMember) return { forbidden: true };
+      return { type: "service" };
+    }
+
+    let found = null;
+
+    if (roomType === "work") {
+      found = await findWorkRoom();
+    } else if (roomType === "service") {
+      found = await findServiceRoom();
+    } else {
+      // roomType이 안 오면(구형/예외) 둘 다 탐색
+      found = await findWorkRoom();
+      if (!found) found = await findServiceRoom();
+    }
+
+    if (!found) {
+      return res
+        .status(404)
+        .json({ success: false, message: "ROOM_NOT_FOUND" });
+    }
+    if (found.forbidden) {
+      return res
+        .status(403)
+        .json({ success: false, message: "FORBIDDEN" });
+    }
+
+    // ------------------------------------------------------
+    // 2) 삭제 트랜잭션 (✅ room_type 조건 필수)
+    // ------------------------------------------------------
+    await conn.beginTransaction();
+
+    // ✅ 메시지/언리드: room_id + room_type 조건으로만 삭제
+    await conn.query(
+      `DELETE FROM chat_messages WHERE room_id = ? AND room_type = ?`,
+      [rid, found.type]
     );
-    if (!rooms.length) {
-      await conn.rollback();
-      return res.status(404).json({ success: false, message: "ROOM_NOT_FOUND" });
+
+    await conn.query(
+      `DELETE FROM chat_unread WHERE room_id = ? AND room_type = ?`,
+      [rid, found.type]
+    );
+
+    // ✅ 실제 방 테이블 삭제
+    if (found.type === "work") {
+      await conn.query(`DELETE FROM chat_rooms WHERE id = ?`, [rid]);
+    } else {
+      await conn.query(`DELETE FROM service_chat_rooms WHERE id = ?`, [rid]);
     }
-
-    const room = rooms[0];
-    const u1 = Number(room.user1_id);
-    const u2 = Number(room.user2_id);
-
-    if (u1 !== userId && u2 !== userId) {
-      await conn.rollback();
-      return res.status(403).json({ success: false, message: "FORBIDDEN" });
-    }
-
-    await conn.query(`DELETE FROM chat_messages WHERE room_id = ?`, [rid]);
-    await conn.query(`DELETE FROM chat_unread   WHERE room_id = ?`, [rid]);
-    await conn.query(`DELETE FROM chat_rooms    WHERE id = ?`, [rid]);
 
     await conn.commit();
 
-    io.to(`user:${u1}`).emit("chat:room-deleted", { roomId: rid, roomType: "work" });
-    io.to(`user:${u2}`).emit("chat:room-deleted", { roomId: rid, roomType: "work" });
-    io.to(String(rid)).emit("chat:room-deleted", { roomId: rid, roomType: "work" });
+    // ------------------------------------------------------
+    // 3) 소켓 브로드캐스트 (✅ roomKey로 통일)
+    // ------------------------------------------------------
+   const roomKey = `${roomType}:${roomId}`;
+io.to(roomKey).emit("chat:message", msg);
 
-    return res.json({ success: true, roomId: rid, roomType: "work" });
+
+    // 방 룸으로 브로드캐스트 (현재 방 접속자)
+    io.to(roomKey).emit("chat:room-deleted", {
+      roomId: rid,
+      roomType: found.type,
+    });
+
+    // 내 알림 채널로도 브로드캐스트 (좌측 리스트 즉시 제거)
+    io.to(`user:${userId}`).emit("chat:room-deleted", {
+      roomId: rid,
+      roomType: found.type,
+    });
+
+    return res.json({
+      success: true,
+      roomId: rid,
+      roomType: found.type,
+      roomKey,
+    });
   } catch (e) {
-    try { await conn.rollback(); } catch {}
-    console.error("delete-room error:", e);
-    return res.status(500).json({ success: false, message: "SERVER_ERROR" });
+    try {
+      await conn.rollback();
+    } catch {}
+
+    console.error("❌ /chat/delete-room error:", e);
+    return res
+      .status(500)
+      .json({ success: false, message: "SERVER_ERROR" });
   } finally {
     conn.release();
   }
 });
-  
 
 
 /* ======================================================

@@ -3,12 +3,61 @@ console.log("🔥 chat.js FINAL COMPLETE loaded");
 const API = "https://blueon.up.railway.app";
 
 /* ======================================================
-   URL 파라미터
+   URL 파라미터 (표준: roomType + roomId)
+   - 표준:  /chat.html?roomType=work&roomId=14
+   - 호환:  /chat.html?type=work&roomId=14  (기존 코드)
 ====================================================== */
 const params = new URLSearchParams(location.search);
-const ROOM_ID = params.get("roomId"); // string | null
-// 🔥 삭제된 방 재등장 방지용
-const DELETED_ROOMS = new Set();
+
+// ✅ roomType: 표준(roomType) 우선, 없으면 호환(type), 그래도 없으면 null
+const ROOM_TYPE_RAW = params.get("roomType") || params.get("type");
+
+// ✅ roomId: string -> number 로 통일
+const ROOM_ID_RAW = params.get("roomId");
+const ROOM_ID = ROOM_ID_RAW ? Number(ROOM_ID_RAW) : null;
+
+// ✅ roomType 정규화 (work/service 외 값은 기본 work로 처리하거나 null로)
+function normalizeRoomType(v) {
+  const t = String(v || "").trim();
+  if (t === "work" || t === "service") return t;
+  return null; // 엄격 모드
+}
+
+// 엄격하게 가려면 null 유지, 느슨하게 가려면 "work" 기본값
+const ROOM_TYPE = normalizeRoomType(ROOM_TYPE_RAW); // "work" | "service" | null
+
+// ✅ 현재 방 키 (roomType:roomId)
+function makeRoomKey(roomType, roomId) {
+  const t = normalizeRoomType(roomType) || "work";
+  return `${t}:${String(roomId)}`;
+}
+
+// ✅ 삭제된 방 재등장 방지용 (localStorage 영구 저장)
+const DELETED_ROOMS_STORAGE_KEY = "DELETED_ROOMS_V1";
+const DELETED_ROOMS = new Set(
+  JSON.parse(localStorage.getItem(DELETED_ROOMS_STORAGE_KEY) || "[]")
+);
+
+function markRoomDeleted(roomType, roomId) {
+  const key = makeRoomKey(roomType, roomId);
+  DELETED_ROOMS.add(key);
+  localStorage.setItem(DELETED_ROOMS_STORAGE_KEY, JSON.stringify([...DELETED_ROOMS]));
+}
+
+function isRoomDeleted(roomType, roomId) {
+  const key = makeRoomKey(roomType, roomId);
+  return DELETED_ROOMS.has(key);
+}
+
+// ✅ 디버그 로그 (문제 생기면 여기부터 확인)
+console.log("🔎 URL parsed:", {
+  search: location.search,
+  ROOM_ID_RAW,
+  ROOM_ID,
+  ROOM_TYPE_RAW,
+  ROOM_TYPE,
+});
+
 
 /* ======================================================
    DOM
@@ -51,7 +100,7 @@ let DELETE_TARGET_ROW = null;
 
 // ✅ 채팅방 삭제 모달 상태 (핵심)
 let PENDING_DELETE_ROOM_ID = null;
-let PENDING_DELETE_ROOM_TYPE = null; // 🔥 추가
+let PENDING_DELETE_ROOM_TYPE = null; // "work" | "service" | null
 
 /* ======================================================
    공통 유틸
@@ -69,9 +118,17 @@ function genClientMsgId() {
   return `c_${Date.now()}_${Math.random().toString(16).slice(2)}`;
 }
 
+// ✅ roomId만으로 찾던 기존 호환 유지
 function getChatItem(roomId) {
   return document.querySelector(`.chat-item[data-room-id="${safeStr(roomId)}"]`);
 }
+
+// ✅ roomType+roomId로 정확히 찾기 (유령방/충돌 해결)
+function getChatItemByKey(roomType, roomId) {
+  const key = makeRoomKey(roomType, roomId);
+  return document.querySelector(`.chat-item[data-room-key="${key}"]`);
+}
+
 
 function showUnreadBadge(roomId, cnt = null) {
   const item = getChatItem(roomId);
@@ -98,16 +155,29 @@ function hideUnreadBadge(roomId) {
   badge.textContent = "";
 }
 
-function updateLeftLastMsg(roomId, text) {
-  const item = getChatItem(roomId);
+function updateLeftLastMsg(roomId, text, roomType = null) {
+  let item = null;
+
+  if (roomType) item = getChatItemByKey(roomType, roomId);
+  if (!item) item = getChatItem(roomId);
   if (!item) return;
+
   const el = item.querySelector(".chat-last");
   if (el) el.textContent = text || "";
 }
 
+
 function pickRoomId(r) {
   return safeStr(r?.roomId || r?.room_id || r?.id || r?.room || r?.roomID);
 }
+
+function pickRoomType(r) {
+  // 서버 호환: room_type 또는 roomType
+  const t = safeStr(r?.room_type || r?.roomType || "");
+  return t || "work"; // 기본값 work
+}
+
+
 
 /* ======================================================
    unread 동기화
@@ -118,11 +188,20 @@ async function applyRoomUnreadCounts() {
     const data = await res.json().catch(() => null);
     if (!data || !data.success) return;
 
-    const roomsMap = data.rooms || {};
+    // ✅ 서버 응답 호환:
+    // 1) 최신: data.rooms = { "work:14": 2, "service:14": 1, ... }
+    // 2) 구형: data.rooms = { "14": 2, "15": 1, ... }
+    // 3) 다른 키: data.map, data.unreadMap 등도 대비
+    const map = data.rooms || data.map || data.unreadMap || {};
 
-    document.querySelectorAll(".chat-item[data-room-id]").forEach((item) => {
+    // ✅ 앞으로는 roomKey 기준이 정석이므로 data-room-key를 우선 사용
+    document.querySelectorAll(".chat-item[data-room-key], .chat-item[data-room-id]").forEach((item) => {
       const rid = safeStr(item.dataset.roomId);
-      const cnt = Number(roomsMap[rid] || 0);
+      const rtype = safeStr(item.dataset.roomType || "work");
+      const key = safeStr(item.dataset.roomKey) || makeRoomKey(rtype, rid);
+
+      // ✅ 우선순위: key → rid(구형 호환) → 0
+      const cnt = Number(map[key] ?? map[rid] ?? 0);
 
       const badge = item.querySelector(".chat-unread-badge");
       if (!badge) return;
@@ -182,15 +261,17 @@ if (confirmDeleteBtn) {
         credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          roomId: ROOM_ID,
-          messageId: targetId,
-        }),
+  roomId: ROOM_ID,
+  roomType: ROOM_TYPE || "work",
+  messageId: targetId,
+}),
+
       });
 
       const data = await res.json().catch(() => null);
       if (!data || !data.success) {
         console.log("❌ delete failed:", data, "roomId=", ROOM_ID);
-        // 실패 시 동기화 (복구 난이도 낮춤)
+        // 실패 시 동기화
         location.reload();
       }
     } catch (e) {
@@ -203,13 +284,15 @@ if (confirmDeleteBtn) {
 /* ======================================================
    🗑 채팅방 삭제 모달 (전역 1회)
 ====================================================== */
-function openRoomDeleteModal(roomId) {
+function openRoomDeleteModal(roomId, roomType) {
   PENDING_DELETE_ROOM_ID = safeStr(roomId);
+  PENDING_DELETE_ROOM_TYPE = safeStr(roomType || "work"); // ✅ 핵심: 타입 저장
   if (roomDeleteModal) roomDeleteModal.style.display = "flex";
 }
 
 function closeRoomDeleteModal() {
   PENDING_DELETE_ROOM_ID = null;
+  PENDING_DELETE_ROOM_TYPE = null;
   if (roomDeleteModal) roomDeleteModal.style.display = "none";
 }
 
@@ -236,31 +319,16 @@ async function loadMe() {
 }
 
 /* ======================================================
-   좌측 채팅방 목록
-====================================================== */
-/* ======================================================
-   좌측 채팅방 목록 (FINAL)
-   - roomId 중복 제거
-   - 삭제된 방(DELETED_ROOMS) 재등장 방지
-   - 삭제 버튼 클릭 시 방 이동 방지 + 모달 오픈
-   - 리스트 비어있을 때/실패할 때 안내문 표시
-====================================================== */
-
-// 🔥 파일 상단(전역) 어딘가에 1회만 선언해줘야 함
-// const DELETED_ROOMS = new Set();
-
-/* ======================================================
-   좌측 채팅방 목록 (FINAL - roomType 포함)
+   좌측 채팅방 목록 (완전본)
    - 헤더 유지
-   - roomId+roomType 기준 중복 제거
-   - DELETED_ROOMS(프론트 삭제 캐시)로 재등장 방지
-   - 삭제 버튼 클릭 시 방 이동 방지 + 모달 오픈(✅ roomType 전달)
+   - roomType:id 기준 중복 제거 (유령 방 방지)
+   - DELETED_ROOMS에 기록된 key는 재등장 방지
+   - 삭제 버튼 클릭 시 방 이동 차단 + 모달 오픈(✅ roomType 전달)
 ====================================================== */
 async function loadChatList() {
   const listEl = document.getElementById("chatList");
   if (!listEl) return;
 
-  // 항상 헤더는 유지
   listEl.innerHTML = "<h2>메시지</h2>";
 
   try {
@@ -281,19 +349,16 @@ async function loadChatList() {
 
     const rooms = Array.isArray(data.rooms) ? data.rooms : [];
 
-    // ✅ roomId + roomType 기준 중복 제거 + ✅ 삭제된 방은 필터링
-    // (유령 방 원인: work/service 테이블이 id 겹칠 수 있음 → type까지 포함해야 안전)
+    // ✅ roomType:id 기준 중복 제거 + 삭제 캐시 필터링
     const map = new Map();
     for (const r of rooms) {
       const rid = String(pickRoomId(r) || "");
       if (!rid) continue;
 
-      const rtype = String(r.room_type || r.roomType || "work"); // 서버 필드 호환
-      const key = `${rtype}:${rid}`;
+      const rtype = pickRoomType(r);
+      const key = makeRoomKey(rtype, rid);
 
-      // ✅ 프론트에서 삭제한 방이 다시 그려지는 것 방지
-      if (typeof DELETED_ROOMS !== "undefined" && DELETED_ROOMS.has(key)) continue;
-
+      if (DELETED_ROOMS.has(key)) continue;
       map.set(key, r);
     }
 
@@ -313,18 +378,18 @@ async function loadChatList() {
       const roomId = String(pickRoomId(room) || "");
       if (!roomId) return;
 
-      const roomType = String(room.room_type || room.roomType || "work");
-      const key = `${roomType}:${roomId}`;
+      const roomType = pickRoomType(room);
+      const key = makeRoomKey(roomType, roomId);
 
-      // ✅ 안전: 여기까지 내려와도 한 번 더 필터
-      if (typeof DELETED_ROOMS !== "undefined" && DELETED_ROOMS.has(key)) return;
+      if (DELETED_ROOMS.has(key)) return;
 
       const item = document.createElement("div");
       item.className = "chat-item";
 
-      // ✅ dataset에 둘 다 저장 (삭제/이동/필터에 활용)
+      // ✅ 기존 호환 + 신규 key
       item.dataset.roomId = safeStr(roomId);
       item.dataset.roomType = safeStr(roomType);
+      item.dataset.roomKey = safeStr(key);
 
       const unreadOn = Number(room.unread || 0) > 0;
 
@@ -352,29 +417,26 @@ async function loadChatList() {
                 aria-label="채팅방 삭제">🗑</button>
       `;
 
-      // ✅ 방 이동은 item onclick으로 유지
       item.onclick = (e) => {
-        // 🔥 삭제 버튼 클릭 시 → 방 이동 차단 + 모달 오픈 (✅ roomType 전달)
         if (e.target.closest(".room-delete-btn")) {
           e.preventDefault();
           e.stopPropagation();
-          openRoomDeleteModal(roomId, roomType); // ✅ 핵심
+          openRoomDeleteModal(roomId, roomType); // ✅ roomType 전달
           return;
         }
 
         hideUnreadBadge(roomId);
-        location.href = `/chat.html?roomId=${encodeURIComponent(roomId)}`;
+        // ✅ type 파라미터는 호환 유지(없어도 기존 동작), 있으면 정확도↑
+        location.href = `/chat.html?roomType=${encodeURIComponent(roomType)}&roomId=${encodeURIComponent(roomId)}`;
+
       };
 
-      // ✅ 핵심: DOM에 추가
       listEl.appendChild(item);
     });
   } catch (e) {
     console.warn("❌ loadChatList error:", e);
 
-    // 실패해도 헤더는 유지
     listEl.innerHTML = "<h2>메시지</h2>";
-
     const empty = document.createElement("div");
     empty.style.padding = "12px";
     empty.style.color = "#6b7280";
@@ -384,11 +446,18 @@ async function loadChatList() {
   }
 }
 
-
 /* ======================================================
    채팅방 삭제 유틸
 ====================================================== */
-function removeRoomFromUI(roomId) {
+function removeRoomFromUI(roomId, roomType = null) {
+  // ✅ 우선 key로 제거(정확), 없으면 기존 방식(roomId)로 제거(호환)
+  if (roomType) {
+    const elByKey = getChatItemByKey(roomType, roomId);
+    if (elByKey) {
+      elByKey.remove();
+      return;
+    }
+  }
   const el = document.querySelector(`.chat-item[data-room-id="${safeStr(roomId)}"]`);
   if (el) el.remove();
 }
@@ -401,16 +470,12 @@ function closeIfCurrentRoom(roomId) {
 }
 
 /* ======================================================
-   🗑 채팅방 삭제 확정 처리 (모달 버튼) - FINAL
+   🗑 채팅방 삭제 확정 처리 (모달 버튼) - 완전본
    - 성공 시에만 UI 제거
-   - DELETED_ROOMS에 기록해서 재렌더링(동기화) 때 다시 나타나는 것 방지
-   - alert/새로고침 없음
-   - 현재 보고 있는 방이면 /chat.html로 안전 이동
+   - DELETED_ROOMS에 type:id 기록 → 재등장 방지
+   - roomType을 서버에 전송(서버가 지원하면 정확 삭제)
+   - 서버가 아직 roomType을 안 받는 경우에도 동작(무시됨)
 ====================================================== */
-
-// 🔥 파일 상단에 1회만 있어야 함
-// const DELETED_ROOMS = new Set();
-
 if (roomDeleteConfirm) {
   roomDeleteConfirm.onclick = async (e) => {
     e.preventDefault();
@@ -418,10 +483,11 @@ if (roomDeleteConfirm) {
 
     if (!PENDING_DELETE_ROOM_ID) return;
 
-    const roomId = String(PENDING_DELETE_ROOM_ID); // ✅ 문자열로 통일
-    closeRoomDeleteModal();
+    const roomId = String(PENDING_DELETE_ROOM_ID);
+    const roomType = String(PENDING_DELETE_ROOM_TYPE || "work");
+    const key = makeRoomKey(roomType, roomId);
 
-    // 버튼 연타 방지
+    closeRoomDeleteModal();
     roomDeleteConfirm.disabled = true;
 
     try {
@@ -429,56 +495,45 @@ if (roomDeleteConfirm) {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ roomId: Number(roomId) || roomId }), // 숫자/문자 호환
+        body: JSON.stringify({
+          roomId: Number(roomId) || roomId,
+          roomType, // ✅ 서버가 받으면 work/service 정확 삭제, 안 받으면 그냥 무시됨(호환)
+        }),
       });
 
       const data = await res.json().catch(() => null);
 
       if (!data || !data.success) {
         console.warn("❌ delete-room failed:", data);
-
-        // ✅ 실패 시: 모달 닫힌 상태 유지 + 목록 재동기화(새로고침 X)
-        try {
-          await loadChatList();
-          await applyRoomUnreadCounts();
-        } catch {}
+        await loadChatList();
+        await applyRoomUnreadCounts();
         return;
       }
 
-      // ✅ 서버가 roomId를 내려주면 그 값을 우선 사용 (없으면 기존값)
+      // ✅ 서버가 돌려준 값 우선(없으면 기존값)
       const deletedId = String(data.roomId || roomId);
+      const deletedType = String(data.roomType || roomType);
+      const deletedKey = makeRoomKey(deletedType, deletedId);
 
-      // ✅ 재렌더링 때 다시 나타나는 것 방지
-      if (typeof DELETED_ROOMS !== "undefined") {
-        DELETED_ROOMS.add(deletedId);
-      }
+      // ✅ 재등장 방지
+      DELETED_ROOMS.add(deletedKey);
+      if (deletedKey !== key) DELETED_ROOMS.add(key);
 
       // ✅ 성공 시에만 UI 제거
-      removeRoomFromUI(deletedId);
+      removeRoomFromUI(deletedId, deletedType);
+      // 혹시 남아있으면 기존 키로도 제거 시도
+      removeRoomFromUI(roomId, roomType);
 
-      // ✅ 현재 보고 있는 방이면 안전 이동
+      // ✅ 현재 방이면 이동
       closeIfCurrentRoom(deletedId);
 
-      // ✅ 혹시 기존 roomId/서버 roomId가 달라서 남아있을 수도 있으니 둘 다 제거 시도
-      if (deletedId !== roomId) {
-        if (typeof DELETED_ROOMS !== "undefined") DELETED_ROOMS.add(roomId);
-        removeRoomFromUI(roomId);
-        closeIfCurrentRoom(roomId);
-      }
-
-      // ✅ 최종적으로 목록/뱃지 한 번 동기화 (삭제 직후 깔끔하게)
-      try {
-        await loadChatList();
-        await applyRoomUnreadCounts();
-      } catch {}
+      // ✅ 서버 기준 재동기화
+      await loadChatList();
+      await applyRoomUnreadCounts();
     } catch (err) {
       console.warn("❌ delete-room network/server error:", err);
-
-      // ✅ 네트워크/서버 에러도 새로고침 X → 목록 재동기화
-      try {
-        await loadChatList();
-        await applyRoomUnreadCounts();
-      } catch {}
+      await loadChatList();
+      await applyRoomUnreadCounts();
     } finally {
       roomDeleteConfirm.disabled = false;
     }
@@ -491,7 +546,13 @@ if (roomDeleteConfirm) {
 async function loadRoomInfo() {
   if (!ROOM_ID) return;
 
-  const res = await fetch(`${API}/chat/room-info?roomId=${encodeURIComponent(ROOM_ID)}`, {
+  // ✅ type 파라미터 있으면 같이 전달(서버가 무시해도 OK)
+  const qs = new URLSearchParams();
+  qs.set("roomId", ROOM_ID);
+ if (ROOM_TYPE) qs.set("roomType", ROOM_TYPE);
+
+
+  const res = await fetch(`${API}/chat/room-info?${qs.toString()}`, {
     credentials: "include",
   });
   const data = await res.json().catch(() => null);
@@ -507,7 +568,13 @@ async function loadRoomInfo() {
 async function loadMessages() {
   if (!ROOM_ID || !chatBody) return;
 
-  const res = await fetch(`${API}/chat/messages?roomId=${encodeURIComponent(ROOM_ID)}`, {
+  // ✅ type 파라미터 있으면 같이 전달(서버가 무시해도 OK)
+  const qs = new URLSearchParams();
+  qs.set("roomId", ROOM_ID);
+ if (ROOM_TYPE) qs.set("roomType", ROOM_TYPE);
+
+
+  const res = await fetch(`${API}/chat/messages?${qs.toString()}`, {
     credentials: "include",
   });
   const data = await res.json().catch(() => null);
@@ -524,11 +591,16 @@ async function loadMessages() {
 function markRoomAsRead(roomId) {
   if (!roomId) return;
 
+  // ✅ type은 있으면 같이, 없으면 기존처럼
+  const payload = { roomId };
+  payload.roomType = ROOM_TYPE || "work";
+
+
   fetch(`${API}/chat/read`, {
     method: "POST",
     credentials: "include",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ roomId }),
+    body: JSON.stringify(payload),
   }).catch(() => {});
 
   hideUnreadBadge(roomId);
@@ -654,28 +726,39 @@ async function sendMessage(type, content) {
   });
   scrollBottom();
 
+  
   // 2) 좌측 프리뷰 즉시 갱신
-  updateLeftLastMsg(ROOM_ID, type === "text" ? content : "📷 이미지");
+const preview = type === "image" ? "📷 이미지" : content;
+updateLeftLastMsg(ROOM_ID, preview, ROOM_TYPE || "work");
+
+
 
   // 3) 서버 저장
   try {
+const payload = {
+  roomId: ROOM_ID,
+  roomType: ROOM_TYPE || "work",
+  message_type: type,
+  message: type === "text" ? content : null,
+  file_url: type === "image" ? content : null,
+  clientMsgId,
+};
+
+
+    
+
+
+
     const res = await fetch(`${API}/chat/send-message`, {
       method: "POST",
       credentials: "include",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        roomId: ROOM_ID,
-        message_type: type,
-        message: type === "text" ? content : null,
-        file_url: type === "image" ? content : null,
-        clientMsgId,
-      }),
+      body: JSON.stringify(payload),
     });
 
     const data = await res.json().catch(() => null);
 
     if (data && data.success) {
-      // 서버 브로드캐스트가 clientMsgId 포함이면 pending 치환됨
       PENDING_CLIENT_IDS.delete(clientMsgId);
     } else {
       console.warn("❌ send-message failed:", data);
@@ -756,15 +839,23 @@ function initSocket() {
   function joinRoomIfNeeded() {
     if (!ROOM_ID) return;
 
-    const rid = String(ROOM_ID);
+    const roomType = ROOM_TYPE || "work";
+    const roomId = ROOM_ID;
 
-    socket.emit("chat:join", rid, (ack) => {
+    socket.emit("chat:join", { roomType, roomId }, (ack) => {
       const ok =
         ack === true ||
         ack === "OK" ||
         (ack && typeof ack === "object" && ack.ok === true);
 
-      console.log("✅ chat:join ack =", ack, "parsed ok =", ok, "room =", rid);
+      console.log(
+        "✅ chat:join ack =",
+        ack,
+        "parsed ok =",
+        ok,
+        "room =",
+        `${roomType}:${roomId}`
+      );
     });
   }
 
@@ -806,8 +897,7 @@ function initSocket() {
   });
 
   socket.on("chat:joined", (payload) => {
-    const rid = safeStr(payload?.roomId || payload);
-    console.log("✅ joined room:", rid, "payload =", payload);
+    console.log("✅ joined room payload =", payload);
   });
 
   socket.on("chat:notify", async (p) => {
@@ -815,31 +905,36 @@ function initSocket() {
     await syncListAndBadges("notify");
   });
 
+  // ✅ chat:message (roomType + roomId 기준)
   socket.on("chat:message", async (msg) => {
     if (!CURRENT_USER) return;
 
-    const roomId = safeStr(msg?.room_id || msg?.roomId);
-    if (!roomId) return;
+    const msgRoomId = safeStr(msg?.room_id || msg?.roomId);
+    const msgRoomType = safeStr(msg?.room_type || msg?.roomType || "work");
+    if (!msgRoomId) return;
 
     const preview =
       msg.message_type === "image"
         ? "📷 이미지"
         : (msg.message || msg.content || "");
 
-    updateLeftLastMsg(roomId, preview);
+    updateLeftLastMsg(msgRoomId, preview, msgRoomType);
 
-    if (!getChatItem(roomId)) {
+    const itemByKey = getChatItemByKey(msgRoomType, msgRoomId);
+    if (itemByKey) {
+      const el = itemByKey.querySelector(".chat-last");
+      if (el) el.textContent = preview || "";
+    }
+
+    if (!getChatItemByKey(msgRoomType, msgRoomId) && !getChatItem(msgRoomId)) {
       await syncListAndBadges("message_room_not_in_list");
     }
 
-    if (!ROOM_ID || roomId !== safeStr(ROOM_ID)) {
-      await syncListAndBadges("message_not_current_room");
-      return;
-    }
+    const curRoomId = safeStr(ROOM_ID);
+    const curRoomType = safeStr(ROOM_TYPE || "work");
 
-    // 내 메시지도 pending 치환을 위해 render
-    if (Number(msg.sender_id) === Number(CURRENT_USER.id)) {
-      renderMsg(msg);
+    if (!ROOM_ID || msgRoomId !== curRoomId || msgRoomType !== curRoomType) {
+      await syncListAndBadges("message_not_current_room");
       return;
     }
 
@@ -850,17 +945,37 @@ function initSocket() {
     hideUnreadBadge(ROOM_ID);
   });
 
-  // ✅ 방 삭제 브로드캐스트
-  socket.on("chat:room-deleted", ({ roomId }) => {
+  // ✅ room-deleted
+  socket.on("chat:room-deleted", ({ roomId, roomType }) => {
     const rid = safeStr(roomId);
-    removeRoomFromUI(rid);
+    const rtype = safeStr(roomType || "work");
+    if (!rid) return;
 
-    const current = safeStr(new URLSearchParams(location.search).get("roomId"));
-    if (rid === current) location.href = "/chat.html";
+    if (typeof markRoomDeleted === "function") {
+      markRoomDeleted(rtype, rid);
+    } else {
+      DELETED_ROOMS.add(makeRoomKey(rtype, rid));
+    }
+
+    removeRoomFromUI(rid, rtype);
+
+    const curRoomId = safeStr(ROOM_ID);
+    const curRoomType = safeStr(ROOM_TYPE || "work");
+
+    if (rid === curRoomId && rtype === curRoomType) {
+      location.href = "/chat.html";
+    }
   });
 
-  socket.on("chat:delete", ({ messageId, roomId }) => {
-    if (roomId && ROOM_ID && safeStr(roomId) !== safeStr(ROOM_ID)) return;
+  // ✅ message delete
+  socket.on("chat:delete", ({ messageId, roomId, roomType }) => {
+    const rid = safeStr(roomId);
+    const rtype = safeStr(roomType || "work");
+
+    const curRoomId = safeStr(ROOM_ID);
+    const curRoomType = safeStr(ROOM_TYPE || "work");
+
+    if (rid && ROOM_ID && (rid !== curRoomId || rtype !== curRoomType)) return;
 
     const el = document.querySelector(
       `.msg-row[data-message-id="${safeStr(messageId)}"]`
@@ -868,15 +983,23 @@ function initSocket() {
     if (el) el.remove();
   });
 
-  socket.on("chat:read", ({ roomId }) => {
+  // ✅ read
+  socket.on("chat:read", ({ roomId, roomType }) => {
+    const rid = safeStr(roomId);
+    const rtype = safeStr(roomType || "work");
+
+    const curRoomId = safeStr(ROOM_ID);
+    const curRoomType = safeStr(ROOM_TYPE || "work");
+
     if (!ROOM_ID) return;
-    if (safeStr(roomId) !== safeStr(ROOM_ID)) return;
+    if (rid !== curRoomId || rtype !== curRoomType) return;
 
     document.querySelectorAll(".msg-row.me .read-state").forEach((el) => {
       el.textContent = "읽음";
     });
   });
 }
+
 
 /* ======================================================
    이미지 모달
