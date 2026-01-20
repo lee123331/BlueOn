@@ -939,44 +939,69 @@ function formatDate(dateString) {
 /* ================================================================
    DOMContentLoaded — 전체 초기화
 ================================================================ */
-
 document.addEventListener("DOMContentLoaded", () => {
   const chatBadge = document.getElementById("chatBadge");
   let indexSocket = null;
+
+  /* ================================
+     💬 채팅 unread 배지 + 실시간 소켓 (메인 최종)
+     - 서버가 chat:notify로 user룸에 보내는 구조 대응
+     - unread-count가 total이 없을 때 rooms/map 합산 대응
+  ================================ */
+
+  /* ✅ unread-count 응답에서 total 계산 (서버 호환) */
+  function calcChatTotal(data) {
+    if (!data || !data.success) return 0;
+
+    const t = Number(data.total);
+    if (!Number.isNaN(t) && t >= 0) return t;
+
+    const map = data.rooms || data.map || data.unreadMap || {};
+    let sum = 0;
+    for (const k of Object.keys(map)) sum += Number(map[k] || 0);
+    return sum;
+  }
+
+  /* ✅ 뱃지 렌더 */
+  function renderChatBadge(total) {
+    if (!chatBadge) return;
+    const n = Number(total || 0);
+
+    if (n > 0) {
+      chatBadge.style.display = "flex";
+      chatBadge.textContent = n > 99 ? "99+" : String(n);
+    } else {
+      chatBadge.style.display = "none";
+      chatBadge.textContent = "";
+    }
+  }
 
   /* ================================
      💬 채팅 unread 배지 로드
   ================================ */
   async function loadChatUnreadBadge() {
     try {
-      const meRes = await fetch(`${API_URL}/auth/me`, { credentials: "include", cache: "no-store" });
+      const meRes = await fetch(`${API_URL}/auth/me`, {
+        credentials: "include",
+        cache: "no-store",
+      });
       const me = await meRes.json().catch(() => null);
 
       if (!me || !me.success) {
-        if (chatBadge) {
-          chatBadge.style.display = "none";
-          chatBadge.textContent = "";
-        }
+        renderChatBadge(0);
         return;
       }
 
-      const res = await fetch(`${API_URL}/chat/unread-count`, { credentials: "include", cache: "no-store" });
+      const res = await fetch(`${API_URL}/chat/unread-count`, {
+        credentials: "include",
+        cache: "no-store",
+      });
       const data = await res.json().catch(() => null);
 
-      const total = Number(data?.total || 0);
-
-      if (data?.success && total > 0) {
-        chatBadge.style.display = "flex";
-        chatBadge.textContent = String(total);
-      } else {
-        chatBadge.style.display = "none";
-        chatBadge.textContent = "";
-      }
+      const total = calcChatTotal(data);
+      renderChatBadge(total);
     } catch (e) {
-      if (chatBadge) {
-        chatBadge.style.display = "none";
-        chatBadge.textContent = "";
-      }
+      renderChatBadge(0);
     }
   }
 
@@ -999,9 +1024,17 @@ document.addEventListener("DOMContentLoaded", () => {
         return;
       }
 
-      const meRes = await fetch(`${API_URL}/auth/me`, { credentials: "include", cache: "no-store" });
+      // 로그인 체크
+      const meRes = await fetch(`${API_URL}/auth/me`, {
+        credentials: "include",
+        cache: "no-store",
+      });
       const me = await meRes.json().catch(() => null);
-      if (!me || !me.success) return;
+
+      if (!me || !me.success) {
+        renderChatBadge(0);
+        return;
+      }
 
       if (indexSocket) {
         try { indexSocket.disconnect(); } catch {}
@@ -1024,10 +1057,22 @@ document.addEventListener("DOMContentLoaded", () => {
         await loadChatUnreadBadge();
       });
 
+      // ✅ 핵심: 메인은 chat:notify를 반드시 들어야 함
+      indexSocket.on("chat:notify", async (payload) => {
+        console.log("🔔 chat:notify received on index", payload);
+        await loadChatUnreadBadge();
+      });
+
+      // 혹시 서버가 chat:message도 보내면 같이 대응 (보조)
       indexSocket.on("chat:message", async (msg) => {
         console.log("📩 chat:message received on index", msg);
         await loadChatUnreadBadge();
       });
+
+      // 읽음/삭제/방삭제 같은 것도 오면 안전하게 갱신
+      indexSocket.on("chat:read", () => loadChatUnreadBadge());
+      indexSocket.on("chat:delete", () => loadChatUnreadBadge());
+      indexSocket.on("chat:room-deleted", () => loadChatUnreadBadge());
 
       indexSocket.on("connect_error", (e) => {
         console.warn("❌ index socket connect_error:", e?.message || e);
@@ -1049,9 +1094,10 @@ document.addEventListener("DOMContentLoaded", () => {
      ✅ 초기 실행 (순서 고정)
   ================================ */
   loadUserState();
-  // loadUnreadBadge();  // 알림 배지 함수 있으면 여기서 같이
   loadChatUnreadBadge();
   initIndexChatSocket();
+});
+
 
 
 /* ================================
@@ -1395,7 +1441,7 @@ initIndexChatSocket();  // 💬 실시간(이후 이벤트로 unread 재조회)
 
 
 
-});
+
 
 </script>
 
