@@ -7,6 +7,8 @@ const API = "https://blueon.up.railway.app";
 ====================================================== */
 const params = new URLSearchParams(location.search);
 const ROOM_ID = params.get("roomId"); // string | null
+// 🔥 삭제된 방 재등장 방지용
+const DELETED_ROOMS = new Set();
 
 /* ======================================================
    DOM
@@ -47,8 +49,9 @@ const PENDING_CLIENT_IDS = new Set();
 let DELETE_TARGET_MSG_ID = null;
 let DELETE_TARGET_ROW = null;
 
-// 채팅방 삭제 모달 상태
+// ✅ 채팅방 삭제 모달 상태 (핵심)
 let PENDING_DELETE_ROOM_ID = null;
+let PENDING_DELETE_ROOM_TYPE = null; // 🔥 추가
 
 /* ======================================================
    공통 유틸
@@ -246,6 +249,13 @@ async function loadMe() {
 // 🔥 파일 상단(전역) 어딘가에 1회만 선언해줘야 함
 // const DELETED_ROOMS = new Set();
 
+/* ======================================================
+   좌측 채팅방 목록 (FINAL - roomType 포함)
+   - 헤더 유지
+   - roomId+roomType 기준 중복 제거
+   - DELETED_ROOMS(프론트 삭제 캐시)로 재등장 방지
+   - 삭제 버튼 클릭 시 방 이동 방지 + 모달 오픈(✅ roomType 전달)
+====================================================== */
 async function loadChatList() {
   const listEl = document.getElementById("chatList");
   if (!listEl) return;
@@ -271,17 +281,22 @@ async function loadChatList() {
 
     const rooms = Array.isArray(data.rooms) ? data.rooms : [];
 
-    // ✅ roomId 기준 중복 제거 + ✅ 삭제된 방은 필터링
+    // ✅ roomId + roomType 기준 중복 제거 + ✅ 삭제된 방은 필터링
+    // (유령 방 원인: work/service 테이블이 id 겹칠 수 있음 → type까지 포함해야 안전)
     const map = new Map();
     for (const r of rooms) {
       const rid = String(pickRoomId(r) || "");
       if (!rid) continue;
 
-      // ✅ 프론트에서 삭제한 방이 다시 그려지는 것 방지
-      if (typeof DELETED_ROOMS !== "undefined" && DELETED_ROOMS.has(rid)) continue;
+      const rtype = String(r.room_type || r.roomType || "work"); // 서버 필드 호환
+      const key = `${rtype}:${rid}`;
 
-      map.set(rid, r);
+      // ✅ 프론트에서 삭제한 방이 다시 그려지는 것 방지
+      if (typeof DELETED_ROOMS !== "undefined" && DELETED_ROOMS.has(key)) continue;
+
+      map.set(key, r);
     }
+
     const uniqRooms = Array.from(map.values());
 
     if (uniqRooms.length === 0) {
@@ -298,12 +313,18 @@ async function loadChatList() {
       const roomId = String(pickRoomId(room) || "");
       if (!roomId) return;
 
-      // ✅ 안전: 혹시 여기까지 내려와도 한 번 더 필터
-      if (typeof DELETED_ROOMS !== "undefined" && DELETED_ROOMS.has(roomId)) return;
+      const roomType = String(room.room_type || room.roomType || "work");
+      const key = `${roomType}:${roomId}`;
+
+      // ✅ 안전: 여기까지 내려와도 한 번 더 필터
+      if (typeof DELETED_ROOMS !== "undefined" && DELETED_ROOMS.has(key)) return;
 
       const item = document.createElement("div");
       item.className = "chat-item";
+
+      // ✅ dataset에 둘 다 저장 (삭제/이동/필터에 활용)
       item.dataset.roomId = safeStr(roomId);
+      item.dataset.roomType = safeStr(roomType);
 
       const unreadOn = Number(room.unread || 0) > 0;
 
@@ -333,11 +354,11 @@ async function loadChatList() {
 
       // ✅ 방 이동은 item onclick으로 유지
       item.onclick = (e) => {
-        // 🔥 삭제 버튼 클릭 시 → 방 이동 차단 + 모달 오픈
+        // 🔥 삭제 버튼 클릭 시 → 방 이동 차단 + 모달 오픈 (✅ roomType 전달)
         if (e.target.closest(".room-delete-btn")) {
           e.preventDefault();
           e.stopPropagation();
-          openRoomDeleteModal(roomId);
+          openRoomDeleteModal(roomId, roomType); // ✅ 핵심
           return;
         }
 
@@ -362,7 +383,6 @@ async function loadChatList() {
     listEl.appendChild(empty);
   }
 }
-
 
 
 /* ======================================================

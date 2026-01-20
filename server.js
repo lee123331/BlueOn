@@ -4925,61 +4925,74 @@ app.post("/chat/delete-room", async (req, res) => {
     }
 
     const userId = Number(req.session.user.id);
-    const rid = Number(req.body.roomId);
+    const ridRaw = req.body.roomId;
+    const rid = Number(ridRaw);
+    const roomType = String(req.body.roomType || "work"); // "work" | "service"
+
     if (!rid || Number.isNaN(rid)) {
       return res.status(400).json({ success: false, message: "ROOM_ID_REQUIRED" });
     }
 
-    // ✅ 1) chat_rooms 컬럼 구조 확인
-    const [cols] = await conn.query(`SHOW COLUMNS FROM chat_rooms`);
-    const colNames = new Set(cols.map((c) => c.Field));
+    await conn.beginTransaction();
 
-    // ✅ 2) 가능한 컬럼 조합 자동 탐색
-    // (너의 DB 상황에 맞춰 최대한 넓게 커버)
-    const candidates = [
-      ["buyer_id", "expert_id"],
-      ["user_id", "expert_id"],
-      ["sender_id", "receiver_id"],
-      ["user1_id", "user2_id"],
-      ["user_a", "user_b"],
-      ["from_user", "to_user"],
-    ];
-
-    let A = null, B = null;
-    for (const [a, b] of candidates) {
-      if (colNames.has(a) && colNames.has(b)) {
-        A = a; B = b;
-        break;
+    // =========================
+    // 1) service 채팅 삭제
+    // =========================
+    if (roomType === "service") {
+      const [rooms] = await conn.query(
+        `SELECT id, buyer_id, expert_id FROM service_chat_rooms WHERE id=? LIMIT 1`,
+        [rid]
+      );
+      if (!rooms.length) {
+        await conn.rollback();
+        return res.status(404).json({ success: false, message: "ROOM_NOT_FOUND" });
       }
+
+      const room = rooms[0];
+      const buyerId = Number(room.buyer_id);
+      const expertId = Number(room.expert_id);
+
+      if (buyerId !== userId && expertId !== userId) {
+        await conn.rollback();
+        return res.status(403).json({ success: false, message: "FORBIDDEN" });
+      }
+
+      // ✅ 주의: chat_messages / chat_unread가 "service도 같은 room_id를 쓰는 구조"라서 삭제
+      await conn.query(`DELETE FROM chat_messages WHERE room_id = ?`, [rid]);
+      await conn.query(`DELETE FROM chat_unread   WHERE room_id = ?`, [rid]);
+      await conn.query(`DELETE FROM service_chat_rooms WHERE id = ?`, [rid]);
+
+      await conn.commit();
+
+      io.to(`user:${buyerId}`).emit("chat:room-deleted", { roomId: rid, roomType: "service" });
+      io.to(`user:${expertId}`).emit("chat:room-deleted", { roomId: rid, roomType: "service" });
+
+      // room socket도 정리(선택)
+      io.to(String(rid)).emit("chat:room-deleted", { roomId: rid, roomType: "service" });
+
+      return res.json({ success: true, roomId: rid, roomType: "service" });
     }
 
-    // ✅ 최소한 멤버 컬럼 2개가 있어야 권한 체크 가능
-    if (!A || !B) {
-      console.error("❌ chat_rooms member columns not found. columns=", [...colNames]);
-      return res.status(500).json({
-        success: false,
-        message: "CHAT_ROOMS_SCHEMA_UNKNOWN",
-      });
-    }
-
-    // ✅ 3) 권한 확인
+    // =========================
+    // 2) work 채팅 삭제
+    // =========================
     const [rooms] = await conn.query(
-      `SELECT id, \`${A}\` AS a, \`${B}\` AS b FROM chat_rooms WHERE id = ? LIMIT 1`,
+      `SELECT id, user1_id, user2_id FROM chat_rooms WHERE id=? LIMIT 1`,
       [rid]
     );
-
     if (!rooms.length) {
+      await conn.rollback();
       return res.status(404).json({ success: false, message: "ROOM_NOT_FOUND" });
     }
 
     const room = rooms[0];
-    const isMember = Number(room.a) === userId || Number(room.b) === userId;
-    if (!isMember) {
+    const u1 = Number(room.user1_id);
+    const u2 = Number(room.user2_id);
+
+    if (u1 !== userId && u2 !== userId) {
+      await conn.rollback();
       return res.status(403).json({ success: false, message: "FORBIDDEN" });
     }
-
-    // ✅ 4) 삭제 트랜잭션
-    await conn.beginTransaction();
 
     await conn.query(`DELETE FROM chat_messages WHERE room_id = ?`, [rid]);
     await conn.query(`DELETE FROM chat_unread   WHERE room_id = ?`, [rid]);
@@ -4987,11 +5000,11 @@ app.post("/chat/delete-room", async (req, res) => {
 
     await conn.commit();
 
-    // ✅ 5) 실시간 반영 (개인룸에도 쏴주면 더 안정적)
-    io.to(String(rid)).emit("chat:room-deleted", { roomId: rid });
-    io.to(`user:${userId}`).emit("chat:room-deleted", { roomId: rid });
+    io.to(`user:${u1}`).emit("chat:room-deleted", { roomId: rid, roomType: "work" });
+    io.to(`user:${u2}`).emit("chat:room-deleted", { roomId: rid, roomType: "work" });
+    io.to(String(rid)).emit("chat:room-deleted", { roomId: rid, roomType: "work" });
 
-    return res.json({ success: true });
+    return res.json({ success: true, roomId: rid, roomType: "work" });
   } catch (e) {
     try { await conn.rollback(); } catch {}
     console.error("delete-room error:", e);
@@ -5000,6 +5013,8 @@ app.post("/chat/delete-room", async (req, res) => {
     conn.release();
   }
 });
+  
+
 
 /* ======================================================
    🔵 전문가 작업 요약
