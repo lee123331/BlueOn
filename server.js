@@ -4919,81 +4919,101 @@ ORDER BY x.updated_at DESC
 // ===============================
 app.post("/chat/delete-room", async (req, res) => {
   const conn = await db.getConnection();
-
   try {
     if (!req.session.user) {
-      return res
-        .status(401)
-        .json({ success: false, message: "LOGIN_REQUIRED" });
+      return res.status(401).json({ success: false, message: "LOGIN_REQUIRED" });
     }
 
     const userId = Number(req.session.user.id);
     const rid = Number(req.body.roomId);
 
     if (!rid || Number.isNaN(rid)) {
-      return res
-        .status(400)
-        .json({ success: false, message: "ROOM_ID_REQUIRED" });
+      return res.status(400).json({ success: false, message: "ROOM_ID_REQUIRED" });
     }
 
-    // ✅ 권한 확인: 반드시 chat_rooms 기준
+    // 1) chat_rooms 컬럼 목록 조회
+    const [cols] = await conn.query(
+      `SHOW COLUMNS FROM chat_rooms`
+    );
+
+    const colNames = new Set((cols || []).map(c => String(c.Field)));
+
+    // 2) buyer(구매자) 후보 컬럼 / expert 후보 컬럼 자동 탐색
+    const buyerCandidates  = ["buyer_id", "user_id", "customer_id", "client_id", "buyerId", "userId"];
+    const expertCandidates = ["expert_id", "seller_id", "provider_id", "expertId", "sellerId"];
+
+    const buyerCol  = buyerCandidates.find(c => colNames.has(c));
+    const expertCol = expertCandidates.find(c => colNames.has(c));
+
+    // 최소한 expertCol은 있어야 “전문가/구매자 멤버 체크”가 가능함
+    // buyerCol이 없을 수도 있어서, 그땐 room의 다른 user 컬럼을 더 탐색
+    if (!expertCol) {
+      return res.status(500).json({
+        success: false,
+        message: "CHAT_ROOMS_SCHEMA_UNSUPPORTED",
+        detail: "expert_id 계열 컬럼을 찾지 못함"
+      });
+    }
+
+    // buyerCol이 없다면, 마지막 fallback: 'user_id' 같은 단일 user 컬럼이라도 잡아보기
+    const fallbackUserCandidates = ["user_id", "userId", "member_id", "owner_id"];
+    const fallbackUserCol = buyerCol ? null : fallbackUserCandidates.find(c => colNames.has(c));
+
+    // 3) room 조회 (존재 확인)
+    //    buyerCol이 있으면 buyer+expert 둘 다 조회
+    //    buyerCol이 없으면 fallbackUserCol + expertCol 조회
+    const selectCols = ["id", expertCol];
+    if (buyerCol) selectCols.push(buyerCol);
+    else if (fallbackUserCol) selectCols.push(fallbackUserCol);
+
     const [rooms] = await conn.query(
-      `SELECT id, buyer_id, expert_id FROM chat_rooms WHERE id = ? LIMIT 1`,
+      `SELECT ${selectCols.join(", ")} FROM chat_rooms WHERE id = ? LIMIT 1`,
       [rid]
     );
 
-    if (!rooms || rooms.length === 0) {
-      return res
-        .status(404)
-        .json({ success: false, message: "ROOM_NOT_FOUND" });
+    if (!rooms.length) {
+      return res.status(404).json({ success: false, message: "ROOM_NOT_FOUND" });
     }
 
     const room = rooms[0];
-    const buyerId = Number(room.buyer_id);
-    const expertId = Number(room.expert_id);
 
-    const isMember = buyerId === userId || expertId === userId;
+    // 4) 권한 체크 (멤버만 삭제 가능)
+    const expertIdInRoom = Number(room[expertCol]);
+    const buyerIdInRoom =
+      buyerCol ? Number(room[buyerCol]) :
+      fallbackUserCol ? Number(room[fallbackUserCol]) :
+      NaN;
+
+    const isMember =
+      userId === expertIdInRoom ||
+      (!Number.isNaN(buyerIdInRoom) && userId === buyerIdInRoom);
+
     if (!isMember) {
       return res.status(403).json({ success: false, message: "FORBIDDEN" });
     }
 
+    // 5) 삭제 트랜잭션
     await conn.beginTransaction();
 
-    // ✅ FK 걸린 순서대로 삭제
     await conn.query(`DELETE FROM chat_messages WHERE room_id = ?`, [rid]);
     await conn.query(`DELETE FROM chat_unread   WHERE room_id = ?`, [rid]);
     await conn.query(`DELETE FROM chat_rooms    WHERE id = ?`, [rid]);
 
     await conn.commit();
 
-    // ✅ 실시간 반영: roomId 방이 아니라 "user:{id}" 개인룸으로 쏜다 (가장 안정적)
-    // - notice에서도 user:{id}를 쓰고 있으니 일관성 유지
-    try {
-      if (typeof io !== "undefined") {
-        io.to(`user:${buyerId}`).emit("chat:room-deleted", { roomId: rid });
-        io.to(`user:${expertId}`).emit("chat:room-deleted", { roomId: rid });
-
-        // (선택) 혹시 서버가 roomId 자체 룸도 join 시켜두는 구조라면 같이 쏴도 됨
-        io.to(String(rid)).emit("chat:room-deleted", { roomId: rid });
-      }
-    } catch (e) {
-      console.warn("⚠️ room-deleted emit failed:", e);
-    }
+    // 6) 실시간 반영 (해당 room join 유저들에게)
+    io.to(String(rid)).emit("chat:room-deleted", { roomId: rid });
 
     return res.json({ success: true });
   } catch (e) {
-    try {
-      await conn.rollback();
-    } catch {}
-
+    try { await conn.rollback(); } catch {}
     console.error("delete-room error:", e);
-    return res
-      .status(500)
-      .json({ success: false, message: "SERVER_ERROR" });
+    return res.status(500).json({ success: false, message: "SERVER_ERROR" });
   } finally {
     conn.release();
   }
 });
+
 
 
 
