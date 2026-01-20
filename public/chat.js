@@ -1,3 +1,5 @@
+console.log("deleteModal=", deleteModal, "confirmDeleteBtn=", confirmDeleteBtn);
+
 console.log("🔥 chat.js FINAL COMPLETE loaded");
 
 const API = "https://blueon.up.railway.app";
@@ -248,12 +250,41 @@ if (confirmDeleteBtn) {
   confirmDeleteBtn.onclick = async () => {
     if (!DELETE_TARGET_MSG_ID) return;
 
-    const targetId = DELETE_TARGET_MSG_ID;
+    // ✅ 캡처 (닫기 전에 값 보존)
+    const targetId = String(DELETE_TARGET_MSG_ID);
     const targetRow = DELETE_TARGET_ROW;
 
-    // UI 즉시 제거
-    if (targetRow) targetRow.remove();
+    // ✅ 모달 먼저 닫기 (UX)
     closeDeleteConfirm();
+
+    try {
+      // ✅ 서버 라우트에 맞춤: DELETE /chat/message/:id
+      const res = await fetch(
+        `${API}/chat/message/${encodeURIComponent(targetId)}`,
+        {
+          method: "DELETE",
+          credentials: "include",
+        }
+      );
+
+      const data = await res.json().catch(() => null);
+
+      if (!res.ok || !data || !data.success) {
+        console.warn("❌ delete message failed:", data);
+        // 실패하면 목록/메시지 다시 동기화
+        await loadMessages();
+        return;
+      }
+
+      // ✅ 성공 시에만 UI 제거
+      if (targetRow) targetRow.remove();
+    } catch (e) {
+      console.warn("❌ delete message network error:", e);
+      await loadMessages();
+    }
+  };
+}
+
 
     try {
 try {
@@ -284,31 +315,71 @@ try {
       console.warn("❌ delete request error", e);
       location.reload();
     }
+  
+
+// ===============================
+// 🗑 메시지 삭제 모달 (완전 정리본)
+// - 모달은 뜨고
+// - 서버 삭제 성공 시에만 UI 제거
+// - 실패 시 메시지 목록 재로드
+// ===============================
+function openDeleteConfirm(messageId, rowEl) {
+  DELETE_TARGET_MSG_ID = String(messageId);
+  DELETE_TARGET_ROW = rowEl;
+
+  if (deleteModal) deleteModal.style.display = "flex";
+}
+
+function closeDeleteConfirm() {
+  DELETE_TARGET_MSG_ID = null;
+  DELETE_TARGET_ROW = null;
+
+  if (deleteModal) deleteModal.style.display = "none";
+}
+
+if (confirmCancelBtn) confirmCancelBtn.onclick = closeDeleteConfirm;
+
+if (deleteModal) {
+  deleteModal.addEventListener("click", (e) => {
+    if (e.target === deleteModal) closeDeleteConfirm();
+  });
+}
+
+if (confirmDeleteBtn) {
+  confirmDeleteBtn.onclick = async () => {
+    if (!DELETE_TARGET_MSG_ID) return;
+
+    // ✅ 값 캡처
+    const targetId = String(DELETE_TARGET_MSG_ID);
+    const targetRow = DELETE_TARGET_ROW;
+
+    // ✅ 모달 먼저 닫기
+    closeDeleteConfirm();
+
+    try {
+      // ✅ 서버 라우트와 통일: DELETE /chat/message/:id
+      const res = await fetch(`${API}/chat/message/${encodeURIComponent(targetId)}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+
+      const data = await res.json().catch(() => null);
+
+      if (!res.ok || !data || !data.success) {
+        console.warn("❌ delete message failed:", data);
+        await loadMessages();   // 실패시 동기화
+        return;
+      }
+
+      // ✅ 성공 시에만 UI 제거
+      if (targetRow) targetRow.remove();
+    } catch (e) {
+      console.warn("❌ delete message network error:", e);
+      await loadMessages();
+    }
   };
 }
 
-/* ======================================================
-   🗑 채팅방 삭제 모달 (전역 1회)
-====================================================== */
-function openRoomDeleteModal(roomId, roomType) {
-  PENDING_DELETE_ROOM_ID = safeStr(roomId);
-  PENDING_DELETE_ROOM_TYPE = safeStr(roomType || "work"); // ✅ 핵심: 타입 저장
-  if (roomDeleteModal) roomDeleteModal.style.display = "flex";
-}
-
-function closeRoomDeleteModal() {
-  PENDING_DELETE_ROOM_ID = null;
-  PENDING_DELETE_ROOM_TYPE = null;
-  if (roomDeleteModal) roomDeleteModal.style.display = "none";
-}
-
-if (roomDeleteCancel) roomDeleteCancel.onclick = closeRoomDeleteModal;
-
-if (roomDeleteModal) {
-  roomDeleteModal.addEventListener("click", (e) => {
-    if (e.target === roomDeleteModal) closeRoomDeleteModal();
-  });
-}
 
 /* ======================================================
    로그인 유저
