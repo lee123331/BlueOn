@@ -285,15 +285,24 @@ async function loadChatList() {
       </div>
 
       <button class="room-delete-btn" type="button" title="채팅방 삭제" aria-label="채팅방 삭제">🗑</button>
+
     `;
 
-    // ✅ 방 이동은 item onclick으로 유지
-    item.onclick = () => {
-      hideUnreadBadge(roomId);
-      location.href = `/chat.html?roomId=${encodeURIComponent(roomId)}`;
-    };
+// ✅ 방 이동은 item onclick으로 유지
+item.onclick = (e) => {
+  // 🔥 삭제 버튼 클릭 시 → 방 이동 차단
+  if (e.target.closest(".room-delete-btn")) {
+    e.preventDefault();
+    e.stopPropagation();
+    return;
+  }
 
-    listEl.appendChild(item);
+  hideUnreadBadge(roomId);
+  location.href = `/chat.html?roomId=${encodeURIComponent(roomId)}`;
+};
+
+listEl.appendChild(item);
+
   });
 }
 
@@ -357,19 +366,19 @@ if (chatListArea) {
     const btn = e.target.closest(".room-delete-btn");
     if (!btn) return;
 
-    const item = btn.closest(".chat-item");
-    if (!item) return;
-
-    // ✅ 방 이동 막기
+    // ✅ 여기서 무조건 먼저 끊기
     e.preventDefault();
     e.stopPropagation();
+    e.stopImmediatePropagation(); // 🔥 이게 핵심
 
-    const roomId = safeStr(item.dataset.roomId);
+    const item = btn.closest(".chat-item");
+    const roomId = item?.dataset?.roomId;
     if (!roomId) return;
 
     openRoomDeleteModal(roomId);
-  });
+  }, true); // 🔥 capture = true
 }
+
 
 /* ======================================================
    상단 방 정보
