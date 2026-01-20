@@ -609,8 +609,9 @@ app.get("/api/task-chat/context", async (req, res) => {
       const [result] = await db.query(
         `
         INSERT INTO chat_rooms
-        (order_id, user1_id, user2_id, room_type, created_at)
-        VALUES (?, ?, ?, 'task', ?)
+(order_id, user1_id, user2_id, room_type, created_at)
+VALUES (?, ?, ?, 'work', ?)
+
         `,
         [
           row.order_id,
@@ -2795,33 +2796,30 @@ app.delete("/chat/message/:id", async (req, res) => {
 ====================================================== */
 app.post("/chat/read", async (req, res) => {
   try {
-    const { roomId } = req.body;
+    const { roomId, roomType } = req.body;
     const userId = req.session.user?.id;
 
-    if (!roomId || !userId) {
-      return res.json({
-        success: false,
-        message: "roomId 또는 user 없음",
-      });
+    const rid = Number(roomId);
+    const rt = (roomType === "service" || roomType === "work") ? roomType : "work";
+
+    if (!rid || !userId) {
+      return res.json({ success: false, message: "roomId 또는 user 없음" });
     }
 
-    /* ======================================================
-       1️⃣ 메시지 읽음 처리
-    ====================================================== */
+    // ✅ 메시지 읽음 처리: room_type 조건 필수!
     await db.query(
       `
       UPDATE chat_messages
       SET is_read = 1
       WHERE room_id = ?
+        AND room_type = ?
         AND sender_id != ?
       `,
-      [roomId, userId]
+      [rid, rt, userId]
     );
 
-    /* ======================================================
-       2️⃣ unread 초기화 (🔥 room_user_key 기준)
-    ====================================================== */
-    const roomUserKey = `${roomId}_${userId}`;
+    // ✅ unread 초기화: 통일 키 사용
+    const roomUserKey = `${rt}:${rid}_${userId}`;
 
     await db.query(
       `
@@ -2833,11 +2831,9 @@ app.post("/chat/read", async (req, res) => {
       [roomUserKey]
     );
 
-    /* ======================================================
-       3️⃣ socket 읽음 브로드캐스트
-    ====================================================== */
-    io.to(String(roomId)).emit("chat:read", {
-      roomId: String(roomId),
+    io.to(String(rid)).emit("chat:read", {
+      roomId: String(rid),
+      roomType: rt,
       userId: Number(userId),
     });
 
@@ -2847,8 +2843,6 @@ app.post("/chat/read", async (req, res) => {
     return res.json({ success: false });
   }
 });
-
-
 
 
 /* ======================================================
@@ -3460,29 +3454,28 @@ app.post("/orders/create", async (req, res) => {
       ]
     );
 
-    /* ---------------------------
-       6️⃣ 🔔 관리자 주문 알림
-    --------------------------- */
-    const adminId = Number(process.env.ADMIN_USER_ID);
+/* ---------------------------
+   6️⃣ 🔔 전문가 구매 알림 생성 (DB + Socket)
+--------------------------- */
+const noticeMessage =
+  `${req.session.user.nickname || "고객"}님이 ` +
+  `'${svc.title}' 서비스를 구매했습니다.`;
 
-    const adminMessage =
-      `${req.session.user.nickname || "고객"}님이 ` +
-      `'${svc.title}' 서비스를 구매했습니다.`;
-
-    // DB 알림 저장
+// ✅ 전문가에게 알림 저장 + 실시간 푸시
 await createNotice({
-  targetUserId: order.expert_id,
+  targetUserId: svc.expert_id,   // ✅ order.expert_id ❌ → svc.expert_id ✅
   message: noticeMessage,
   type: "trade",
-  taskKey,
+  taskKey: taskKey,
   fromUser: userId
 });
 
-io.to(`user:${order.expert_id}`).emit("notice:new", {
+io.to(`user:${svc.expert_id}`).emit("notice:new", {
   type: "trade",
   message: noticeMessage,
   task_key: taskKey
 });
+
 
 
     /* ---------------------------
