@@ -290,18 +290,18 @@ async function loadChatList() {
 
 // ✅ 방 이동은 item onclick으로 유지
 item.onclick = (e) => {
-  // 🔥 삭제 버튼 클릭 시 → 방 이동 차단
-  if (e.target.closest(".room-delete-btn")) {
+  const delBtn = e.target.closest(".room-delete-btn");
+  if (delBtn) {
     e.preventDefault();
     e.stopPropagation();
+
+    openRoomDeleteModal(roomId); // ✅ 여기서 모달 띄움
     return;
   }
 
   hideUnreadBadge(roomId);
   location.href = `/chat.html?roomId=${encodeURIComponent(roomId)}`;
 };
-
-listEl.appendChild(item);
 
   });
 }
@@ -356,29 +356,6 @@ if (roomDeleteConfirm) {
       location.reload();
     }
   };
-}
-
-/* ======================================================
-   🗑 채팅방 삭제 버튼 클릭 (전역 1회 / 이벤트 위임)
-====================================================== */
-if (chatListArea) {
- chatListArea.addEventListener("click", (e) => {
-  const btn = e.target.closest(".room-delete-btn");
-  if (!btn) return;
-
-  e.preventDefault();
-  e.stopPropagation();
-  e.stopImmediatePropagation(); // ✅ 이거까지
-
-  const item = btn.closest(".chat-item");
-  if (!item) return;
-
-  const roomId = Number(item.dataset.roomId);
-  if (!roomId) return;
-
-  openRoomDeleteModal(roomId); // ✅ 여기서 모달만 띄움
-});
-
 }
 
 
