@@ -46,7 +46,6 @@ body{
   width:100%;
   display:flex;
   align-items:center;
-  justify-content:space-between;
   gap:12px;
   padding:10px;
   background:#f8f9fc;
@@ -80,6 +79,13 @@ body{
   overflow:hidden;
   text-overflow:ellipsis;
 }
+.chat-name-row{
+  display:flex;
+  align-items:center;
+  gap:8px;              /* 닉네임과 뱃지 사이 간격 */
+  min-width:0;
+}
+
 .chat-last{
   font-size:12px;
   color:var(--text-gray);
@@ -91,13 +97,26 @@ body{
 
 /* ✅ 빨간 점(안읽음) — 오른쪽 끝 */
 .chat-unread-badge{
-  width:10px;
-  height:10px;
-  background:#ff3b30;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+
+  min-width:18px;
+  height:18px;
+  padding:0 6px;
+
   border-radius:999px;
+  font-size:12px;
+  font-weight:800;
+  line-height:1;
+
+  background:#ff3b30;
+  color:#fff;
+
   flex:0 0 auto;
-  display:none;
+  display:none; /* 기본 숨김 */
 }
+
 
 /* =========================
    채팅창

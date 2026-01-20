@@ -69,19 +69,31 @@ function getChatItem(roomId) {
   return document.querySelector(`.chat-item[data-room-id="${safeStr(roomId)}"]`);
 }
 
-function showUnreadBadge(roomId) {
+function showUnreadBadge(roomId, cnt = null) {
   const item = getChatItem(roomId);
   if (!item) return;
   const badge = item.querySelector(".chat-unread-badge");
-  if (badge) badge.style.display = "block";
+  if (!badge) return;
+
+  const n = cnt == null ? null : Number(cnt);
+  if (n != null && n > 0) {
+    badge.style.display = "inline-flex";
+    badge.textContent = n > 99 ? "99+" : String(n);
+  } else {
+    badge.style.display = "inline-flex"; // 숫자 모르면 그냥 표시만
+    if (!badge.textContent) badge.textContent = "•"; // 선택: 점
+  }
 }
 
 function hideUnreadBadge(roomId) {
   const item = getChatItem(roomId);
   if (!item) return;
   const badge = item.querySelector(".chat-unread-badge");
-  if (badge) badge.style.display = "none";
+  if (!badge) return;
+  badge.style.display = "none";
+  badge.textContent = "";
 }
+
 
 function updateLeftLastMsg(roomId, text) {
   const item = getChatItem(roomId);
@@ -110,9 +122,9 @@ async function applyRoomUnreadCounts() {
       if (!badge) return;
 
       if (cnt > 0) {
-        badge.style.display = "block";
-        // 점 말고 숫자로 보이게 하고 싶으면 아래처럼:
-        badge.textContent = String(cnt);
+badge.style.display = "inline-flex";
+badge.textContent = cnt > 99 ? "99+" : String(cnt);
+
       } else {
         badge.style.display = "none";
         badge.textContent = "";
@@ -253,16 +265,20 @@ async function loadChatList() {
     // unread가 없을 수도 있으니 0 처리
     const unreadOn = Number(room.unread || 0) > 0;
 
-    item.innerHTML = `
-      <div class="chat-left">
-        <span class="chat-unread-badge" style="display:${unreadOn ? "block" : "none"}"></span>
-        <img src="${room.avatar || "/assets/default_profile.png"}" alt="avatar">
-        <div class="chat-texts">
-          <div class="chat-name">${room.nickname || "상대방"}</div>
-          <div class="chat-last">${room.last_msg || ""}</div>
-        </div>
+item.innerHTML = `
+  <div class="chat-left">
+    <img src="${room.avatar || "/assets/default_profile.png"}" alt="avatar">
+    <div class="chat-texts">
+      <div class="chat-name-row">
+        <div class="chat-name">${room.nickname || "상대방"}</div>
+        <span class="chat-unread-badge" style="display:${unreadOn ? "inline-flex" : "none"}">
+          ${unreadOn ? (Number(room.unread) > 99 ? "99+" : String(Number(room.unread || 0))) : ""}
+        </span>
       </div>
-    `;
+      <div class="chat-last">${room.last_msg || ""}</div>
+    </div>
+  </div>
+`;
 
     item.onclick = () => {
       hideUnreadBadge(roomId);
