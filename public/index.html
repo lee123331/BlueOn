@@ -942,60 +942,56 @@ function formatDate(dateString) {
 document.addEventListener("DOMContentLoaded", () => {
   const chatBadge = document.getElementById("chatBadge");
   let indexSocket = null;
-
-  /* ================================
-     💬 채팅 unread 배지 + 실시간 소켓 (메인 최종)
-     - 서버가 chat:notify로 user룸에 보내는 구조 대응
-     - unread-count가 total이 없을 때 rooms/map 합산 대응
-  ================================ */
+  let pollTimer = null; // ✅ 폴링 중복 방지
 
   /* ✅ unread-count 응답에서 total 계산 (서버 호환) */
   function calcChatTotal(data) {
-  if (!data || !data.success) return 0;
+    if (!data || !data.success) return 0;
 
-  // 1) 서버가 total을 주면 그걸 최우선 사용
-  const t = Number(data.total);
-  if (!Number.isNaN(t) && t >= 0) return t;
+    const t = Number(data.total);
+    if (!Number.isNaN(t) && t >= 0) return t;
 
-  const map = data.rooms || data.map || data.unreadMap || {};
-  const keys = Object.keys(map);
+    const map = data.rooms || data.map || data.unreadMap || {};
+    const keys = Object.keys(map);
 
-  // ✅ 신형 키(work:14 / service:14)가 있으면 그 키만 합산해서 "중복 2" 방지
-  const hasTypedKey = keys.some((k) => k.includes(":"));
+    const hasTypedKey = keys.some((k) => k.includes(":"));
+    let sum = 0;
 
-  let sum = 0;
-
-  if (hasTypedKey) {
-    for (const k of keys) {
-      if (!k.includes(":")) continue;
-      sum += Number(map[k] || 0);
+    if (hasTypedKey) {
+      for (const k of keys) {
+        if (!k.includes(":")) continue;
+        sum += Number(map[k] || 0);
+      }
+      return sum;
     }
+
+    for (const k of keys) sum += Number(map[k] || 0);
     return sum;
   }
 
-  // ✅ 신형 키가 아예 없을 때만 구형 키를 합산
-  for (const k of keys) sum += Number(map[k] || 0);
-  return sum;
-}
+  /* ✅ 뱃지 렌더 */
+  function renderChatBadge(total) {
+    if (!chatBadge) return;
+    const n = Number(total || 0);
 
-/* ✅ 뱃지 렌더 */
-function renderChatBadge(total) {
-  if (!chatBadge) return;
-  const n = Number(total || 0);
-
-  if (n > 0) {
-    chatBadge.style.display = "flex";
-    chatBadge.textContent = n > 99 ? "99+" : String(n);
-  } else {
-    chatBadge.style.display = "none";
-    chatBadge.textContent = "";
+    if (n > 0) {
+      chatBadge.style.display = "flex";
+      chatBadge.textContent = n > 99 ? "99+" : String(n);
+    } else {
+      chatBadge.style.display = "none";
+      chatBadge.textContent = "";
+    }
   }
-}
 
+  /* ✅ 현재 배지 숫자 읽기 */
+  function getCurrentBadgeNum() {
+    if (!chatBadge) return 0;
+    const v = String(chatBadge.textContent || "").trim();
+    const n = Number(v);
+    return Number.isFinite(n) ? n : 0;
+  }
 
-  /* ================================
-     💬 채팅 unread 배지 로드
-  ================================ */
+  /* ✅ 서버에서 unread 재조회 */
   async function loadChatUnreadBadge() {
     try {
       const meRes = await fetch(`${API_URL}/auth/me`, {
@@ -1015,28 +1011,36 @@ function renderChatBadge(total) {
       });
       const data = await res.json().catch(() => null);
 
-      const total = calcChatTotal(data);
-      renderChatBadge(total);
-    } catch (e) {
+      renderChatBadge(calcChatTotal(data));
+    } catch {
+      // 네트워크 일시 실패 시 숨기지 말고 유지하는 선택도 가능하지만
+      // 일단 안정적으로 0 처리
       renderChatBadge(0);
     }
   }
 
-  /* ================================
-     (보조) 폴링
-  ================================ */
+  /* ✅ 폴링(중복 방지) + 복귀 감지 강화 */
   function startChatBadgePolling() {
-    setInterval(loadChatUnreadBadge, 3000);
+    if (pollTimer) return; // ✅ 이미 돌고 있으면 또 만들지 않기
+    pollTimer = setInterval(loadChatUnreadBadge, 3000);
+
+    // 탭/창 다시 활성화
     window.addEventListener("focus", loadChatUnreadBadge);
+
+    // 탭 숨김/복귀(특히 모바일)
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "visible") loadChatUnreadBadge();
+    });
+
+    // 뒤로가기 복귀(bfcache) 대응
+    window.addEventListener("pageshow", loadChatUnreadBadge);
   }
 
-  /* ================================
-     소켓 연결
-  ================================ */
+  /* ✅ 소켓 연결 */
   async function initIndexChatSocket() {
     try {
       if (typeof window.io !== "function") {
-        console.warn("❌ socket.io not loaded: window.io is undefined");
+        console.warn("❌ socket.io not loaded");
         startChatBadgePolling();
         return;
       }
@@ -1069,24 +1073,21 @@ function renderChatBadge(total) {
         timeout: 10000,
       });
 
-      indexSocket.on("connect", async () => {
+      indexSocket.on("connect", () => {
         console.log("✅ index socket connected:", indexSocket.id);
-        await loadChatUnreadBadge();
+        loadChatUnreadBadge();
       });
 
-      // ✅ 핵심: 메인은 chat:notify를 반드시 들어야 함
-      indexSocket.on("chat:notify", async (payload) => {
+      // ✅ chat:notify 오면 즉시 +1 → 200ms 뒤 서버값으로 동기화
+      indexSocket.on("chat:notify", (payload) => {
         console.log("🔔 chat:notify received on index", payload);
-        await loadChatUnreadBadge();
+
+        renderChatBadge(getCurrentBadgeNum() + 1);
+        setTimeout(loadChatUnreadBadge, 200);
       });
 
-      // 혹시 서버가 chat:message도 보내면 같이 대응 (보조)
-      indexSocket.on("chat:message", async (msg) => {
-        console.log("📩 chat:message received on index", msg);
-        await loadChatUnreadBadge();
-      });
-
-      // 읽음/삭제/방삭제 같은 것도 오면 안전하게 갱신
+      // (보조) 서버가 다른 이벤트명도 쓸 때 대비
+      indexSocket.on("chat:message", () => loadChatUnreadBadge());
       indexSocket.on("chat:read", () => loadChatUnreadBadge());
       indexSocket.on("chat:delete", () => loadChatUnreadBadge());
       indexSocket.on("chat:room-deleted", () => loadChatUnreadBadge());
@@ -1099,7 +1100,7 @@ function renderChatBadge(total) {
         console.warn("🔌 index socket disconnected:", reason);
       });
 
-      // 소켓 + 폴링 같이 돌리면 가장 안정적
+      // ✅ 소켓 + 폴링 같이
       startChatBadgePolling();
     } catch (e) {
       console.warn("❌ index socket init fail", e);
@@ -1107,47 +1108,13 @@ function renderChatBadge(total) {
     }
   }
 
-  /* ================================
-     ✅ 초기 실행 (순서 고정)
-  ================================ */
+  /* ✅ 초기 실행 (딱 1번) */
   loadUserState();
   loadChatUnreadBadge();
   initIndexChatSocket();
 });
 
 
-
-/* ================================
-   💬 채팅 unread 배지 로드
-================================ */
-async function loadChatUnreadBadge() {
-  try {
-    const meRes = await fetch(`${API_URL}/auth/me`, { credentials: "include" });
-    const me = await meRes.json();
-
-    if (!me.success) {
-      if (chatBadge) chatBadge.style.display = "none";
-      return;
-    }
-
-    const res = await fetch(`${API_URL}/chat/unread-count`, { credentials: "include" });
-    const data = await res.json();
-
-    // ✅ 서버는 total을 준다!
-    const total = Number(data.total || 0);
-
-   if (data.success && total > 0) {
-  chatBadge.style.display = "flex";
-  chatBadge.textContent = total; // ✅ 숫자 표시
-} else {
-  chatBadge.style.display = "none";
-  chatBadge.textContent = "";
-}
-    
-  } catch (e) {
-    if (chatBadge) chatBadge.style.display = "none";
-  }
-}
 
 
   /* ============================================================
@@ -1447,15 +1414,6 @@ document.addEventListener("click", (e) => {
     noticePanel.style.display = "none";
   }
 });
-
-  /* ================================
-     초기 실행
-  ================================ */
-loadUserState();        // ✅ 먼저 (로그인/헤더 UI 세팅)
-loadUnreadBadge();      // 🔔 알림 배지
-loadChatUnreadBadge();  // 💬 채팅 배지(초기)
-initIndexChatSocket();  // 💬 실시간(이후 이벤트로 unread 재조회)
-
 
 
 
