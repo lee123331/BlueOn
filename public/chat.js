@@ -563,32 +563,27 @@ if (fileBtn && fileInput) {
 }
 
 /* ======================================================
-   🔵 Socket.io (chat.html 전용 최종 안정판)
-   - 세션 쿠키 확실히 붙게: 같은 origin으로 연결
-   - notify로 unread/새방/정렬 즉시 반영
-   - message는 현재방 렌더 + 다른방은 unread만
-   - delete/read 이벤트 포함
+   Socket.io (호환 유지 + init 문제 해결 안정판)
+   - server.js 변경 없이도 랜덤/실시간 뱃지 문제를 최소화
 ====================================================== */
 function initSocket() {
+  // ✅ socket.io 로드 체크
   if (typeof window.io !== "function") {
     console.warn("❌ socket.io not loaded (window.io undefined)");
     return;
   }
 
-  // ✅ 기존 소켓 정리
+  // ✅ 기존 소켓 있으면 정리(재실행/핫리로드 대비)
   if (socket) {
-    try { socket.off(); socket.disconnect(); } catch {}
+    try { socket.disconnect(); } catch {}
     socket = null;
   }
 
-  // ✅ 같은 origin으로 붙기 (쿠키/세션 안정)
-  // chat.html이 API 서버와 같은 도메인에서 서빙되는 구조라면 이게 정답
-  const SOCKET_ORIGIN = window.location.origin;
-
-  socket = window.io(SOCKET_ORIGIN, {
+  socket = window.io(API, {
     withCredentials: true,
     transports: ["polling", "websocket"],
     upgrade: true,
+
     reconnection: true,
     reconnectionAttempts: 20,
     reconnectionDelay: 800,
@@ -596,22 +591,12 @@ function initSocket() {
     timeout: 10000,
   });
 
-  // ✅ 과도한 fetch 폭발 방지용(notify/message 연속 수신 대비)
-  let syncTimer = null;
-  function scheduleSync({ refreshList = true } = {}) {
-    clearTimeout(syncTimer);
-    syncTimer = setTimeout(async () => {
-      try {
-        await applyRoomUnreadCounts();
-        if (refreshList) await loadChatList();
-      } catch (e) {
-        console.warn("sync fail", e);
-      }
-    }, 120); // 0.12s 디바운스
-  }
-
+  /* =========================
+     현재 방 join
+  ========================= */
   function joinRoomIfNeeded() {
     if (!ROOM_ID) return;
+
     const rid = String(ROOM_ID);
 
     socket.emit("chat:join", rid, (ack) => {
@@ -620,22 +605,55 @@ function initSocket() {
         ack === "OK" ||
         (ack && typeof ack === "object" && ack.ok === true);
 
-      console.log("✅ chat:join ack =", ack, "ok =", ok, "room =", rid);
+      console.log("✅ chat:join ack =", ack, "parsed ok =", ok, "room =", rid);
     });
   }
 
-  socket.on("connect", () => {
+  /* =========================
+     ✅ 뱃지/목록 동기화 (순서 중요)
+     - loadChatList()가 DOM을 다시 만들기 때문에
+       반드시 loadChatList → applyRoomUnreadCounts 순서로!
+  ========================= */
+  let SYNC_LOCK = false;
+  async function syncListAndBadges(reason = "") {
+    if (SYNC_LOCK) return;
+    SYNC_LOCK = true;
+
+    try {
+      // 1) 목록 먼저 재구성
+      await loadChatList();
+
+      // 2) 그 다음 unread 숫자 반영
+      await applyRoomUnreadCounts();
+
+      // 3) 혹시 보고 있는 방이면 그 방은 unread 숨김(안전)
+      if (ROOM_ID) hideUnreadBadge(ROOM_ID);
+
+      if (reason) console.log("🔄 syncListAndBadges:", reason);
+    } catch (e) {
+      console.warn("❌ syncListAndBadges fail:", reason, e);
+    } finally {
+      SYNC_LOCK = false;
+    }
+  }
+
+  socket.on("connect", async () => {
     console.log("✅ socket connected:", socket.id, "ROOM_ID =", ROOM_ID);
+
+    // ✅ 먼저 방 join (메시지 실시간용)
     joinRoomIfNeeded();
 
-    // ✅ 접속하자마자 unread 동기화(리스트는 init()에서 이미 한번 그림)
-    scheduleSync({ refreshList: false });
+    // ✅ connect 직후 1회 강제 동기화 (랜덤 init 문제 방지)
+    await syncListAndBadges("connect");
   });
 
-  socket.on("reconnect", (attempt) => {
-    console.log("🔁 socket reconnected:", attempt);
+  socket.on("reconnect", async (attempt) => {
+    console.log("🔁 socket reconnected:", attempt, "ROOM_ID =", ROOM_ID);
+
     joinRoomIfNeeded();
-    scheduleSync({ refreshList: false });
+
+    // ✅ 재연결 때도 1회 동기화
+    await syncListAndBadges("reconnect");
   });
 
   socket.on("connect_error", (e) => {
@@ -648,20 +666,22 @@ function initSocket() {
 
   socket.on("chat:joined", (payload) => {
     const rid = safeStr(payload?.roomId || payload);
-    console.log("✅ joined room:", rid);
+    console.log("✅ joined room:", rid, "payload =", payload);
   });
 
   /* =========================
-     ✅ notify: 개인룸(user:${id})에서 옴
-     - 새 메시지 / 새 방 생성 / 정렬 변경을 전부 커버
+     ✅ notify: 방 join 없이도 오는 알림(개인룸)
+     - 여기서 순서 틀리면 뱃지 “랜덤” 발생함
   ========================= */
-  socket.on("chat:notify", (p) => {
-    console.log("🔔 chat:notify", p);
-    scheduleSync({ refreshList: true });
+  socket.on("chat:notify", async (p) => {
+    console.log("🔔 chat:notify:", p);
+
+    // ✅ 새 방/정렬/뱃지 모두 확정 반영
+    await syncListAndBadges("notify");
   });
 
   /* =========================
-     ✅ message: room join한 방에서 옴
+     ✅ message: 실제 메시지 (해당 room join 상태에서 수신)
   ========================= */
   socket.on("chat:message", async (msg) => {
     if (!CURRENT_USER) return;
@@ -674,22 +694,24 @@ function initSocket() {
         ? "📷 이미지"
         : (msg.message || msg.content || "");
 
-    // ✅ 좌측 미리보기 갱신 (해당 아이템이 아직 없으면 목록 다시 로드)
+    // ✅ 좌측 프리뷰 갱신
     updateLeftLastMsg(roomId, preview);
 
-    const item = document.querySelector(`.chat-item[data-room-id="${roomId}"]`);
-    if (!item) {
-      // 새 방이거나 아직 리스트에 없으면 바로 리스트 갱신
-      scheduleSync({ refreshList: true });
+    // ✅ 만약 해당 room이 좌측에 아직 없어서 프리뷰 갱신이 실패할 수 있음
+    // -> 새 방 생성 케이스 대비: 목록 동기화 1회
+    if (!getChatItem(roomId)) {
+      await syncListAndBadges("message_room_not_in_list");
     }
 
-    // ✅ 내가 보고 있는 방이 아니면 unread만 갱신
+    // ✅ 내가 보고 있는 방이 아니면 unread만 반영
     if (!ROOM_ID || roomId !== safeStr(ROOM_ID)) {
-      scheduleSync({ refreshList: false });
+      // ✅ 여기서는 목록을 새로 그릴 필요는 없고, unread만 반영해도 됨
+      // 단, DOM이 없을 수 있으니 안전하게 syncListAndBadges로 처리
+      await syncListAndBadges("message_not_current_room");
       return;
     }
 
-    // ✅ 내가 보낸 메시지도 pending 치환을 위해 render 태움
+    // ✅ 내가 보낸 메시지도 pending 치환을 위해 renderMsg는 태운다
     if (Number(msg.sender_id) === Number(CURRENT_USER.id)) {
       renderMsg(msg);
       return;
@@ -698,11 +720,16 @@ function initSocket() {
     // ✅ 상대방 메시지 렌더
     renderMsg(msg);
     scrollBottom();
+
+    // ✅ 읽음 처리
     markRoomAsRead(ROOM_ID);
+
+    // ✅ 보고 있는 방은 뱃지 숨김 유지
+    hideUnreadBadge(ROOM_ID);
   });
 
   /* =========================
-     ✅ delete
+     ✅ delete / read
   ========================= */
   socket.on("chat:delete", ({ messageId, roomId }) => {
     if (roomId && ROOM_ID && safeStr(roomId) !== safeStr(ROOM_ID)) return;
@@ -713,9 +740,6 @@ function initSocket() {
     if (el) el.remove();
   });
 
-  /* =========================
-     ✅ read
-  ========================= */
   socket.on("chat:read", ({ roomId }) => {
     if (!ROOM_ID) return;
     if (safeStr(roomId) !== safeStr(ROOM_ID)) return;
@@ -723,5 +747,61 @@ function initSocket() {
     document.querySelectorAll(".msg-row.me .read-state").forEach((el) => {
       el.textContent = "읽음";
     });
+  });
+}
+
+/* ======================================================
+   이미지 모달
+====================================================== */
+function openImageModal(src) {
+  if (!imgModal || !imgView) return;
+  imgView.src = src;
+  imgModal.style.display = "flex";
+}
+
+if (imgModal) {
+  imgModal.onclick = () => {
+    imgModal.style.display = "none";
+    if (imgView) imgView.src = "";
+  };
+}
+
+/* ======================================================
+   실행
+====================================================== */
+(async function init() {
+  await loadMe();
+
+  // ✅ 처음 진입 시: 목록 먼저 그리고 → unread 반영
+  await loadChatList();
+  await applyRoomUnreadCounts();
+
+  if (ROOM_ID) {
+    await loadRoomInfo();
+    await loadMessages();
+
+    // ✅ 들어오자마자 읽음 처리 + 뱃지 숨김
+    markRoomAsRead(ROOM_ID);
+    hideUnreadBadge(ROOM_ID);
+  } else {
+    if (headerName && headerName.textContent === "Loading...") {
+      headerName.textContent = "대화를 선택하세요";
+    }
+  }
+
+  initSocket();
+})();
+
+/* ======================================================
+   입력 이벤트
+====================================================== */
+if (sendBtn) sendBtn.onclick = sendText;
+
+if (msgInput) {
+  msgInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      sendText();
+    }
   });
 }
