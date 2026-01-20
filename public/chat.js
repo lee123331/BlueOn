@@ -236,20 +236,28 @@ async function loadMe() {
    좌측 채팅방 목록
 ====================================================== */
 /* ======================================================
-   좌측 채팅방 목록 (FIX: appendChild 누락)
+   좌측 채팅방 목록 (FINAL)
+   - roomId 중복 제거
+   - 삭제된 방(DELETED_ROOMS) 재등장 방지
+   - 삭제 버튼 클릭 시 방 이동 방지 + 모달 오픈
+   - 리스트 비어있을 때/실패할 때 안내문 표시
 ====================================================== */
+
+// 🔥 파일 상단(전역) 어딘가에 1회만 선언해줘야 함
+// const DELETED_ROOMS = new Set();
+
 async function loadChatList() {
   const listEl = document.getElementById("chatList");
   if (!listEl) return;
+
+  // 항상 헤더는 유지
+  listEl.innerHTML = "<h2>메시지</h2>";
 
   try {
     const res = await fetch(`${API}/chat/rooms`, { credentials: "include" });
     const data = await res.json().catch(() => null);
 
     console.log("🧪 chat rooms response =", data);
-
-    // 실패/비정상이어도 화면이 비어보이지 않게 처리
-    listEl.innerHTML = "<h2>메시지</h2>";
 
     if (!data || !data.success) {
       const empty = document.createElement("div");
@@ -263,12 +271,16 @@ async function loadChatList() {
 
     const rooms = Array.isArray(data.rooms) ? data.rooms : [];
 
-    // ✅ roomId 기준 중복 제거
+    // ✅ roomId 기준 중복 제거 + ✅ 삭제된 방은 필터링
     const map = new Map();
     for (const r of rooms) {
-      const rid = pickRoomId(r);
+      const rid = String(pickRoomId(r) || "");
       if (!rid) continue;
-      map.set(String(rid), r);
+
+      // ✅ 프론트에서 삭제한 방이 다시 그려지는 것 방지
+      if (typeof DELETED_ROOMS !== "undefined" && DELETED_ROOMS.has(rid)) continue;
+
+      map.set(rid, r);
     }
     const uniqRooms = Array.from(map.values());
 
@@ -283,8 +295,11 @@ async function loadChatList() {
     }
 
     uniqRooms.forEach((room) => {
-      const roomId = pickRoomId(room);
+      const roomId = String(pickRoomId(room) || "");
       if (!roomId) return;
+
+      // ✅ 안전: 혹시 여기까지 내려와도 한 번 더 필터
+      if (typeof DELETED_ROOMS !== "undefined" && DELETED_ROOMS.has(roomId)) return;
 
       const item = document.createElement("div");
       item.className = "chat-item";
@@ -330,11 +345,13 @@ async function loadChatList() {
         location.href = `/chat.html?roomId=${encodeURIComponent(roomId)}`;
       };
 
-      // ✅ 핵심: DOM에 추가 (이게 빠져서 리스트가 안 보였음)
+      // ✅ 핵심: DOM에 추가
       listEl.appendChild(item);
     });
   } catch (e) {
     console.warn("❌ loadChatList error:", e);
+
+    // 실패해도 헤더는 유지
     listEl.innerHTML = "<h2>메시지</h2>";
 
     const empty = document.createElement("div");
@@ -345,6 +362,7 @@ async function loadChatList() {
     listEl.appendChild(empty);
   }
 }
+
 
 
 /* ======================================================
@@ -363,42 +381,89 @@ function closeIfCurrentRoom(roomId) {
 }
 
 /* ======================================================
-   🗑 채팅방 삭제 확정 처리 (모달 버튼)
+   🗑 채팅방 삭제 확정 처리 (모달 버튼) - FINAL
+   - 성공 시에만 UI 제거
+   - DELETED_ROOMS에 기록해서 재렌더링(동기화) 때 다시 나타나는 것 방지
+   - alert/새로고침 없음
+   - 현재 보고 있는 방이면 /chat.html로 안전 이동
 ====================================================== */
+
+// 🔥 파일 상단에 1회만 있어야 함
+// const DELETED_ROOMS = new Set();
+
 if (roomDeleteConfirm) {
-  roomDeleteConfirm.onclick = async () => {
+  roomDeleteConfirm.onclick = async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+
     if (!PENDING_DELETE_ROOM_ID) return;
 
-    const roomId = PENDING_DELETE_ROOM_ID;
+    const roomId = String(PENDING_DELETE_ROOM_ID); // ✅ 문자열로 통일
     closeRoomDeleteModal();
 
-    // ✅ 즉시 UI 제거
-    removeRoomFromUI(roomId);
+    // 버튼 연타 방지
+    roomDeleteConfirm.disabled = true;
 
     try {
       const res = await fetch(`${API}/chat/delete-room`, {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ roomId }),
+        body: JSON.stringify({ roomId: Number(roomId) || roomId }), // 숫자/문자 호환
       });
 
       const data = await res.json().catch(() => null);
+
       if (!data || !data.success) {
-        // 실패 시 동기화
-        alert("삭제 실패: " + (data?.message || "UNKNOWN"));
-        location.reload();
+        console.warn("❌ delete-room failed:", data);
+
+        // ✅ 실패 시: 모달 닫힌 상태 유지 + 목록 재동기화(새로고침 X)
+        try {
+          await loadChatList();
+          await applyRoomUnreadCounts();
+        } catch {}
         return;
       }
 
-      closeIfCurrentRoom(roomId);
-    } catch (e) {
-      console.warn("delete-room error", e);
-      location.reload();
+      // ✅ 서버가 roomId를 내려주면 그 값을 우선 사용 (없으면 기존값)
+      const deletedId = String(data.roomId || roomId);
+
+      // ✅ 재렌더링 때 다시 나타나는 것 방지
+      if (typeof DELETED_ROOMS !== "undefined") {
+        DELETED_ROOMS.add(deletedId);
+      }
+
+      // ✅ 성공 시에만 UI 제거
+      removeRoomFromUI(deletedId);
+
+      // ✅ 현재 보고 있는 방이면 안전 이동
+      closeIfCurrentRoom(deletedId);
+
+      // ✅ 혹시 기존 roomId/서버 roomId가 달라서 남아있을 수도 있으니 둘 다 제거 시도
+      if (deletedId !== roomId) {
+        if (typeof DELETED_ROOMS !== "undefined") DELETED_ROOMS.add(roomId);
+        removeRoomFromUI(roomId);
+        closeIfCurrentRoom(roomId);
+      }
+
+      // ✅ 최종적으로 목록/뱃지 한 번 동기화 (삭제 직후 깔끔하게)
+      try {
+        await loadChatList();
+        await applyRoomUnreadCounts();
+      } catch {}
+    } catch (err) {
+      console.warn("❌ delete-room network/server error:", err);
+
+      // ✅ 네트워크/서버 에러도 새로고침 X → 목록 재동기화
+      try {
+        await loadChatList();
+        await applyRoomUnreadCounts();
+      } catch {}
+    } finally {
+      roomDeleteConfirm.disabled = false;
     }
   };
 }
-
 
 /* ======================================================
    상단 방 정보

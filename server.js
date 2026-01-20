@@ -4926,48 +4926,45 @@ app.post("/chat/delete-room", async (req, res) => {
 
     const userId = Number(req.session.user.id);
     const rid = Number(req.body.roomId);
-
     if (!rid || Number.isNaN(rid)) {
       return res.status(400).json({ success: false, message: "ROOM_ID_REQUIRED" });
     }
 
-    // 1) chat_rooms 컬럼 목록 조회
-    const [cols] = await conn.query(
-      `SHOW COLUMNS FROM chat_rooms`
-    );
+    // ✅ 1) chat_rooms 컬럼 구조 확인
+    const [cols] = await conn.query(`SHOW COLUMNS FROM chat_rooms`);
+    const colNames = new Set(cols.map((c) => c.Field));
 
-    const colNames = new Set((cols || []).map(c => String(c.Field)));
+    // ✅ 2) 가능한 컬럼 조합 자동 탐색
+    // (너의 DB 상황에 맞춰 최대한 넓게 커버)
+    const candidates = [
+      ["buyer_id", "expert_id"],
+      ["user_id", "expert_id"],
+      ["sender_id", "receiver_id"],
+      ["user1_id", "user2_id"],
+      ["user_a", "user_b"],
+      ["from_user", "to_user"],
+    ];
 
-    // 2) buyer(구매자) 후보 컬럼 / expert 후보 컬럼 자동 탐색
-    const buyerCandidates  = ["buyer_id", "user_id", "customer_id", "client_id", "buyerId", "userId"];
-    const expertCandidates = ["expert_id", "seller_id", "provider_id", "expertId", "sellerId"];
+    let A = null, B = null;
+    for (const [a, b] of candidates) {
+      if (colNames.has(a) && colNames.has(b)) {
+        A = a; B = b;
+        break;
+      }
+    }
 
-    const buyerCol  = buyerCandidates.find(c => colNames.has(c));
-    const expertCol = expertCandidates.find(c => colNames.has(c));
-
-    // 최소한 expertCol은 있어야 “전문가/구매자 멤버 체크”가 가능함
-    // buyerCol이 없을 수도 있어서, 그땐 room의 다른 user 컬럼을 더 탐색
-    if (!expertCol) {
+    // ✅ 최소한 멤버 컬럼 2개가 있어야 권한 체크 가능
+    if (!A || !B) {
+      console.error("❌ chat_rooms member columns not found. columns=", [...colNames]);
       return res.status(500).json({
         success: false,
-        message: "CHAT_ROOMS_SCHEMA_UNSUPPORTED",
-        detail: "expert_id 계열 컬럼을 찾지 못함"
+        message: "CHAT_ROOMS_SCHEMA_UNKNOWN",
       });
     }
 
-    // buyerCol이 없다면, 마지막 fallback: 'user_id' 같은 단일 user 컬럼이라도 잡아보기
-    const fallbackUserCandidates = ["user_id", "userId", "member_id", "owner_id"];
-    const fallbackUserCol = buyerCol ? null : fallbackUserCandidates.find(c => colNames.has(c));
-
-    // 3) room 조회 (존재 확인)
-    //    buyerCol이 있으면 buyer+expert 둘 다 조회
-    //    buyerCol이 없으면 fallbackUserCol + expertCol 조회
-    const selectCols = ["id", expertCol];
-    if (buyerCol) selectCols.push(buyerCol);
-    else if (fallbackUserCol) selectCols.push(fallbackUserCol);
-
+    // ✅ 3) 권한 확인
     const [rooms] = await conn.query(
-      `SELECT ${selectCols.join(", ")} FROM chat_rooms WHERE id = ? LIMIT 1`,
+      `SELECT id, \`${A}\` AS a, \`${B}\` AS b FROM chat_rooms WHERE id = ? LIMIT 1`,
       [rid]
     );
 
@@ -4976,23 +4973,12 @@ app.post("/chat/delete-room", async (req, res) => {
     }
 
     const room = rooms[0];
-
-    // 4) 권한 체크 (멤버만 삭제 가능)
-    const expertIdInRoom = Number(room[expertCol]);
-    const buyerIdInRoom =
-      buyerCol ? Number(room[buyerCol]) :
-      fallbackUserCol ? Number(room[fallbackUserCol]) :
-      NaN;
-
-    const isMember =
-      userId === expertIdInRoom ||
-      (!Number.isNaN(buyerIdInRoom) && userId === buyerIdInRoom);
-
+    const isMember = Number(room.a) === userId || Number(room.b) === userId;
     if (!isMember) {
       return res.status(403).json({ success: false, message: "FORBIDDEN" });
     }
 
-    // 5) 삭제 트랜잭션
+    // ✅ 4) 삭제 트랜잭션
     await conn.beginTransaction();
 
     await conn.query(`DELETE FROM chat_messages WHERE room_id = ?`, [rid]);
@@ -5001,8 +4987,9 @@ app.post("/chat/delete-room", async (req, res) => {
 
     await conn.commit();
 
-    // 6) 실시간 반영 (해당 room join 유저들에게)
+    // ✅ 5) 실시간 반영 (개인룸에도 쏴주면 더 안정적)
     io.to(String(rid)).emit("chat:room-deleted", { roomId: rid });
+    io.to(`user:${userId}`).emit("chat:room-deleted", { roomId: rid });
 
     return res.json({ success: true });
   } catch (e) {
@@ -5013,9 +5000,6 @@ app.post("/chat/delete-room", async (req, res) => {
     conn.release();
   }
 });
-
-
-
 
 /* ======================================================
    🔵 전문가 작업 요약
