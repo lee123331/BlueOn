@@ -918,7 +918,8 @@ function initSocket() {
         ? "📷 이미지"
         : (msg.message || msg.content || "");
 
-    updateLeftLastMsg(msgRoomId, preview, msgRoomType);
+    updateLeftLastMsg(ROOM_ID, type === "image" ? "📷 이미지" : content, ROOM_TYPE || "work");
+
 
     const itemByKey = getChatItemByKey(msgRoomType, msgRoomId);
     if (itemByKey) {
