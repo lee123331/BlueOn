@@ -724,6 +724,10 @@ app.get("/api/task-chat/messages", async (req, res) => {
    🔵 일반 채팅 메시지 전송 (service_chat_rooms)
    POST /chat/send-message
 ====================================================== */
+/* ======================================================
+   🔵 일반 채팅 메시지 전송 (work/task + service 통합)
+   POST /chat/send-message
+====================================================== */
 app.post("/chat/send-message", async (req, res) => {
   try {
     if (!req.session.user) {
@@ -744,12 +748,11 @@ app.post("/chat/send-message", async (req, res) => {
     const realMessage = (message || content || "").trim();
     const type = message_type || "text";
 
-    if (!roomId) {
-      return res.json({ success: false, message: "ROOM_ID_REQUIRED" });
-    }
-    if (type === "text" && !realMessage) {
-      return res.json({ success: false, message: "EMPTY_MESSAGE" });
-    }
+    if (!roomId) return res.json({ success: false, message: "ROOM_ID_REQUIRED" });
+    if (type === "text" && !realMessage) return res.json({ success: false, message: "EMPTY_MESSAGE" });
+
+    // ✅ lastPreview는 어떤 update보다 먼저 정의 (🔥 핵심)
+    const lastPreview = type === "image" ? "📷 이미지" : realMessage;
 
     // ======================================================
     // 1) room 검증: chat_rooms(작업) → 없으면 service_chat_rooms(문의)
@@ -769,9 +772,7 @@ app.post("/chat/send-message", async (req, res) => {
 
       if (Number(r.user1_id) === senderId) otherId = Number(r.user2_id);
       else if (Number(r.user2_id) === senderId) otherId = Number(r.user1_id);
-      else {
-        return res.json({ success: false, message: "NO_ROOM_PERMISSION" });
-      }
+      else return res.json({ success: false, message: "NO_ROOM_PERMISSION" });
 
     } else {
       // 1-B) service_chat_rooms 조회
@@ -780,65 +781,70 @@ app.post("/chat/send-message", async (req, res) => {
         [roomId]
       );
 
-      if (!svcRows.length) {
-        return res.json({ success: false, message: "ROOM_NOT_FOUND" });
-      }
+      if (!svcRows.length) return res.json({ success: false, message: "ROOM_NOT_FOUND" });
 
       const r = svcRows[0];
       roomType = "service";
 
       if (Number(r.buyer_id) === senderId) otherId = Number(r.expert_id);
       else if (Number(r.expert_id) === senderId) otherId = Number(r.buyer_id);
-      else {
-        return res.json({ success: false, message: "NO_ROOM_PERMISSION" });
-      }
+      else return res.json({ success: false, message: "NO_ROOM_PERMISSION" });
     }
 
     // ======================================================
     // 2) 메시지 저장
     // ======================================================
-   const [ins] = await db.query(
-  `
-  INSERT INTO chat_messages
-    (
-      room_id,
-      sender_id,
-      message_type,
-      message,
-      file_url,
-      is_read,
-      created_at
-    )
-  VALUES (?, ?, ?, ?, ?, 0, NOW())
-  `,
-  [
-    roomId,
-    senderId,
-    type,
-    type === "text" ? realMessage : null,
-    type === "image" ? (file_url || realMessage) : null,
-  ]
-);
+    const [ins] = await db.query(
+      `
+      INSERT INTO chat_messages
+        (room_id, sender_id, message_type, message, file_url, is_read, created_at)
+      VALUES (?, ?, ?, ?, ?, 0, NOW())
+      `,
+      [
+        roomId,
+        senderId,
+        type,
+        type === "text" ? realMessage : null,
+        type === "image" ? (file_url || realMessage) : null,
+      ]
+    );
 
-const messageId = ins.insertId;
-
+    const messageId = ins.insertId;
 
     // ======================================================
     // 3) last_msg / updated_at 갱신
-    // - chat_rooms: last_msg + updated_at
-    // - service_chat_rooms: updated_at만
     // ======================================================
-    const lastPreview = type === "image" ? "📷 이미지" : realMessage;
-
     if (roomType === "service") {
+      // service_chat_rooms는 updated_at만
       await db.query(
         `UPDATE service_chat_rooms SET updated_at = NOW() WHERE id = ?`,
         [roomId]
       );
-    } else {
+
+      // ✅ (선택) service 채팅도 좌측 리스트에 보이게 하려면
+      // chat_rooms에 service type row를 보장 (id = roomId)
+      const u1 = Math.min(senderId, otherId);
+      const u2 = Math.max(senderId, otherId);
+
       await db.query(
-        `UPDATE chat_rooms SET last_msg = ?, updated_at = NOW() WHERE id = ?`,
-        [lastPreview, roomId]
+        `
+        INSERT INTO chat_rooms
+          (id, room_type, user1_id, user2_id, last_msg, last_sender_id, created_at, updated_at)
+        VALUES
+          (?, 'service', ?, ?, ?, ?, NOW(), NOW())
+        ON DUPLICATE KEY UPDATE
+          last_msg = VALUES(last_msg),
+          last_sender_id = VALUES(last_sender_id),
+          updated_at = NOW()
+        `,
+        [roomId, u1, u2, lastPreview, senderId]
+      );
+
+    } else {
+      // work/task는 chat_rooms 갱신
+      await db.query(
+        `UPDATE chat_rooms SET last_msg = ?, last_sender_id = ?, updated_at = NOW() WHERE id = ?`,
+        [lastPreview, senderId, roomId]
       );
     }
 
@@ -890,6 +896,7 @@ const messageId = ins.insertId;
     return res.json({ success: false, message: "SERVER_ERROR" });
   }
 });
+
 
 
 
