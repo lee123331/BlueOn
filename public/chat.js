@@ -51,10 +51,7 @@ function safeStr(v) {
   return v == null ? "" : String(v);
 }
 
-function pickRoomId(r) {
-  // 서버/프론트 키가 섞여도 무조건 roomId 뽑아냄
-  return safeStr(r?.roomId || r?.room_id || r?.id || r?.room);
-}
+
 
 function scrollBottom() {
   if (!chatBody) return;
@@ -280,6 +277,8 @@ item.innerHTML = `
       <div class="chat-last">${room.last_msg || ""}</div>
     </div>
   </div>
+
+  <button class="room-delete-btn" title="채팅방 삭제" aria-label="채팅방 삭제">🗑</button>
 `;
 
     item.onclick = () => {
@@ -291,6 +290,65 @@ item.innerHTML = `
   });
 }
 
+/* ======================================================
+   🗑 채팅방 삭제 버튼 이벤트 (전역 1회 등록)
+====================================================== */
+function removeRoomFromUI(roomId) {
+  const el = document.querySelector(`.chat-item[data-room-id="${safeStr(roomId)}"]`);
+  if (el) el.remove();
+}
+
+function closeIfCurrentRoom(roomId) {
+  const current = safeStr(new URLSearchParams(location.search).get("roomId"));
+  if (safeStr(roomId) === current) {
+    location.href = "/chat.html";
+  }
+}
+
+// ✅ loadChatList() 안에 넣지 말고, 함수 밖에서 1회만!
+if (chatListArea) {
+  chatListArea.addEventListener("click", async (e) => {
+    const btn = e.target.closest(".room-delete-btn");
+    if (!btn) return;
+
+    const item = btn.closest(".chat-item");
+    if (!item) return;
+
+    // 방 이동(onclick) 막기
+    e.preventDefault();
+    e.stopPropagation();
+
+    const roomId = Number(item.dataset.roomId);
+    if (!roomId) return;
+
+    const ok = confirm("이 채팅방을 완전히 삭제할까요? (복구 불가)");
+    if (!ok) return;
+
+    // ✅ 즉시 UI 제거
+    removeRoomFromUI(roomId);
+
+    try {
+      const res = await fetch(`${API}/chat/delete-room`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ roomId }),
+      });
+
+      const data = await res.json().catch(() => null);
+      if (!data || !data.success) {
+        alert("삭제 실패: " + (data?.message || "UNKNOWN"));
+        location.reload();
+        return;
+      }
+
+      closeIfCurrentRoom(roomId);
+    } catch (err) {
+      console.warn("delete-room error", err);
+      location.reload();
+    }
+  });
+}
 
 /* ======================================================
    상단 방 정보
@@ -727,6 +785,20 @@ function initSocket() {
     // ✅ 보고 있는 방은 뱃지 숨김 유지
     hideUnreadBadge(ROOM_ID);
   });
+
+  socket.on("chat:room-deleted", ({ roomId }) => {
+  const rid = safeStr(roomId);
+
+  // 좌측 리스트 제거
+  removeRoomFromUI(rid);
+
+  // 현재 보고 있는 방이면 종료
+  const current = safeStr(new URLSearchParams(location.search).get("roomId"));
+  if (rid === current) {
+    location.href = "/chat.html";
+  }
+});
+
 
   /* =========================
      ✅ delete / read

@@ -158,6 +158,35 @@ body{
   color:#6b7280;
   display:none;
 }
+/* 채팅 리스트 삭제 버튼 */
+.chat-actions{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  margin-left:auto;
+}
+
+.chat-del-btn{
+  width:28px;
+  height:28px;
+  border:none;
+  border-radius:8px;
+  background:#f3f4f6;
+  color:#6b7280;
+  cursor:pointer;
+  display:none;
+  align-items:center;
+  justify-content:center;
+  font-weight:900;
+}
+
+.chat-item:hover .chat-del-btn{
+  display:flex;
+}
+.chat-del-btn:hover{
+  background:#fee2e2;
+  color:#ef4444;
+}
 
 
 /* =========================
