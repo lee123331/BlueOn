@@ -250,12 +250,15 @@ const sessionStore = new MySQLStore(
 
 const isProd = process.env.NODE_ENV === "production";
 
-// 1) 기존 app.use(sessionMiddleware) 형태로 빼기
+
+
+app.set("trust proxy", 1);
+
 const sessionMiddleware = session({
   secret: process.env.SESSION_SECRET,
   resave: false,
   saveUninitialized: false,
-  store: sessionStore, // 너가 쓰는 MySQLStore면 그대로
+  store: sessionStore,
   cookie: {
     httpOnly: true,
     sameSite: "none",
@@ -264,21 +267,34 @@ const sessionMiddleware = session({
 });
 
 app.use(sessionMiddleware);
+console.log("✅ 세션 스토어 적용 완료");
 
-// 2) socket에도 적용 (이거 없으면 socket.request.session이 비어있음)
+
+/* ======================================================
+   🔵 Socket.io 서버 생성
+====================================================== */
+const httpServer = http.createServer(app);
+
+const io = new SocketIOServer(httpServer, {
+  
+  transports: ["polling", "websocket"],
+
+
+  cors: {
+    origin: [
+      "http://localhost:3000",
+      "http://localhost:5173",
+      "https://blueon.up.railway.app"
+    ],
+    credentials: true,
+  },
+});
+
+// 🔥 Express 세션을 Socket.io에 연결 (핵심)
 io.use((socket, next) => {
   sessionMiddleware(socket.request, {}, next);
 });
 
-
-app.set("trust proxy", 1);
-
-// express-session 설정이 이미 있다고 가정
-app.use(sessionMiddleware);
-
-
-
-console.log("✅ 세션 스토어 적용 완료");
 
 
 function getTaskKey(main, sub) {
@@ -1060,31 +1076,6 @@ await db.query(
   }
 });
 
-
-/* ======================================================
-   🔵 Socket.io 서버 생성
-====================================================== */
-const httpServer = http.createServer(app);
-
-const io = new SocketIOServer(httpServer, {
-  
-  transports: ["polling", "websocket"],
-
-
-  cors: {
-    origin: [
-      "http://localhost:3000",
-      "http://localhost:5173",
-      "https://blueon.up.railway.app"
-    ],
-    credentials: true,
-  },
-});
-
-// 🔥 Express 세션을 Socket.io에 연결 (핵심)
-io.use((socket, next) => {
-  sessionMiddleware(socket.request, {}, next);
-});
 
 
 /* ------------------ 회원가입 ------------------ */
