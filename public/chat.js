@@ -563,12 +563,11 @@ if (fileBtn && fileInput) {
 }
 
 /* ======================================================
-   Socket.io (호환성 최종본)
-   - 개인룸(user:{id}) join 해서 chat:notify 100% 수신
-   - 방(ROOM_ID) join
-   - notify -> unread 즉시 반영 + 새 방이면 리스트 자동 추가
-   - message -> pending 치환 + 읽음 처리
-   - 폴링 백업: notify 놓쳐도 뱃지 결국 뜸
+   🔵 Socket.io (chat.html 전용 최종 안정판)
+   - 세션 쿠키 확실히 붙게: 같은 origin으로 연결
+   - notify로 unread/새방/정렬 즉시 반영
+   - message는 현재방 렌더 + 다른방은 unread만
+   - delete/read 이벤트 포함
 ====================================================== */
 function initSocket() {
   if (typeof window.io !== "function") {
@@ -576,12 +575,17 @@ function initSocket() {
     return;
   }
 
+  // ✅ 기존 소켓 정리
   if (socket) {
-    try { socket.disconnect(); } catch {}
+    try { socket.off(); socket.disconnect(); } catch {}
     socket = null;
   }
 
-  socket = window.io(API, {
+  // ✅ 같은 origin으로 붙기 (쿠키/세션 안정)
+  // chat.html이 API 서버와 같은 도메인에서 서빙되는 구조라면 이게 정답
+  const SOCKET_ORIGIN = window.location.origin;
+
+  socket = window.io(SOCKET_ORIGIN, {
     withCredentials: true,
     transports: ["polling", "websocket"],
     upgrade: true,
@@ -592,17 +596,21 @@ function initSocket() {
     timeout: 10000,
   });
 
-  function joinPersonalRoom() {
-    if (!CURRENT_USER?.id) return;
-    const myId = String(CURRENT_USER.id);
-
-    // ✅ 서버에서 이 이벤트를 받고 join 처리하도록 맞춰야 함 (아래 2번 참고)
-    socket.emit("user:join", myId, (ack) => {
-      console.log("✅ user:join ack =", ack, "user =", myId);
-    });
+  // ✅ 과도한 fetch 폭발 방지용(notify/message 연속 수신 대비)
+  let syncTimer = null;
+  function scheduleSync({ refreshList = true } = {}) {
+    clearTimeout(syncTimer);
+    syncTimer = setTimeout(async () => {
+      try {
+        await applyRoomUnreadCounts();
+        if (refreshList) await loadChatList();
+      } catch (e) {
+        console.warn("sync fail", e);
+      }
+    }, 120); // 0.12s 디바운스
   }
 
-  function joinChatRoomIfNeeded() {
+  function joinRoomIfNeeded() {
     if (!ROOM_ID) return;
     const rid = String(ROOM_ID);
 
@@ -612,53 +620,22 @@ function initSocket() {
         ack === "OK" ||
         (ack && typeof ack === "object" && ack.ok === true);
 
-      console.log("✅ chat:join ack =", ack, "parsed ok =", ok, "room =", rid);
+      console.log("✅ chat:join ack =", ack, "ok =", ok, "room =", rid);
     });
   }
 
-  function hasRoomInLeftList(roomId) {
-    return !!document.querySelector(`.chat-item[data-room-id="${safeStr(roomId)}"]`);
-  }
-
-  let syncing = false;
-  async function syncUnreadAndMaybeList(roomId) {
-    if (syncing) return;
-    syncing = true;
-    try {
-      await applyRoomUnreadCounts();
-
-      // 새 방이 생겼는데 리스트에 없으면 추가
-      if (roomId && !hasRoomInLeftList(roomId)) {
-        await loadChatList();
-        await applyRoomUnreadCounts();
-      }
-    } catch (e) {
-      console.warn("syncUnreadAndMaybeList fail", e);
-    } finally {
-      syncing = false;
-    }
-  }
-
-  socket.on("connect", async () => {
+  socket.on("connect", () => {
     console.log("✅ socket connected:", socket.id, "ROOM_ID =", ROOM_ID);
+    joinRoomIfNeeded();
 
-    // ✅ 1) 개인룸 join (notify 받기 핵심)
-    joinPersonalRoom();
-
-    // ✅ 2) 현재 방 join
-    joinChatRoomIfNeeded();
-
-    // ✅ 연결 직후 동기화(안전)
-    await syncUnreadAndMaybeList(null);
+    // ✅ 접속하자마자 unread 동기화(리스트는 init()에서 이미 한번 그림)
+    scheduleSync({ refreshList: false });
   });
 
-  socket.on("reconnect", async (attempt) => {
+  socket.on("reconnect", (attempt) => {
     console.log("🔁 socket reconnected:", attempt);
-
-    joinPersonalRoom();
-    joinChatRoomIfNeeded();
-
-    await syncUnreadAndMaybeList(null);
+    joinRoomIfNeeded();
+    scheduleSync({ refreshList: false });
   });
 
   socket.on("connect_error", (e) => {
@@ -671,17 +648,21 @@ function initSocket() {
 
   socket.on("chat:joined", (payload) => {
     const rid = safeStr(payload?.roomId || payload);
-    console.log("✅ joined room:", rid, "payload =", payload);
+    console.log("✅ joined room:", rid);
   });
 
-  // ✅ notify: 새로고침 없이 뱃지 반영 + 새 방 자동 추가
-  socket.on("chat:notify", async (p) => {
-    const rid = safeStr(p?.roomId || p?.room_id || p?.room);
-    console.log("🔔 chat:notify received:", p, "rid =", rid);
-    await syncUnreadAndMaybeList(rid);
+  /* =========================
+     ✅ notify: 개인룸(user:${id})에서 옴
+     - 새 메시지 / 새 방 생성 / 정렬 변경을 전부 커버
+  ========================= */
+  socket.on("chat:notify", (p) => {
+    console.log("🔔 chat:notify", p);
+    scheduleSync({ refreshList: true });
   });
 
-  // ✅ message: join된 방에서 실시간 메시지
+  /* =========================
+     ✅ message: room join한 방에서 옴
+  ========================= */
   socket.on("chat:message", async (msg) => {
     if (!CURRENT_USER) return;
 
@@ -693,35 +674,48 @@ function initSocket() {
         ? "📷 이미지"
         : (msg.message || msg.content || "");
 
+    // ✅ 좌측 미리보기 갱신 (해당 아이템이 아직 없으면 목록 다시 로드)
     updateLeftLastMsg(roomId, preview);
 
-    // 내가 보고 있는 방이 아니면 unread만 반영 (그리고 새 방이면 리스트 추가)
+    const item = document.querySelector(`.chat-item[data-room-id="${roomId}"]`);
+    if (!item) {
+      // 새 방이거나 아직 리스트에 없으면 바로 리스트 갱신
+      scheduleSync({ refreshList: true });
+    }
+
+    // ✅ 내가 보고 있는 방이 아니면 unread만 갱신
     if (!ROOM_ID || roomId !== safeStr(ROOM_ID)) {
-      await syncUnreadAndMaybeList(roomId);
+      scheduleSync({ refreshList: false });
       return;
     }
 
-    // ✅ 내 메시지도 pending 치환을 위해 renderMsg 태움
+    // ✅ 내가 보낸 메시지도 pending 치환을 위해 render 태움
     if (Number(msg.sender_id) === Number(CURRENT_USER.id)) {
       renderMsg(msg);
       return;
     }
 
+    // ✅ 상대방 메시지 렌더
     renderMsg(msg);
     scrollBottom();
     markRoomAsRead(ROOM_ID);
-    hideUnreadBadge(ROOM_ID);
   });
 
-  // ✅ delete
+  /* =========================
+     ✅ delete
+  ========================= */
   socket.on("chat:delete", ({ messageId, roomId }) => {
     if (roomId && ROOM_ID && safeStr(roomId) !== safeStr(ROOM_ID)) return;
 
-    const el = document.querySelector(`.msg-row[data-message-id="${safeStr(messageId)}"]`);
+    const el = document.querySelector(
+      `.msg-row[data-message-id="${safeStr(messageId)}"]`
+    );
     if (el) el.remove();
   });
 
-  // ✅ read
+  /* =========================
+     ✅ read
+  ========================= */
   socket.on("chat:read", ({ roomId }) => {
     if (!ROOM_ID) return;
     if (safeStr(roomId) !== safeStr(ROOM_ID)) return;
@@ -729,21 +723,5 @@ function initSocket() {
     document.querySelectorAll(".msg-row.me .read-state").forEach((el) => {
       el.textContent = "읽음";
     });
-  });
-
-  /* =========================
-     ✅ 폴링 백업 (notify 놓쳐도 뱃지 결국 뜸)
-  ========================= */
-  if (!window.__CHAT_UNREAD_POLL__) {
-    window.__CHAT_UNREAD_POLL__ = setInterval(() => {
-      applyRoomUnreadCounts().catch(() => {});
-    }, 4000);
-  }
-
-  // 탭 다시 활성화되면 한번 더 동기화
-  document.addEventListener("visibilitychange", () => {
-    if (!document.hidden) {
-      applyRoomUnreadCounts().catch(() => {});
-    }
   });
 }
