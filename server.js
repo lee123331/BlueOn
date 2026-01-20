@@ -250,20 +250,26 @@ const sessionStore = new MySQLStore(
 
 const isProd = process.env.NODE_ENV === "production";
 
+// 1) 기존 app.use(sessionMiddleware) 형태로 빼기
 const sessionMiddleware = session({
-  name: "blueon.sid",
-  secret: process.env.SESSION_SECRET || "blueon_secret",
+  secret: process.env.SESSION_SECRET,
   resave: false,
   saveUninitialized: false,
-  store: sessionStore,
-  proxy: true, // ✅ 프록시 환경에서 secure 판단 보조
+  store: sessionStore, // 너가 쓰는 MySQLStore면 그대로
   cookie: {
     httpOnly: true,
-    secure: isProd,                 // ✅ prod(https)에서는 true
-    sameSite: isProd ? "none" : "lax", // ✅ cross-site면 none 필요
-    maxAge: 1000 * 60 * 60 * 24,
-  },
+    sameSite: "none",
+    secure: true,
+  }
 });
+
+app.use(sessionMiddleware);
+
+// 2) socket에도 적용 (이거 없으면 socket.request.session이 비어있음)
+io.use((socket, next) => {
+  sessionMiddleware(socket.request, {}, next);
+});
+
 
 app.set("trust proxy", 1);
 
@@ -913,18 +919,27 @@ app.post("/chat/send-message", async (req, res) => {
       is_read: 0,
     };
 
-    // ✅ 현재 방 보고 있는 사람들
-    io.to(String(rid)).emit("chat:message", payload);
+// ======================================================
+// 5) socket emit (✅ roomId 단일 + roomType:roomId + user notify)
+// ======================================================
+const ridStr = String(rid);
+const typedRoom = `${roomType}:${ridStr}`;
 
-    // ✅ 상대방 어디에 있든 리스트/배지 동기화 트리거
-    io.to(`user:${otherId}`).emit("chat:notify", {
-      roomId: String(rid),
-      roomType: roomType,
-      from: senderId,
-      preview: lastPreview,
-    });
+// ✅ 현재 방 보고 있는 사람들(구형 rid / 신형 typed 둘 다)
+io.to(ridStr).emit("chat:message", payload);
+io.to(typedRoom).emit("chat:message", payload);
 
-    return res.json({ success: true, messageId, roomType });
+// ✅ 상대방 메인 뱃지용 notify (user룸)
+io.to(`user:${String(otherId)}`).emit("chat:notify", {
+  roomId: ridStr,
+  roomType,
+  from: senderId,
+  preview: lastPreview,
+});
+
+
+    return res.json({ success: true, messageId, roomId: ridStr, roomType });
+
   } catch (e) {
     console.error("❌ /chat/send-message error:", e);
     return res.json({ success: false, message: "SERVER_ERROR" });
@@ -2248,25 +2263,53 @@ io.on("connection", (socket) => {
   console.log("🟢 Socket connected:", socket.id);
   console.log("🍪 cookie:", socket.request.headers?.cookie || "(none)");
 
+  // 세션 유저 추출 (세션 미들웨어가 io에 붙어있어야 값이 들어옴)
   const user = socket.request?.session?.user || null;
   console.log("🧩 session user:", user);
 
-  // 0) 비로그인 소켓도 유지(배지용 등) - 채팅 기능만 제한
-  if (!user) {
-    socket.on("disconnect", (reason) => {
-      console.log("🔴 guest disconnected:", socket.id, reason);
-    });
-    return;
-  }
+  /**
+   * ✅ 공통 유틸
+   */
+  const getUserId = () => {
+    const u = socket.request?.session?.user;
+    if (!u?.id) return null;
+    return String(u.id);
+  };
 
-  // 1) 로그인 유저 개인 room
-  const uid = String(user.id);
-  socket.join(`user:${uid}`);
-  console.log(`➡ user:${uid} joined | socket=${socket.id}`);
+  const joinUserRoom = () => {
+    const uid = getUserId();
+    if (!uid) return false;
+    socket.join(`user:${uid}`);
+    console.log(`➡ user:${uid} joined | socket=${socket.id}`);
+    return true;
+  };
 
-  // 2) 채팅방 입장 (roomId 단일, 구형/신형 호환)
+  /**
+   * ✅ (핵심) 메인/index에서 connect 후 indexSocket.emit("user:join") 해주면
+   * 여기서 user룸을 확실히 join 시켜서 chat:notify를 100% 받게 한다.
+   */
+  socket.on("user:join", (cb) => {
+    const ok = joinUserRoom();
+    cb?.({ ok });
+  });
+
+  // ✅ 로그인 유저면 접속 즉시 user룸 join
+  // (로그아웃/비로그인 페이지는 join 실패해도 소켓은 유지)
+  joinUserRoom();
+
+  /**
+   * ✅ 채팅방 입장
+   * - roomId 단일 + (신형) roomType:roomId 방 둘 다 join해서 호환
+   * - 서버 emit이 rid로 가든 type:rid로 가든 다 받게
+   */
   socket.on("chat:join", (payload, cb) => {
     try {
+      const uid = getUserId(); // 비로그인이면 null
+      if (!uid) {
+        cb?.({ ok: false, reason: "LOGIN_REQUIRED" });
+        return;
+      }
+
       let roomId = null;
       let roomType = "work";
 
@@ -2284,9 +2327,15 @@ io.on("connection", (socket) => {
       }
 
       const rid = String(roomId);
+      const typed = `${roomType}:${rid}`;
+
+      // ✅ 구형 roomId 단일 join
       socket.join(rid);
 
-      console.log(`📌 chat:join room=${rid} | type=${roomType} | user=${uid}`);
+      // ✅ 신형 roomType:roomId join (호환)
+      socket.join(typed);
+
+      console.log(`📌 chat:join room=${rid} & ${typed} | user=${uid}`);
       socket.emit("chat:joined", { roomId: rid, roomType });
       cb?.({ ok: true, roomId: rid, roomType });
     } catch (e) {
@@ -2295,33 +2344,38 @@ io.on("connection", (socket) => {
     }
   });
 
-  // typing
+  /**
+   * ✅ typing
+   * - roomId 단일 + type:roomId 둘 다 broadcast (호환)
+   */
   socket.on("chat:typing", ({ roomId, roomType, userId, isTyping }) => {
     if (!roomId) return;
     const rid = String(roomId);
     const t = String(roomType || "").trim();
     const safeType = (t === "work" || t === "service") ? t : "work";
+    const typed = `${safeType}:${rid}`;
 
-    socket.to(rid).emit("chat:typing", {
-      roomId: rid,
-      roomType: safeType,
-      userId,
-      isTyping: !!isTyping,
-    });
+    socket.to(rid).emit("chat:typing", { roomId: rid, roomType: safeType, userId, isTyping: !!isTyping });
+    socket.to(typed).emit("chat:typing", { roomId: rid, roomType: safeType, userId, isTyping: !!isTyping });
   });
 
-  // message delete broadcast
+  /**
+   * ✅ delete broadcast
+   * - roomId 단일 + type:roomId 둘 다 broadcast (호환)
+   */
   socket.on("chat:delete", ({ roomId, roomType, messageId }) => {
     if (!roomId || !messageId) return;
     const rid = String(roomId);
     const t = String(roomType || "").trim();
     const safeType = (t === "work" || t === "service") ? t : "work";
+    const typed = `${safeType}:${rid}`;
 
     socket.to(rid).emit("chat:delete", { roomId: rid, roomType: safeType, messageId });
+    socket.to(typed).emit("chat:delete", { roomId: rid, roomType: safeType, messageId });
   });
 
   socket.on("disconnect", (reason) => {
-    console.log("🔴 user disconnected:", socket.id, reason);
+    console.log("🔴 socket disconnected:", socket.id, reason);
   });
 });
 

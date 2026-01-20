@@ -1073,10 +1073,15 @@ document.addEventListener("DOMContentLoaded", () => {
         timeout: 10000,
       });
 
-      indexSocket.on("connect", () => {
-        console.log("✅ index socket connected:", indexSocket.id);
-        loadChatUnreadBadge();
-      });
+     indexSocket.on("connect", () => {
+  console.log("✅ index socket connected:", indexSocket.id);
+
+  // ✅ 핵심: 서버에 "나 유저룸 넣어줘" 요청
+  indexSocket.emit("user:join");
+
+  loadChatUnreadBadge();
+});
+
 
       // ✅ chat:notify 오면 즉시 +1 → 200ms 뒤 서버값으로 동기화
       indexSocket.on("chat:notify", (payload) => {

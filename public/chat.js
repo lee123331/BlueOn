@@ -876,17 +876,25 @@ function initSocket() {
     }
   }
 
-  socket.on("connect", async () => {
-    console.log("✅ socket connected:", socket.id, "ROOM_ID =", ROOM_ID);
-    joinRoomIfNeeded();
-    await syncListAndBadges("connect");
-  });
+socket.on("connect", async () => {
+  console.log("✅ socket connected:", socket.id, "ROOM_ID =", ROOM_ID);
 
-  socket.on("reconnect", async (attempt) => {
-    console.log("🔁 socket reconnected:", attempt, "ROOM_ID =", ROOM_ID);
-    joinRoomIfNeeded();
-    await syncListAndBadges("reconnect");
-  });
+  // ✅ 추가: 서버에 내 user룸 확실히 조인 요청
+  socket.emit("user:join");
+
+  joinRoomIfNeeded();
+  await syncListAndBadges("connect");
+});
+
+
+socket.on("reconnect", async (attempt) => {
+  console.log("🔁 socket reconnected:", attempt, "ROOM_ID =", ROOM_ID);
+
+  socket.emit("user:join"); // ✅ 추가
+
+  joinRoomIfNeeded();
+  await syncListAndBadges("reconnect");
+});
 
   socket.on("connect_error", (e) => {
     console.warn("❌ socket connect_error:", e?.message || e);
@@ -906,45 +914,45 @@ function initSocket() {
   });
 
   // ✅ chat:message (roomType + roomId 기준)
-  socket.on("chat:message", async (msg) => {
-    if (!CURRENT_USER) return;
+  // ✅ chat:message (roomType + roomId 기준)
+socket.on("chat:message", async (msg) => {
+  if (!CURRENT_USER) return;
 
-    const msgRoomId = safeStr(msg?.room_id || msg?.roomId);
-    const msgRoomType = safeStr(msg?.room_type || msg?.roomType || "work");
-    if (!msgRoomId) return;
+  const msgRoomId = safeStr(msg?.room_id || msg?.roomId);
+  const msgRoomType = safeStr(msg?.room_type || msg?.roomType || "work");
+  if (!msgRoomId) return;
 
-    const preview =
-      msg.message_type === "image"
-        ? "📷 이미지"
-        : (msg.message || msg.content || "");
+  const msgType = safeStr(msg?.message_type || msg?.type || "text");
+  const preview =
+    msgType === "image"
+      ? "📷 이미지"
+      : safeStr(msg?.message || msg?.content || "");
 
-    updateLeftLastMsg(ROOM_ID, type === "image" ? "📷 이미지" : content, ROOM_TYPE || "work");
+  // ✅ (중요) 좌측 리스트 "해당 방" 프리뷰 갱신
+  updateLeftLastMsg(msgRoomId, preview, msgRoomType);
 
+  // 방이 리스트에 없으면 갱신
+  if (!getChatItemByKey(msgRoomType, msgRoomId) && !getChatItem(msgRoomId)) {
+    await syncListAndBadges("message_room_not_in_list");
+  }
 
-    const itemByKey = getChatItemByKey(msgRoomType, msgRoomId);
-    if (itemByKey) {
-      const el = itemByKey.querySelector(".chat-last");
-      if (el) el.textContent = preview || "";
-    }
+  const curRoomId = safeStr(ROOM_ID);
+  const curRoomType = safeStr(ROOM_TYPE || "work");
 
-    if (!getChatItemByKey(msgRoomType, msgRoomId) && !getChatItem(msgRoomId)) {
-      await syncListAndBadges("message_room_not_in_list");
-    }
+  // ✅ 현재 열어둔 방이 아니면: unread 동기화만
+  if (!ROOM_ID || msgRoomId !== curRoomId || msgRoomType !== curRoomType) {
+    await syncListAndBadges("message_not_current_room");
+    return;
+  }
 
-    const curRoomId = safeStr(ROOM_ID);
-    const curRoomType = safeStr(ROOM_TYPE || "work");
+  // ✅ 현재 방이면: 메시지 렌더 + 읽음 처리
+  renderMsg(msg);
+  scrollBottom();
 
-    if (!ROOM_ID || msgRoomId !== curRoomId || msgRoomType !== curRoomType) {
-      await syncListAndBadges("message_not_current_room");
-      return;
-    }
+  markRoomAsRead(ROOM_ID);
+  hideUnreadBadge(ROOM_ID);
+});
 
-    renderMsg(msg);
-    scrollBottom();
-
-    markRoomAsRead(ROOM_ID);
-    hideUnreadBadge(ROOM_ID);
-  });
 
   // ✅ room-deleted
   socket.on("chat:room-deleted", ({ roomId, roomType }) => {
