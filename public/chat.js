@@ -101,6 +101,7 @@ let DELETE_TARGET_ROW = null;
 // ✅ 채팅방 삭제 모달 상태 (핵심)
 let PENDING_DELETE_ROOM_ID = null;
 let PENDING_DELETE_ROOM_TYPE = null; // "work" | "service" | null
+let FIRST_ROOM = null; // ✅ roomId/roomType 자동 오픈용
 
 /* ======================================================
    공통 유틸
@@ -374,6 +375,15 @@ async function loadChatList() {
       return;
     }
 
+    // ✅ chat.html?roomId= 없을 때 자동으로 첫 방 열기 위해 저장
+if (!ROOM_ID && uniqRooms.length > 0) {
+  const r0 = uniqRooms[0];
+  const rid0 = String(pickRoomId(r0) || "");
+  const rtype0 = pickRoomType(r0) || "work";
+  if (rid0) FIRST_ROOM = { roomId: rid0, roomType: rtype0 };
+}
+
+
     uniqRooms.forEach((room) => {
       const roomId = String(pickRoomId(room) || "");
       if (!roomId) return;
@@ -417,19 +427,25 @@ async function loadChatList() {
                 aria-label="채팅방 삭제">🗑</button>
       `;
 
-      item.onclick = (e) => {
-        if (e.target.closest(".room-delete-btn")) {
-          e.preventDefault();
-          e.stopPropagation();
-          openRoomDeleteModal(roomId, roomType); // ✅ roomType 전달
-          return;
-        }
+item.onclick = (e) => {
+  if (e.target.closest(".room-delete-btn")) {
+    e.preventDefault();
+    e.stopPropagation();
+    openRoomDeleteModal(roomId, roomType);
+    return;
+  }
 
-        hideUnreadBadge(roomId);
-        // ✅ type 파라미터는 호환 유지(없어도 기존 동작), 있으면 정확도↑
-        location.href = `/chat.html?roomType=${encodeURIComponent(roomType)}&roomId=${encodeURIComponent(roomId)}`;
+  // ✅ 1️⃣ 클릭 순간 서버에 "읽음 처리" 먼저 전송
+  markRoomAsRead(roomId);
 
-      };
+  // ✅ 2️⃣ UI 즉시 반영
+  hideUnreadBadge(roomId);
+
+  // ✅ 3️⃣ 방 이동
+  location.href =
+    `/chat.html?roomType=${encodeURIComponent(roomType)}&roomId=${encodeURIComponent(roomId)}`;
+};
+
 
       listEl.appendChild(item);
     });
@@ -1035,10 +1051,24 @@ if (imgModal) {
   await loadChatList();
   await applyRoomUnreadCounts();
 
+  // ✅ roomId 없이 chat.html로 들어오면: 최근(첫) 방 자동 진입
+  // - loadChatList() 안에서 FIRST_ROOM 세팅해둔 전제
+  // - FIRST_ROOM 없으면 그냥 목록 화면 유지
+  if (!ROOM_ID && typeof FIRST_ROOM === "object" && FIRST_ROOM?.roomId) {
+    const { roomId, roomType } = FIRST_ROOM;
+
+    // ✅ replace를 써야 뒤로가기 시 무한루프 방지
+    location.replace(
+      `/chat.html?roomType=${encodeURIComponent(roomType || "work")}&roomId=${encodeURIComponent(roomId)}`
+    );
+    return;
+  }
+
   if (ROOM_ID) {
     await loadRoomInfo();
     await loadMessages();
 
+    // ✅ 방 접속 즉시 읽음 처리 (메인 뱃지 내려가게 하는 핵심)
     markRoomAsRead(ROOM_ID);
     hideUnreadBadge(ROOM_ID);
   } else {
@@ -1049,6 +1079,7 @@ if (imgModal) {
 
   initSocket();
 })();
+
 
 /* ======================================================
    입력 이벤트

@@ -1084,12 +1084,21 @@ document.addEventListener("DOMContentLoaded", () => {
 
 
       // ✅ chat:notify 오면 즉시 +1 → 200ms 뒤 서버값으로 동기화
-      indexSocket.on("chat:notify", (payload) => {
-        console.log("🔔 chat:notify received on index", payload);
+  // ✅ chat:notify 처리 (메인 페이지 배지 실시간)
+indexSocket.on("chat:notify", (payload) => {
+  console.log("🔔 chat:notify received on index", payload);
 
-        renderChatBadge(getCurrentBadgeNum() + 1);
-        setTimeout(loadChatUnreadBadge, 200);
-      });
+  // ✅ 읽음 이벤트면: +1 하지 말고 서버값으로 즉시 동기화 (배지 내려가야 함)
+  if (payload?.event === "read") {
+    loadChatUnreadBadge();
+    return;
+  }
+
+  // ✅ 새 메시지 이벤트면: 즉시 +1 해서 체감 실시간 + 짧게 딜레이 후 서버값 동기화
+  renderChatBadge(getCurrentBadgeNum() + 1);
+  setTimeout(loadChatUnreadBadge, 200);
+});
+
 
       // (보조) 서버가 다른 이벤트명도 쓸 때 대비
       indexSocket.on("chat:message", () => loadChatUnreadBadge());

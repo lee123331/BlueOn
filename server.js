@@ -2841,33 +2841,37 @@ app.delete("/chat/message/:id", async (req, res) => {
 ====================================================== */
 app.post("/chat/read", async (req, res) => {
   try {
+    if (!req.session.user) {
+      return res.status(401).json({ success: false, message: "LOGIN_REQUIRED" });
+    }
+
+    const userId = Number(req.session.user.id);
     const { roomId, roomType } = req.body;
-    const userId = req.session.user?.id;
 
     const rid = Number(roomId);
     const rt = (roomType === "service" || roomType === "work") ? roomType : "work";
 
-    if (!rid || !userId) {
-      return res.json({ success: false, message: "roomId 또는 user 없음" });
+    if (!rid || Number.isNaN(rid)) {
+      return res.json({ success: false, message: "ROOM_ID_REQUIRED" });
     }
 
-    // ✅ 메시지 읽음 처리: room_type 조건 필수!
+    // ✅ 1) 내 unread만 0 처리 (room_id + room_type + user_id가 가장 안전)
     await db.query(
-  `
-  UPDATE chat_unread
-  SET count = 0,
-      updated_date = CURDATE()
-  WHERE room_id = ?
-    AND room_type = ?
-    AND user_id = ?
-  `,
-  [rid, rt, userId]
-);
+      `
+      UPDATE chat_unread
+      SET count = 0,
+          updated_date = CURDATE()
+      WHERE room_id = ?
+        AND room_type = ?
+        AND user_id = ?
+      `,
+      [rid, rt, userId]
+    );
 
-
-    // ✅ unread 초기화: 통일 키 사용
-    const roomUserKey = `${rt}:${rid}_${userId}`;
-
+    // ✅ 2) room_user_key 규칙이 과거에 섞였을 수도 있으니 "혹시" 남아있는 키도 같이 0 처리(방어)
+    //    - 너의 send-message에서는 receiver(otherId) 기준으로 room_user_key를 만들었었음
+    //    - read에서는 "현재 읽는 사람(userId)" 기준 키를 0 처리하는 게 맞음
+    const myKey = `${rt}:${rid}_${userId}`;
     await db.query(
       `
       UPDATE chat_unread
@@ -2875,19 +2879,27 @@ app.post("/chat/read", async (req, res) => {
           updated_date = CURDATE()
       WHERE room_user_key = ?
       `,
-      [roomUserKey]
+      [myKey]
     );
 
+    // ✅ 3) 실시간 반영: (A) 현재 방을 보고 있는 사람들
     io.to(String(rid)).emit("chat:read", {
       roomId: String(rid),
       roomType: rt,
-      userId: Number(userId),
+      userId,
+    });
+
+    // ✅ 4) 실시간 반영: (B) 메인 페이지 배지용 개인 룸(이게 핵심!!)
+    io.to(`user:${String(userId)}`).emit("chat:notify", {
+      roomId: String(rid),
+      roomType: rt,
+      event: "read",
     });
 
     return res.json({ success: true });
   } catch (err) {
     console.error("❌ chat/read error:", err);
-    return res.json({ success: false });
+    return res.status(500).json({ success: false, message: "SERVER_ERROR" });
   }
 });
 
