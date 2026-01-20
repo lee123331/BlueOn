@@ -563,7 +563,12 @@ if (fileBtn && fileInput) {
 }
 
 /* ======================================================
-   Socket.io (최종 안정판 - 호환성/리스트 유지/뱃지 즉시/삭제 안정)
+   Socket.io (호환성 최종본)
+   목표:
+   1) chat.html 들어가자마자 리스트 뜸 (init에서 loadChatList 유지)
+   2) 새 메시지 오면 새로고침 없이 뱃지 즉시 반영 (chat:notify)
+   3) 내 메시지 삭제 항상 됨 (chat:delete + renderMsg id 안정)
+   4) 새 채팅방 생기면 좌측 리스트 자동 추가 (notify에서 room 존재 여부 확인)
 ====================================================== */
 function initSocket() {
   // ✅ socket.io 로드 체크
@@ -572,7 +577,7 @@ function initSocket() {
     return;
   }
 
-  // ✅ 기존 소켓 있으면 정리
+  // ✅ 기존 소켓 정리(핫리로드/재진입 대비)
   if (socket) {
     try { socket.disconnect(); } catch {}
     socket = null;
@@ -582,6 +587,7 @@ function initSocket() {
     withCredentials: true,
     transports: ["polling", "websocket"],
     upgrade: true,
+
     reconnection: true,
     reconnectionAttempts: 20,
     reconnectionDelay: 800,
@@ -589,7 +595,9 @@ function initSocket() {
     timeout: 10000,
   });
 
-  // ✅ 현재 방 join
+  /* =========================
+     현재 방 join
+  ========================= */
   function joinRoomIfNeeded() {
     if (!ROOM_ID) return;
     const rid = String(ROOM_ID);
@@ -604,57 +612,52 @@ function initSocket() {
     });
   }
 
-  // ✅ 리스트에 방이 이미 있는지 확인
-  function hasRoomInList(roomId) {
+  /* =========================
+     좌측 리스트에 room 존재 여부
+  ========================= */
+  function hasRoomInLeftList(roomId) {
+    if (!roomId) return false;
     return !!document.querySelector(`.chat-item[data-room-id="${safeStr(roomId)}"]`);
   }
 
-  // ✅ 특정 방의 unread 숫자만 즉시 갱신(있으면)
-  function setRoomBadge(roomId, count) {
-    const item = document.querySelector(`.chat-item[data-room-id="${safeStr(roomId)}"]`);
-    if (!item) return;
+  /* =========================
+     리스트/뱃지 동기화 (과호출 방지)
+  ========================= */
+  let syncing = false;
+  async function syncUnreadAndMaybeList({ roomId, forceListReload = false } = {}) {
+    if (syncing) return;
+    syncing = true;
+    try {
+      // unread는 항상 최신으로
+      await applyRoomUnreadCounts();
 
-    const badge = item.querySelector(".chat-unread-badge");
-    if (!badge) return;
-
-    const cnt = Number(count || 0);
-
-    if (cnt > 0) {
-      badge.style.display = "inline-flex";
-      badge.textContent = cnt > 99 ? "99+" : String(cnt);
-    } else {
-      badge.style.display = "none";
-      badge.textContent = "";
+      // 새 방이면 리스트 갱신(또는 강제 갱신 요청 시)
+      if (forceListReload || (roomId && !hasRoomInLeftList(roomId))) {
+        await loadChatList();
+        await applyRoomUnreadCounts(); // 리스트 새로 그렸으니 다시 반영
+      }
+    } catch (e) {
+      console.warn("syncUnreadAndMaybeList fail", e);
+    } finally {
+      syncing = false;
     }
   }
 
   /* =========================
      connect / reconnect
-     - 여기서 loadChatList()를 반복 호출하면 리스트가 깜빡이거나 사라지는 케이스가 생김
-     - 그래서: "뱃지 동기화만" 하고, 필요할 때만 list를 리로드
+     - 여기선 join만 하고, 리스트는 init()가 이미 그리므로 과호출 금지
   ========================= */
-  socket.on("connect", async () => {
+  socket.on("connect", () => {
     console.log("✅ socket connected:", socket.id, "ROOM_ID =", ROOM_ID);
     joinRoomIfNeeded();
-
-    // ✅ 연결 직후 unread 동기화만 (DOM 유지)
-    try {
-      await applyRoomUnreadCounts();
-    } catch (e) {
-      console.warn("applyRoomUnreadCounts after connect fail", e);
-    }
   });
 
-  socket.on("reconnect", async (attempt) => {
+  socket.on("reconnect", (attempt) => {
     console.log("🔁 socket reconnected:", attempt, "ROOM_ID =", ROOM_ID);
     joinRoomIfNeeded();
 
-    // ✅ 재연결 직후도 unread 동기화만
-    try {
-      await applyRoomUnreadCounts();
-    } catch (e) {
-      console.warn("applyRoomUnreadCounts after reconnect fail", e);
-    }
+    // 재연결 후 unread는 한번 동기화(리스트는 굳이 갈아엎지 않음)
+    syncUnreadAndMaybeList({ forceListReload: false });
   });
 
   socket.on("connect_error", (e) => {
@@ -671,29 +674,18 @@ function initSocket() {
   });
 
   /* =========================
-     ✅ chat:notify (방 join 없이도 받음)
-     - 목적: "새로고침 없이 뱃지 즉시"
-     - 새 방이 리스트에 없으면: 그때만 loadChatList() 호출
+     ✅ notify: "방 join 없이도" 오는 알림
+     - 여기서 unread를 즉시 반영해야 "새로고침 없이 뱃지"가 된다
+     - 새 방이 생겼으면 리스트에도 자동 추가
   ========================= */
   socket.on("chat:notify", async (p) => {
-    try {
-      const rid = safeStr(p?.roomId || p?.room_id || p?.room);
-      // 1) unread 전체 동기화 (가장 안전)
-      await applyRoomUnreadCounts();
-
-      // 2) 만약 새 방이 생겼는데 리스트에 없으면 => 그때만 전체 리로드
-      if (rid && !hasRoomInList(rid)) {
-        await loadChatList();
-        await applyRoomUnreadCounts();
-      }
-    } catch (e) {
-      console.warn("chat:notify handler fail", e);
-    }
+    const rid = safeStr(p?.roomId || p?.room_id || p?.room);
+    await syncUnreadAndMaybeList({ roomId: rid });
   });
 
   /* =========================
-     ✅ chat:message (현재 join한 방의 메시지)
-     - 내 메시지도 renderMsg 태워서 pending 치환 -> 삭제 안정
+     ✅ message: join한 방에서 실시간 메시지
+     - 내가 보낸 메시지도 renderMsg로 pending 치환
   ========================= */
   socket.on("chat:message", async (msg) => {
     if (!CURRENT_USER) return;
@@ -706,18 +698,16 @@ function initSocket() {
         ? "📷 이미지"
         : (msg.message || msg.content || "");
 
-    // ✅ 좌측 리스트 미리보기 갱신 (있는 경우)
+    // ✅ 좌측 미리보기 갱신
     updateLeftLastMsg(roomId, preview);
 
-    // ✅ 내가 보고 있는 방이 아니면 unread만 갱신하고 끝
+    // ✅ 내가 보고 있는 방이 아니면: unread만 반영 + (새 방이면) 리스트 추가
     if (!ROOM_ID || roomId !== safeStr(ROOM_ID)) {
-      try {
-        await applyRoomUnreadCounts();
-      } catch {}
+      await syncUnreadAndMaybeList({ roomId });
       return;
     }
 
-    // ✅ 내 메시지: pending 치환을 위해 renderMsg만 태우고 끝
+    // ✅ 내가 보낸 메시지: pending 치환
     if (Number(msg.sender_id) === Number(CURRENT_USER.id)) {
       renderMsg(msg);
       return;
@@ -729,12 +719,16 @@ function initSocket() {
 
     // ✅ 읽음 처리
     markRoomAsRead(ROOM_ID);
+
+    // ✅ 이 방 뱃지는 즉시 숨김 (UX)
+    hideUnreadBadge(ROOM_ID);
   });
 
   /* =========================
-     ✅ delete
+     ✅ delete: 실시간 삭제 반영 (내/상대 메시지 모두)
   ========================= */
   socket.on("chat:delete", ({ messageId, roomId }) => {
+    // roomId가 있으면 같은 방만 처리
     if (roomId && ROOM_ID && safeStr(roomId) !== safeStr(ROOM_ID)) return;
 
     const el = document.querySelector(
@@ -744,7 +738,7 @@ function initSocket() {
   });
 
   /* =========================
-     ✅ read
+     ✅ read: 상대가 읽었을 때 내 메시지 "읽음" 표시
   ========================= */
   socket.on("chat:read", ({ roomId }) => {
     if (!ROOM_ID) return;
