@@ -256,17 +256,23 @@ if (confirmDeleteBtn) {
     closeDeleteConfirm();
 
     try {
-      const res = await fetch(`${API}/chat/delete`, {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-  roomId: ROOM_ID,
-  roomType: ROOM_TYPE || "work",
-  messageId: targetId,
-}),
+try {
+  const res = await fetch(`${API}/chat/message/${encodeURIComponent(targetId)}`, {
+    method: "DELETE",
+    credentials: "include",
+  });
 
-      });
+  const data = await res.json().catch(() => null);
+
+  if (!data || !data.success) {
+    console.log("❌ delete failed:", data, "messageId=", targetId);
+    location.reload(); // 실패 시 동기화
+  }
+} catch (e) {
+  console.warn("❌ delete request error", e);
+  location.reload();
+}
+
 
       const data = await res.json().catch(() => null);
       if (!data || !data.success) {
@@ -918,14 +924,16 @@ function initSocket() {
         ? "📷 이미지"
         : (msg.message || msg.content || "");
 
-    updateLeftLastMsg(ROOM_ID, type === "image" ? "📷 이미지" : content, ROOM_TYPE || "work");
+    updateLeftLastMsg(msgRoomId, preview, msgRoomType);
 
 
-    const itemByKey = getChatItemByKey(msgRoomType, msgRoomId);
-    if (itemByKey) {
-      const el = itemByKey.querySelector(".chat-last");
-      if (el) el.textContent = preview || "";
-    }
+
+
+const itemByKey = getChatItemByKey(msgRoomType, msgRoomId);
+if (itemByKey) {
+  const el = itemByKey.querySelector(".chat-last");
+  if (el) el.textContent = preview || "";
+}
 
     if (!getChatItemByKey(msgRoomType, msgRoomId) && !getChatItem(msgRoomId)) {
       await syncListAndBadges("message_room_not_in_list");
