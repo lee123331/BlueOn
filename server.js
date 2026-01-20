@@ -4912,30 +4912,47 @@ ORDER BY x.updated_at DESC
   }
 });
 // POST /chat/delete-room
+// ===============================
+// 🗑 채팅방 삭제 (완성 안정판 / user룸 브로드캐스트 + FK순서 + 트랜잭션)
+// POST /chat/delete-room
+// body: { roomId }
+// ===============================
 app.post("/chat/delete-room", async (req, res) => {
   const conn = await db.getConnection();
+
   try {
     if (!req.session.user) {
-      return res.status(401).json({ success: false, message: "LOGIN_REQUIRED" });
+      return res
+        .status(401)
+        .json({ success: false, message: "LOGIN_REQUIRED" });
     }
 
     const userId = Number(req.session.user.id);
     const rid = Number(req.body.roomId);
+
     if (!rid || Number.isNaN(rid)) {
-      return res.status(400).json({ success: false, message: "ROOM_ID_REQUIRED" });
+      return res
+        .status(400)
+        .json({ success: false, message: "ROOM_ID_REQUIRED" });
     }
 
-    // ✅ chat_rooms 기준으로 권한 확인 (여기 테이블명이 핵심!)
+    // ✅ 권한 확인: 반드시 chat_rooms 기준
     const [rooms] = await conn.query(
       `SELECT id, buyer_id, expert_id FROM chat_rooms WHERE id = ? LIMIT 1`,
       [rid]
     );
-    if (!rooms.length) {
-      return res.status(404).json({ success: false, message: "ROOM_NOT_FOUND" });
+
+    if (!rooms || rooms.length === 0) {
+      return res
+        .status(404)
+        .json({ success: false, message: "ROOM_NOT_FOUND" });
     }
 
     const room = rooms[0];
-    const isMember = Number(room.buyer_id) === userId || Number(room.expert_id) === userId;
+    const buyerId = Number(room.buyer_id);
+    const expertId = Number(room.expert_id);
+
+    const isMember = buyerId === userId || expertId === userId;
     if (!isMember) {
       return res.status(403).json({ success: false, message: "FORBIDDEN" });
     }
@@ -4949,18 +4966,35 @@ app.post("/chat/delete-room", async (req, res) => {
 
     await conn.commit();
 
-    // ✅ 실시간 반영
-    io.to(String(rid)).emit("chat:room-deleted", { roomId: rid });
+    // ✅ 실시간 반영: roomId 방이 아니라 "user:{id}" 개인룸으로 쏜다 (가장 안정적)
+    // - notice에서도 user:{id}를 쓰고 있으니 일관성 유지
+    try {
+      if (typeof io !== "undefined") {
+        io.to(`user:${buyerId}`).emit("chat:room-deleted", { roomId: rid });
+        io.to(`user:${expertId}`).emit("chat:room-deleted", { roomId: rid });
+
+        // (선택) 혹시 서버가 roomId 자체 룸도 join 시켜두는 구조라면 같이 쏴도 됨
+        io.to(String(rid)).emit("chat:room-deleted", { roomId: rid });
+      }
+    } catch (e) {
+      console.warn("⚠️ room-deleted emit failed:", e);
+    }
 
     return res.json({ success: true });
   } catch (e) {
-    try { await conn.rollback(); } catch {}
+    try {
+      await conn.rollback();
+    } catch {}
+
     console.error("delete-room error:", e);
-    return res.status(500).json({ success: false, message: "SERVER_ERROR" });
+    return res
+      .status(500)
+      .json({ success: false, message: "SERVER_ERROR" });
   } finally {
     conn.release();
   }
 });
+
 
 
 /* ======================================================

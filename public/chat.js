@@ -235,76 +235,117 @@ async function loadMe() {
 /* ======================================================
    좌측 채팅방 목록
 ====================================================== */
+/* ======================================================
+   좌측 채팅방 목록 (FIX: appendChild 누락)
+====================================================== */
 async function loadChatList() {
   const listEl = document.getElementById("chatList");
   if (!listEl) return;
 
-  const res = await fetch(`${API}/chat/rooms`, { credentials: "include" });
-  const data = await res.json().catch(() => null);
+  try {
+    const res = await fetch(`${API}/chat/rooms`, { credentials: "include" });
+    const data = await res.json().catch(() => null);
 
-  console.log("🧪 chat rooms response =", data);
+    console.log("🧪 chat rooms response =", data);
 
-  if (!data || !data.success) return;
+    // 실패/비정상이어도 화면이 비어보이지 않게 처리
+    listEl.innerHTML = "<h2>메시지</h2>";
 
-  listEl.innerHTML = "<h2>메시지</h2>";
+    if (!data || !data.success) {
+      const empty = document.createElement("div");
+      empty.style.padding = "12px";
+      empty.style.color = "#6b7280";
+      empty.style.fontSize = "13px";
+      empty.textContent = "채팅 목록을 불러오지 못했습니다.";
+      listEl.appendChild(empty);
+      return;
+    }
 
-  const rooms = Array.isArray(data.rooms) ? data.rooms : [];
+    const rooms = Array.isArray(data.rooms) ? data.rooms : [];
 
-  // ✅ roomId 기준 중복 제거
-  const map = new Map();
-  for (const r of rooms) {
-    const rid = pickRoomId(r);
-    if (!rid) continue;
-    map.set(rid, r);
-  }
+    // ✅ roomId 기준 중복 제거
+    const map = new Map();
+    for (const r of rooms) {
+      const rid = pickRoomId(r);
+      if (!rid) continue;
+      map.set(String(rid), r);
+    }
+    const uniqRooms = Array.from(map.values());
 
-  const uniqRooms = Array.from(map.values());
+    if (uniqRooms.length === 0) {
+      const empty = document.createElement("div");
+      empty.style.padding = "12px";
+      empty.style.color = "#6b7280";
+      empty.style.fontSize = "13px";
+      empty.textContent = "아직 대화가 없습니다.";
+      listEl.appendChild(empty);
+      return;
+    }
 
-  uniqRooms.forEach((room) => {
-    const roomId = pickRoomId(room);
-    if (!roomId) return;
+    uniqRooms.forEach((room) => {
+      const roomId = pickRoomId(room);
+      if (!roomId) return;
 
-    const item = document.createElement("div");
-    item.className = "chat-item";
-    item.dataset.roomId = safeStr(roomId);
+      const item = document.createElement("div");
+      item.className = "chat-item";
+      item.dataset.roomId = safeStr(roomId);
 
-    const unreadOn = Number(room.unread || 0) > 0;
+      const unreadOn = Number(room.unread || 0) > 0;
 
-    item.innerHTML = `
-      <div class="chat-left">
-        <img src="${room.avatar || "/assets/default_profile.png"}" alt="avatar">
-        <div class="chat-texts">
-          <div class="chat-name-row">
-            <div class="chat-name">${room.nickname || "상대방"}</div>
-            <span class="chat-unread-badge" style="display:${unreadOn ? "inline-flex" : "none"}">
-              ${unreadOn ? (Number(room.unread) > 99 ? "99+" : String(Number(room.unread || 0))) : ""}
-            </span>
+      item.innerHTML = `
+        <div class="chat-left">
+          <img src="${room.avatar || "/assets/default_profile.png"}" alt="avatar">
+          <div class="chat-texts">
+            <div class="chat-name-row">
+              <div class="chat-name">${room.nickname || "상대방"}</div>
+              <span class="chat-unread-badge" style="display:${unreadOn ? "inline-flex" : "none"}">
+                ${
+                  unreadOn
+                    ? (Number(room.unread) > 99 ? "99+" : String(Number(room.unread || 0)))
+                    : ""
+                }
+              </span>
+            </div>
+            <div class="chat-last">${room.last_msg || ""}</div>
           </div>
-          <div class="chat-last">${room.last_msg || ""}</div>
         </div>
-      </div>
 
-      <button class="room-delete-btn" type="button" title="채팅방 삭제" aria-label="채팅방 삭제">🗑</button>
+        <button class="room-delete-btn"
+                type="button"
+                title="채팅방 삭제"
+                aria-label="채팅방 삭제">🗑</button>
+      `;
 
-    `;
+      // ✅ 방 이동은 item onclick으로 유지
+      item.onclick = (e) => {
+        // 🔥 삭제 버튼 클릭 시 → 방 이동 차단 + 모달 오픈
+        if (e.target.closest(".room-delete-btn")) {
+          e.preventDefault();
+          e.stopPropagation();
+          openRoomDeleteModal(roomId);
+          return;
+        }
 
-// ✅ 방 이동은 item onclick으로 유지
-item.onclick = (e) => {
-  const delBtn = e.target.closest(".room-delete-btn");
-  if (delBtn) {
-    e.preventDefault();
-    e.stopPropagation();
+        hideUnreadBadge(roomId);
+        location.href = `/chat.html?roomId=${encodeURIComponent(roomId)}`;
+      };
 
-    openRoomDeleteModal(roomId); // ✅ 여기서 모달 띄움
-    return;
+      // ✅ 핵심: DOM에 추가 (이게 빠져서 리스트가 안 보였음)
+      listEl.appendChild(item);
+    });
+  } catch (e) {
+    console.warn("❌ loadChatList error:", e);
+    listEl.innerHTML = "<h2>메시지</h2>";
+
+    const empty = document.createElement("div");
+    empty.style.padding = "12px";
+    empty.style.color = "#6b7280";
+    empty.style.fontSize = "13px";
+    empty.textContent = "채팅 목록 로딩 중 오류가 발생했습니다.";
+    listEl.appendChild(empty);
   }
-
-  hideUnreadBadge(roomId);
-  location.href = `/chat.html?roomId=${encodeURIComponent(roomId)}`;
-};
-
-  });
 }
+
 
 /* ======================================================
    채팅방 삭제 유틸
